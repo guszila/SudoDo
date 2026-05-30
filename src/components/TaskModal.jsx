@@ -60,6 +60,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
+          onClick={onClose}
           className="fixed inset-0 z-50 flex items-end md:items-center justify-center backdrop-blur-sm font-sans"
           style={{ backgroundColor: 'var(--overlay-bg)' }}
         >
@@ -68,6 +69,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 50, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
+            onClick={(e) => e.stopPropagation()}
             className="liquid-glass-card w-full max-w-md p-6 relative rounded-t-[32px] md:rounded-[24px] pb-safe max-h-[90vh] overflow-y-auto"
           >
         <div className="w-12 h-1.5 rounded-full mx-auto mb-6 md:hidden" style={{ backgroundColor: 'var(--glass-border-strong)' }}></div>
@@ -133,30 +135,52 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
+          <div className="space-y-4">
             <div>
               <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.startTime}</label>
-              <input 
-                type="datetime-local" 
-                name="start" 
-                value={formData.start} 
-                onChange={handleChange} 
-                required
-                className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
-                style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <input 
+                  onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
+                  type="date" 
+                  value={formData.start.split('T')[0]} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, start: `${e.target.value}T${prev.start.split('T')[1] || '00:00'}` }))}
+                  required
+                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                />
+                <input 
+                  onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
+                  type="time" 
+                  value={formData.start.split('T')[1] || '00:00'} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, start: `${prev.start.split('T')[0] || new Date().toISOString().slice(0, 10)}T${e.target.value}` }))}
+                  required
+                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                />
+              </div>
             </div>
             <div>
               <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.endTime}</label>
-              <input 
-                type="datetime-local" 
-                name="end" 
-                value={formData.end} 
-                onChange={handleChange} 
-                required
-                className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
-                style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-              />
+              <div className="grid grid-cols-2 gap-2">
+                <input 
+                  onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
+                  type="date" 
+                  value={formData.end.split('T')[0]} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, end: `${e.target.value}T${prev.end.split('T')[1] || '00:00'}` }))}
+                  required
+                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                />
+                <input 
+                  onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
+                  type="time" 
+                  value={formData.end.split('T')[1] || '00:00'} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, end: `${prev.end.split('T')[0] || new Date().toISOString().slice(0, 10)}T${e.target.value}` }))}
+                  required
+                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                />
+              </div>
             </div>
           </div>
           

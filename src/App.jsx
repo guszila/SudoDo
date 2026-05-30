@@ -2,12 +2,14 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, isBefore, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import { enUS, th } from 'date-fns/locale';
-import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Languages, LogOut, Home, Settings, ListTodo, User, Moon, Sun } from 'lucide-react';
+import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Languages, LogOut, Home, Settings, ListTodo, User, Moon, Sun, DollarSign } from 'lucide-react';
 import { fetchTasks, saveTask } from './api/firestore';
+import { syncTasksToGAS } from './api/googleSheets';
 import TaskModal from './components/TaskModal';
 import StatsBar from './components/StatsBar';
 import Login from './components/Login';
 import ProfilePage from './pages/ProfilePage';
+import PartTimePage from './pages/PartTimePage';
 import Logo from './components/Logo';
 import { translations } from './i18n';
 import { auth } from './firebase';
@@ -98,6 +100,11 @@ export default function App() {
     formattedData.sort((a, b) => priorityWeight[b.priority] - priorityWeight[a.priority]);
 
     setTasks(formattedData);
+    
+    if (user.email) {
+      syncTasksToGAS(data, user.email);
+    }
+    
     setIsLoading(false);
   }, [user]);
 
@@ -162,17 +169,21 @@ export default function App() {
     };
 
     return (
-      <div className={`flex items-center gap-1.5 px-2 py-1 overflow-hidden h-full ${isDone ? 'opacity-60 line-through' : ''}`}>
-        <div className={`w-2 h-2 rounded-full flex-shrink-0 ${priorityColor}`}></div>
+      <div className={`flex items-center gap-1 md:gap-1.5 px-1 py-0.5 md:px-2 md:py-1 overflow-hidden h-full ${isDone ? 'opacity-60 line-through' : ''}`}>
+        {event.isPartTime ? (
+          <DollarSign className="w-2 h-2 md:w-3 md:h-3 text-green-600 dark:text-green-400 flex-shrink-0" />
+        ) : (
+          <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full flex-shrink-0 ${priorityColor}`}></div>
+        )}
         <button 
           onClick={handleToggleDone} 
-          className="hover:scale-110 active:scale-95 transition-transform p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
+          className="hover:scale-110 active:scale-95 transition-transform p-0 md:p-0.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10"
           title={isDone ? "ทำเครื่องหมายว่ายังไม่เสร็จ" : "ทำเครื่องหมายว่าเสร็จแล้ว"}
         >
-          <StatusIcon status={event.status} className="w-3.5 h-3.5 flex-shrink-0 cursor-pointer" />
+          <StatusIcon status={event.status} className="w-3 h-3 md:w-3.5 md:h-3.5 flex-shrink-0 cursor-pointer" />
         </button>
-        <span className="truncate text-main text-xs font-medium flex-1">{event.title}</span>
-        {isOverdue && <span className="bg-red-500 text-white text-[9px] px-1 rounded-[4px] font-bold ml-auto flex-shrink-0">เกินกำหนด</span>}
+        <span className="truncate text-main text-[9px] md:text-xs font-medium flex-1">{event.title}</span>
+        {isOverdue && <span className="bg-red-500 text-white text-[8px] md:text-[9px] px-0.5 md:px-1 rounded-[4px] font-bold ml-auto flex-shrink-0">เกินกำหนด</span>}
       </div>
     );
   };
@@ -189,6 +200,13 @@ export default function App() {
     let bgOpacity = '0.4';
     if (event.priority === 'สูง') bgOpacity = '0.8';
     if (event.priority === 'ต่ำ') bgOpacity = '0.2';
+    
+    let bgColor = `rgba(255, 255, 255, ${bgOpacity})`;
+    
+    if (event.isPartTime) {
+      bgColor = `rgba(34, 197, 94, ${event.status === 'Done' ? '0.15' : '0.3'})`;
+      borderColor = 'rgba(34, 197, 94, 0.8)';
+    }
 
     const now = new Date();
     const isDone = event.status === 'Done';
@@ -203,7 +221,7 @@ export default function App() {
 
     return {
       style: {
-        backgroundColor: `rgba(255, 255, 255, ${bgOpacity})`,
+        backgroundColor: bgColor,
         borderLeft: `4px solid ${borderColor}`,
         borderRight: '1px solid rgba(255,255,255,0.4)',
         borderTop: '1px solid rgba(255,255,255,0.4)',
@@ -312,6 +330,7 @@ export default function App() {
             onSelectSlot={handleSelectSlot}
             onSelectEvent={handleSelectEvent}
             selectable
+            longPressThreshold={10}
             components={{
               event: EventComponent,
               month: {
@@ -365,6 +384,13 @@ export default function App() {
           <span className={`text-[10px] mt-1 font-medium text-main ${currentView !== 'day' && 'opacity-60'}`}>Today</span>
         </button>
         <button 
+          onClick={() => navigate('/part-time')}
+          className="flex flex-col items-center justify-center w-full h-full text-slate-400 active:bg-white/10 rounded-xl transition-colors"
+        >
+          <DollarSign size={24} />
+          <span className="text-[10px] mt-1 font-medium text-main opacity-60">รายได้</span>
+        </button>
+        <button 
           onClick={() => navigate('/profile')}
           className="flex flex-col items-center justify-center w-full h-full text-slate-400 active:bg-white/10 rounded-xl transition-colors"
         >
@@ -390,6 +416,7 @@ export default function App() {
       <Routes location={location} key={location.pathname}>
         <Route path="/" element={CalendarView} />
         <Route path="/profile" element={<ProfilePage user={user} />} />
+        <Route path="/part-time" element={<PartTimePage user={user} />} />
       </Routes>
     </AnimatePresence>
   );

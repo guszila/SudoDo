@@ -1,0 +1,443 @@
+import React, { useState, useMemo, useEffect } from 'react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { DollarSign, Clock, CheckCircle2, CircleDashed, Plus, ArrowLeft, Play, Square, Trash2, CalendarDays, History } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+import { saveTask, fetchTasks } from '../api/firestore';
+import { syncTasksToGAS } from '../api/googleSheets';
+import { format } from 'date-fns';
+import { th } from 'date-fns/locale';
+
+export default function PartTimePage({ user }) {
+  const navigate = useNavigate();
+  const [tasks, setTasks] = useState([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'history'
+  
+  const [showAddForm, setShowAddForm] = useState(false);
+  const [formData, setFormData] = useState({
+    title: '',
+    hourlyRate: 100,
+    rateType: 'hourly',
+    startDate: new Date().toISOString().slice(0, 10),
+    endDate: new Date().toISOString().slice(0, 10),
+    selectedDays: [1, 2, 3, 4, 5], // Default M-F
+    startTime: '09:00',
+    endTime: '17:00'
+  });
+
+  const daysOfWeek = [
+    { id: 1, label: 'จ.' },
+    { id: 2, label: 'อ.' },
+    { id: 3, label: 'พ.' },
+    { id: 4, label: 'พฤ.' },
+    { id: 5, label: 'ศ.' },
+    { id: 6, label: 'ส.' },
+    { id: 0, label: 'อา.' },
+  ];
+
+  const loadTasks = async () => {
+    if (!user) return;
+    setIsLoading(true);
+    const data = await fetchTasks(user.uid);
+    const formattedData = data.map(item => ({
+      ...item,
+      start: new Date(item.start),
+      end: new Date(item.end),
+    })).filter(t => t.isPartTime);
+    
+    formattedData.sort((a, b) => b.start - a.start);
+    setTasks(formattedData);
+    
+    if (user.email) {
+      syncTasksToGAS(data, user.email);
+    }
+    
+    setIsLoading(false);
+  };
+
+  useEffect(() => {
+    loadTasks();
+  }, [user]);
+
+  // Derived state
+  const { upcomingTasks, historyTasks } = useMemo(() => {
+    const upcoming = [];
+    const history = [];
+    
+    tasks.forEach(t => {
+      const isCompleted = t.status === 'Done' || (t.actualStart && t.actualEnd);
+      if (isCompleted) {
+        history.push(t);
+      } else {
+        upcoming.push(t);
+      }
+    });
+    
+    return { upcomingTasks: upcoming, historyTasks: history };
+  }, [tasks]);
+
+  const stats = useMemo(() => {
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    
+    const monthTasks = tasks.filter(t => {
+      const d = new Date(t.start);
+      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
+    });
+
+    let earned = 0;
+    let pending = 0;
+    
+    monthTasks.forEach(t => {
+      const rate = Number(t.hourlyRate) || 0;
+      const isCompleted = t.status === 'Done' || (t.actualStart && t.actualEnd);
+      
+      if (isCompleted) {
+        let hours = 0;
+        if (t.actualStart && t.actualEnd) {
+          hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
+        } else {
+          hours = (t.end - t.start) / (1000 * 60 * 60);
+        }
+        if (t.rateType === 'daily') earned += rate;
+        else if (hours > 0) earned += hours * rate;
+      } else {
+        // Pending
+        const hours = (t.end - t.start) / (1000 * 60 * 60);
+        if (t.rateType === 'daily') pending += rate;
+        else if (hours > 0) pending += hours * rate;
+      }
+    });
+
+    return { earned, pending, total: earned + pending };
+  }, [tasks]);
+
+  const handleAddShift = async (e) => {
+    e.preventDefault();
+    if (formData.selectedDays.length === 0) {
+      alert("กรุณาเลือกวันในสัปดาห์อย่างน้อย 1 วัน");
+      return;
+    }
+    
+    setIsLoading(true);
+    
+    const start = new Date(formData.startDate);
+    const end = new Date(formData.endDate);
+    const shiftsToAdd = [];
+    
+    for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      if (formData.selectedDays.includes(d.getDay())) {
+        const dateString = d.toISOString().slice(0, 10);
+        const startDateTime = new Date(`${dateString}T${formData.startTime}:00`).toISOString();
+        let endDateObj = new Date(`${dateString}T${formData.endTime}:00`);
+        
+        if (formData.endTime < formData.startTime) {
+          endDateObj.setDate(endDateObj.getDate() + 1);
+        }
+        
+        shiftsToAdd.push({
+          title: formData.title,
+          description: '',
+          start: startDateTime,
+          end: endDateObj.toISOString(),
+          status: 'To-Do',
+          priority: 'กลาง',
+          isPartTime: true,
+          hourlyRate: formData.hourlyRate,
+          rateType: formData.rateType,
+          actualStart: null,
+          actualEnd: null
+        });
+      }
+    }
+
+    if (shiftsToAdd.length === 0) {
+      alert("ไม่พบวันที่ตรงกับเงื่อนไขในช่วงเวลาที่เลือก");
+      setIsLoading(false);
+      return;
+    }
+    
+    if (shiftsToAdd.length > 31) {
+       if(!window.confirm(`คุณกำลังจะสร้างตารางกะงานทั้งหมด ${shiftsToAdd.length} วัน แน่ใจหรือไม่?`)) {
+           setIsLoading(false);
+           return;
+       }
+    }
+
+    await Promise.all(shiftsToAdd.map(task => saveTask('ADD', task, user.uid)));
+    setShowAddForm(false);
+    await loadTasks();
+  };
+  
+  const handleToggleDay = (dayId) => {
+    setFormData(prev => {
+      const newDays = prev.selectedDays.includes(dayId)
+        ? prev.selectedDays.filter(id => id !== dayId)
+        : [...prev.selectedDays, dayId];
+      return { ...prev, selectedDays: newDays };
+    });
+  };
+  
+  const handleClockIn = async (task) => {
+    const updated = {
+      ...task,
+      start: task.start.toISOString(),
+      end: task.end.toISOString(),
+      actualStart: new Date().toISOString(),
+      status: 'In Progress'
+    };
+    setIsLoading(true);
+    await saveTask('EDIT', updated, user.uid);
+    await loadTasks();
+  };
+
+  const handleClockOut = async (task) => {
+    const updated = {
+      ...task,
+      start: task.start.toISOString(),
+      end: task.end.toISOString(),
+      actualEnd: new Date().toISOString(),
+      status: 'Done'
+    };
+    setIsLoading(true);
+    await saveTask('EDIT', updated, user.uid);
+    await loadTasks();
+  };
+
+  const handleDelete = async (taskId) => {
+    if (!window.confirm('คุณต้องการลบกะนี้หรือไม่?')) return;
+    setIsLoading(true);
+    await saveTask('DELETE', { id: taskId }, user.uid);
+    await loadTasks();
+  }
+
+  const fDate = (d) => format(d, 'd MMM yyyy', { locale: th });
+  const fTime = (d) => format(d, 'HH:mm');
+  const activeTasks = activeTab === 'upcoming' ? upcomingTasks : historyTasks;
+
+  return (
+    <motion.div 
+      initial={{ opacity: 0, scale: 0.98 }}
+      animate={{ opacity: 1, scale: 1 }}
+      exit={{ opacity: 0, scale: 0.98 }}
+      className="min-h-screen font-sans pb-32 md:pb-8 p-4 md:p-8 max-w-4xl mx-auto"
+    >
+      <div className="flex items-center mb-8 gap-4 px-2">
+        <button onClick={() => navigate('/')} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main">
+          <ArrowLeft size={24} />
+        </button>
+        <h1 className="text-2xl font-bold text-main flex items-center gap-2 m-0">
+          <CalendarDays className="text-primary-500" size={28} />
+          ตารางเวร & รายได้
+        </h1>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
+        <div className="liquid-glass-card p-5 flex flex-col justify-center border-l-4 border-l-green-500">
+          <p className="text-sm text-main opacity-70 font-medium mb-1">รายได้ที่ได้แล้ว (Earned)</p>
+          <span className="text-3xl font-bold text-green-500">฿{stats.earned.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+        </div>
+        <div className="liquid-glass-card p-5 flex flex-col justify-center border-l-4 border-l-amber-500">
+          <p className="text-sm text-main opacity-70 font-medium mb-1">เงินที่รอรับ (Pending)</p>
+          <span className="text-2xl font-bold text-amber-500">฿{stats.pending.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+        </div>
+        <div className="liquid-glass-card p-5 flex flex-col justify-center border-l-4 border-l-primary-500 border border-dashed border-main/20">
+          <p className="text-sm text-main opacity-70 font-medium mb-1">รายได้รวมทั้งหมดเดือนนี้ (Total)</p>
+          <span className="text-2xl font-bold text-primary-500">฿{stats.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+        </div>
+      </div>
+
+      <div className="flex justify-between items-center mb-4 px-2">
+        <div className="flex gap-2">
+          <button 
+            onClick={() => setActiveTab('upcoming')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all text-sm ${activeTab === 'upcoming' ? 'bg-primary-500 text-white shadow-md' : 'bg-white/20 text-main hover:bg-white/40'}`}
+          >
+            <CalendarDays size={16} /> ตารางเวรล่วงหน้า
+          </button>
+          <button 
+            onClick={() => setActiveTab('history')}
+            className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all text-sm ${activeTab === 'history' ? 'bg-primary-500 text-white shadow-md' : 'bg-white/20 text-main hover:bg-white/40'}`}
+          >
+            <History size={16} /> ประวัติ
+          </button>
+        </div>
+        <button 
+          onClick={() => setShowAddForm(!showAddForm)}
+          className="flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white font-bold rounded-full transition-all shadow-[0_4px_16px_0_rgba(34,197,94,0.3)] active:scale-95 text-sm"
+        >
+          <Plus size={16} /> {showAddForm ? 'ปิด' : 'เพิ่มกะ'}
+        </button>
+      </div>
+
+      <AnimatePresence>
+        {showAddForm && (
+          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-6">
+            <form onSubmit={handleAddShift} className="liquid-glass-card p-6 space-y-5 border-2 border-green-500/30 bg-green-500/5">
+              <h3 className="font-bold text-main">เพิ่มตารางเวรล่วงหน้า (สามารถเพิ่มหลายวันได้)</h3>
+              
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div>
+                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">ชื่องาน/สถานที่</label>
+                  <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="เช่น ร้านกาแฟ" />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">อัตราค่าจ้าง (บาท)</label>
+                  <div className="flex gap-2">
+                    <input type="number" value={formData.hourlyRate} onChange={e => setFormData({...formData, hourlyRate: e.target.value})} required min="0" className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                    <select 
+                      value={formData.rateType} 
+                      onChange={e => setFormData({...formData, rateType: e.target.value})}
+                      className="px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main font-bold"
+                      style={{ backgroundColor: 'var(--glass-bg-input)' }}
+                    >
+                      <option value="hourly">/ ชั่วโมง</option>
+                      <option value="daily">/ วัน</option>
+                    </select>
+                  </div>
+                </div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-medium text-main mb-2 opacity-80">เลือกวันในสัปดาห์</label>
+                <div className="flex flex-wrap gap-2">
+                  {daysOfWeek.map(day => (
+                    <button
+                      key={day.id}
+                      type="button"
+                      onClick={() => handleToggleDay(day.id)}
+                      className={`w-12 h-12 rounded-xl font-bold transition-all ${formData.selectedDays.includes(day.id) ? 'bg-primary-500 text-white shadow-md scale-105' : 'bg-white/40 dark:bg-black/30 text-main/60 hover:bg-white/60'}`}
+                    >
+                      {day.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">ตั้งแต่วันที่</label>
+                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาเริ่มงาน</label>
+                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                  </div>
+                </div>
+                <div className="grid grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">ถึงวันที่</label>
+                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาเลิกงาน</label>
+                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="time" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                  </div>
+                </div>
+              </div>
+              
+              <div className="pt-2">
+                <button type="submit" disabled={isLoading} className="w-full py-4 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition-colors shadow-lg active:scale-[0.98]">
+                  สร้างตารางเวรตามวันที่เลือก
+                </button>
+              </div>
+            </form>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="space-y-4 relative min-h-[200px]">
+        {isLoading && (
+          <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/20 dark:bg-black/20 backdrop-blur-sm rounded-3xl">
+             <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+          </div>
+        )}
+        
+        {activeTasks.length === 0 && !isLoading && (
+          <div className="text-center py-16 liquid-glass-card rounded-[24px]">
+             {activeTab === 'upcoming' ? <CalendarDays className="w-16 h-16 text-main opacity-20 mx-auto mb-4" /> : <History className="w-16 h-16 text-main opacity-20 mx-auto mb-4" />}
+             <p className="text-main opacity-60 font-medium text-lg">
+               {activeTab === 'upcoming' ? 'ยังไม่มีตารางเวรล่วงหน้า' : 'ยังไม่มีประวัติการทำงาน'}
+             </p>
+          </div>
+        )}
+
+        {activeTasks.map(task => {
+          const isClockedIn = task.actualStart && !task.actualEnd;
+          const isCompleted = task.status === 'Done' || (task.actualStart && task.actualEnd);
+          
+          let earnings = 0;
+          let hours = 0;
+          if (task.actualStart && task.actualEnd) {
+             hours = (new Date(task.actualEnd) - new Date(task.actualStart)) / (1000 * 60 * 60);
+          } else if (isCompleted) {
+             hours = (task.end - task.start) / (1000 * 60 * 60);
+          } else {
+             // Pending
+             hours = (task.end - task.start) / (1000 * 60 * 60);
+          }
+          
+          if (task.rateType === 'daily') {
+             earnings = Number(task.hourlyRate) || 0;
+          } else {
+             earnings = hours * (Number(task.hourlyRate) || 0);
+          }
+
+          return (
+            <div key={task.id} className="liquid-glass-card p-5 flex flex-col md:flex-row gap-5 items-start md:items-center relative group hover:border-primary-500/30 transition-colors">
+              <button onClick={() => handleDelete(task.id)} className="absolute top-4 right-4 p-2 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full transition-all">
+                <Trash2 size={16} />
+              </button>
+              
+              <div className="flex-1 w-full">
+                <div className="flex items-center gap-3 mb-2">
+                  <h3 className="font-bold text-main text-lg m-0">{task.title}</h3>
+                  <span className="px-2 py-1 bg-primary-500/10 text-primary-600 dark:text-primary-400 text-xs rounded-lg font-bold border border-primary-500/20">
+                    ฿{task.hourlyRate}{task.rateType === 'daily' ? '/วัน' : '/ชม.'}
+                  </span>
+                </div>
+                <div className="text-sm text-main opacity-80 space-y-1.5 bg-white/30 dark:bg-black/20 p-3 rounded-xl border border-white/40 dark:border-white/5">
+                  <p className="flex items-center gap-2"><span className="w-4">📅</span> {fDate(task.start)}</p>
+                  <p className="flex items-center gap-2"><span className="w-4">⏱️</span> ตาราง: {fTime(task.start)} - {fTime(task.end)}</p>
+                  {(task.actualStart || task.actualEnd) && (
+                    <p className="flex items-center gap-2 text-primary-600 dark:text-primary-400 font-bold mt-1 pt-1 border-t border-main/10">
+                      <span className="w-4">🔴</span> ของจริง: {task.actualStart ? fTime(new Date(task.actualStart)) : '--:--'} - {task.actualEnd ? fTime(new Date(task.actualEnd)) : 'กำลังทำงาน...'}
+                    </p>
+                  )}
+                </div>
+              </div>
+
+              <div className="flex flex-row md:flex-col items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
+                {isCompleted ? (
+                  <div className="text-right flex-1 md:flex-none p-3 bg-green-500/10 rounded-xl border border-green-500/20">
+                    <p className="text-sm text-green-600 dark:text-green-400 font-bold mb-1 flex items-center justify-end gap-1"><CheckCircle2 size={16}/> เสร็จสิ้น</p>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">+฿{earnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col gap-2 w-full">
+                    <div className="text-right text-amber-500 mb-1 flex-1 md:flex-none p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                       <p className="text-xs font-bold mb-0.5">รอรับ (Pending)</p>
+                       <p className="text-lg font-bold">+฿{earnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                    </div>
+                    <div className="flex gap-2">
+                      {!isClockedIn ? (
+                         <button onClick={() => handleClockIn(task)} className="flex-1 md:w-36 flex items-center justify-center gap-2 py-2 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl transition-all active:scale-95">
+                           <Play size={16} /> เข้างาน
+                         </button>
+                      ) : (
+                         <button onClick={() => handleClockOut(task)} className="flex-1 md:w-36 flex items-center justify-center gap-2 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-all active:scale-95 animate-pulse">
+                           <Square size={16} /> ออกงาน
+                         </button>
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </motion.div>
+  );
+}

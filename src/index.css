@@ -206,7 +206,7 @@ body {
 
 .rbc-event {
   border: 1px solid var(--glass-border);
-  @apply rounded-[16px] px-2 py-1 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md;
+  @apply rounded-[12px] md:rounded-[16px] p-0 shadow-sm transition-all hover:scale-[1.02] hover:shadow-md;
 }
 
 .rbc-header {
