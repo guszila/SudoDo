@@ -1,0 +1,26 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="32" height="32" viewBox="0 0 32 32">
+  <defs>
+    <linearGradient id="gloop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f472b6"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+    <linearGradient id="gloop2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#f472b6"/>
+    </linearGradient>
+  </defs>
+  <!-- Rounded square bg -->
+  <rect width="32" height="32" rx="8" fill="#0f0f1a"/>
+  <!-- Left ring -->
+  <circle cx="11" cy="16" r="7" fill="none" stroke="url(#gloop)" stroke-width="3"/>
+  <!-- Right ring -->
+  <circle cx="21" cy="16" r="7" fill="none" stroke="url(#gloop2)" stroke-width="3"/>
+  <!-- Mask -->
+  <rect x="14" y="9" width="4" height="14" fill="#0f0f1a"/>
+  <!-- Front arc -->
+  <path d="M14 11 Q16 16 14 21" stroke="url(#gloop)" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <path d="M18 11 Q16 16 18 21" stroke="url(#gloop2)" stroke-width="3" fill="none" stroke-linecap="round"/>
+  <!-- Dots -->
+  <circle cx="5" cy="16" r="2.5" fill="#f472b6"/>
+  <circle cx="27" cy="16" r="2.5" fill="#a78bfa"/>
+</svg>

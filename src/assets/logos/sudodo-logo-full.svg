@@ -1,0 +1,35 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="320" height="100" viewBox="0 0 320 100">
+  <defs>
+    <linearGradient id="gloop" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f472b6"/>
+      <stop offset="100%" stop-color="#a78bfa"/>
+    </linearGradient>
+    <linearGradient id="gloop2" x1="100%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" stop-color="#a78bfa"/>
+      <stop offset="100%" stop-color="#f472b6"/>
+    </linearGradient>
+    <linearGradient id="gtext" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#7c3aed"/>
+      <stop offset="100%" stop-color="#db2777"/>
+    </linearGradient>
+  </defs>
+  <!-- Glass pill bg -->
+  <rect x="4" y="8" width="88" height="84" rx="22" fill="white" fill-opacity="0.55" stroke="white" stroke-opacity="0.8" stroke-width="1.5"/>
+  <!-- Left ring -->
+  <circle cx="32" cy="50" r="22" fill="none" stroke="url(#gloop)" stroke-width="8"/>
+  <!-- Right ring -->
+  <circle cx="68" cy="50" r="22" fill="none" stroke="url(#gloop2)" stroke-width="8"/>
+  <!-- White mask crossing -->
+  <rect x="43" y="28" width="14" height="44" fill="white"/>
+  <!-- Front arc -->
+  <path d="M43 34 Q50 50 43 66" stroke="url(#gloop)" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <path d="M57 34 Q50 50 57 66" stroke="url(#gloop2)" stroke-width="8" fill="none" stroke-linecap="round"/>
+  <!-- Dots -->
+  <circle cx="14" cy="50" r="7" fill="#f472b6"/>
+  <circle cx="14" cy="50" r="3.5" fill="white" fill-opacity="0.6"/>
+  <circle cx="86" cy="50" r="7" fill="#a78bfa"/>
+  <circle cx="86" cy="50" r="3.5" fill="white" fill-opacity="0.6"/>
+  <!-- Wordmark -->
+  <text x="108" y="58" font-family="system-ui,-apple-system,sans-serif" font-size="38" font-weight="800" fill="url(#gtext)">SudoDo</text>
+  <text x="110" y="76" font-family="system-ui,sans-serif" font-size="10" font-weight="500" fill="#9d8ec0" letter-spacing="4">TASK MANAGER</text>
+</svg>
