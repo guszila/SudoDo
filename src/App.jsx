@@ -16,6 +16,7 @@ import SettingsPage from './pages/SettingsPage';
 import PartTimePage from './pages/PartTimePage';
 import IncomeHistoryPage from './pages/IncomeHistoryPage';
 import TodayPage from './pages/TodayPage';
+import SocialSecurityPage from './pages/SocialSecurityPage';
 import TasksPage from './pages/TasksPage';
 import Logo from './components/Logo';
 
@@ -25,6 +26,7 @@ import { translations } from './i18n';
 import { auth } from './firebase';
 import { TasksProvider, useTasks } from './contexts/TasksContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { SettingsProvider } from './contexts/SettingsContext';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -400,6 +402,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
           <Route path="/settings" element={<ErrorBoundary><SettingsPage user={user} lang={lang} setLang={setLang} theme={theme} toggleTheme={toggleTheme} /></ErrorBoundary>} />
           <Route path="/part-time" element={<ErrorBoundary><PartTimePage user={user} lang={lang} /></ErrorBoundary>} />
           <Route path="/income/history" element={<ErrorBoundary><IncomeHistoryPage user={user} lang={lang} /></ErrorBoundary>} />
+          <Route path="/social-security" element={<SocialSecurityPage lang={lang} />} />
           <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
         </Routes>
       </AnimatePresence>
@@ -416,7 +419,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
       )}
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 liquid-glass border-x-0 border-b-0 rounded-t-[28px] rounded-b-none p-2 pb-safe flex justify-around items-center z-50 h-[72px]">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 liquid-glass border-x-0 border-b-0 rounded-t-[28px] rounded-b-none p-2 pb-safe flex justify-around items-center z-40 h-[72px]">
         <button 
           onClick={() => { navigate('/'); setCurrentView('month'); }}
           className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/' && currentView === 'month' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
@@ -521,13 +524,15 @@ export default function App() {
   return (
     <ToastProvider>
       <TasksProvider user={user}>
-        <MainApp 
-          user={user} 
-          lang={lang} 
-          setLang={setLang} 
-          theme={theme} 
-          toggleTheme={toggleTheme} 
-        />
+        <SettingsProvider user={user}>
+          <MainApp 
+            user={user} 
+            lang={lang} 
+            setLang={setLang} 
+            theme={theme} 
+            toggleTheme={toggleTheme} 
+          />
+        </SettingsProvider>
       </TasksProvider>
     </ToastProvider>
   );

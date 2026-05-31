@@ -80,3 +80,38 @@ export const updateUserStreak = async (uid, todayStr, yesterdayStr) => {
     return null;
   }
 };
+
+/**
+ * Fetches user settings from Firestore.
+ * @param {string} uid - The user's ID
+ * @returns {Promise<Object>} User settings object
+ */
+export const getUserSettings = async (uid) => {
+  if (!uid) return {};
+  try {
+    const docRef = doc(db, COLLECTIONS.USERS, uid, 'settings', 'preferences');
+    const snapshot = await getDoc(docRef);
+    if (snapshot.exists()) {
+      return snapshot.data();
+    }
+    return {};
+  } catch (error) {
+    console.error("Error fetching user settings:", error);
+    return {};
+  }
+};
+
+/**
+ * Updates user settings in Firestore.
+ * @param {string} uid - The user's ID
+ * @param {Object} settings - Settings object to merge
+ */
+export const updateUserSettings = async (uid, settings) => {
+  if (!uid) return;
+  try {
+    const docRef = doc(db, COLLECTIONS.USERS, uid, 'settings', 'preferences');
+    await setDoc(docRef, settings, { merge: true });
+  } catch (error) {
+    console.error("Error updating user settings:", error);
+  }
+};

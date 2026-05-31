@@ -11,13 +11,16 @@ import ActionSheet from '../components/ActionSheet';
 import ConfirmDialog from '../components/ConfirmDialog';
 import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { saveTask } from '../services/taskService';
+import { calcSSO } from '../utils/socialSecurity';
 import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE, DEFAULT_TASK_VALUES } from '../constants';
 import { translations } from '../i18n';
 
 export default function PartTimePage({ user, lang = 'en' }) {
   const t = translations[lang].partTime;
   const { tasks: allTasks, isLoading: isTasksLoading } = useTasks();
+  const { settings } = useSettings();
   const navigate = useNavigate();
   
   const tasks = useMemo(() => {
@@ -52,6 +55,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
     title: '',
     amount: '',
     date: new Date().toISOString().slice(0, 10),
+    month: new Date().toISOString().slice(0, 7),
+    isPercentage: true,
   });
 
   const daysOfWeek = [
@@ -83,43 +88,100 @@ export default function PartTimePage({ user, lang = 'en' }) {
     return { upcomingTasks: upcoming, historyTasks: history };
   }, [tasks]);
 
-  const stats = useMemo(() => {
-    let earned = 0;
-    let pending = 0;
+  const monthlyGross = useMemo(() => {
+    const earned = {};
+    const pending = {};
     
     tasks.forEach(t => {
-      const isCompleted = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
+      if (t.isExpense) return;
       
-      if (t.isExpense) {
-        const amt = Number(t.amount) || 0;
-        if (isCompleted) {
-            earned -= amt;
-        } else {
-            pending -= amt;
-        }
-        return;
-      }
-
+      const isCompleted = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
       const rate = Number(t.hourlyRate) || 0;
+      
+      const d = new Date(t.start);
+      if (isNaN(d.getTime())) return;
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      
+      let taskEarned = 0;
+      let hours = 0;
+      
       if (isCompleted) {
-        let hours = 0;
         if (t.actualStart && t.actualEnd) {
           hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
         } else {
-          hours = (t.end - t.start) / (1000 * 60 * 60);
+          hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
         }
-        if (t.rateType === RATE_TYPE.DAILY) earned += rate;
-        else if (hours > 0) earned += hours * rate;
+        if (t.rateType === RATE_TYPE.DAILY) taskEarned = rate;
+        else if (hours > 0) taskEarned = hours * rate;
+        
+        earned[monthKey] = (earned[monthKey] || 0) + taskEarned;
       } else {
-        // Pending
-        const hours = (t.end - t.start) / (1000 * 60 * 60);
-        if (t.rateType === RATE_TYPE.DAILY) pending += rate;
-        else if (hours > 0) pending += hours * rate;
+        hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
+        if (t.rateType === RATE_TYPE.DAILY) taskEarned = rate;
+        else if (hours > 0) taskEarned = hours * rate;
+        
+        pending[monthKey] = (pending[monthKey] || 0) + taskEarned;
+      }
+    });
+    
+    return { earned, pending };
+  }, [tasks]);
+
+  const stats = useMemo(() => {
+    let earned = 0;
+    let pending = 0;
+    let ssoDeducted = 0;
+    
+    Object.values(monthlyGross.earned).forEach(v => earned += v);
+    Object.values(monthlyGross.pending).forEach(v => pending += v);
+    
+    tasks.forEach(t => {
+      if (!t.isExpense) return;
+      
+      const isCompleted = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
+      
+      let amt = 0;
+      if (t.isPercentage) {
+        const d = new Date(t.start);
+        const monthKey = !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : null;
+        
+        const monthEarned = monthKey ? (monthlyGross.earned[monthKey] || 0) : 0;
+        const monthPending = monthKey ? (monthlyGross.pending[monthKey] || 0) : 0;
+        const percentage = Number(t.amount) || 0;
+        
+        amt = (monthEarned + monthPending) * (percentage / 100);
+      } else {
+        amt = Number(t.amount) || 0;
+      }
+      
+      if (isCompleted) {
+        earned -= amt;
+      } else {
+        pending -= amt;
       }
     });
 
-    return { earned, pending, total: earned + pending };
-  }, [tasks]);
+    if (settings.socialSecurity) {
+      const allMonths = new Set([...Object.keys(monthlyGross.earned), ...Object.keys(monthlyGross.pending)]);
+      allMonths.forEach(monthKey => {
+        const mEarned = monthlyGross.earned[monthKey] || 0;
+        const mPending = monthlyGross.pending[monthKey] || 0;
+        const mGross = mEarned + mPending;
+        if (mGross > 0) {
+           const { deduction } = calcSSO(mGross);
+           ssoDeducted += deduction;
+        }
+      });
+    }
+
+    return { 
+      earned: Math.round(earned), 
+      pending: Math.round(pending), 
+      total: Math.round(earned + pending),
+      ssoDeducted: Math.round(ssoDeducted),
+      netTotal: Math.round(earned + pending - ssoDeducted)
+    };
+  }, [tasks, monthlyGross, settings.socialSecurity]);
 
   const uniqueTitles = useMemo(() => {
     const titles = new Set();
@@ -183,7 +245,10 @@ export default function PartTimePage({ user, lang = 'en' }) {
     e.preventDefault();
     setIsMutating(true);
     
-    const expenseDateStr = expenseFormData.date;
+    let expenseDateStr = expenseFormData.date;
+    if (expenseFormData.isPercentage) {
+      expenseDateStr = `${expenseFormData.month}-01`;
+    }
     const startDateTime = new Date(`${expenseDateStr}T00:00:00`).toISOString();
     
     const expenseTask = {
@@ -195,12 +260,13 @@ export default function PartTimePage({ user, lang = 'en' }) {
       priority: TASK_PRIORITY.MEDIUM,
       isPartTime: true,
       isExpense: true,
-      amount: expenseFormData.amount
+      amount: expenseFormData.amount,
+      isPercentage: expenseFormData.isPercentage
     };
     
     await saveTask('ADD', expenseTask, user.uid);
     setShowAddExpenseForm(false);
-    setExpenseFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10) });
+    setExpenseFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10), month: new Date().toISOString().slice(0, 7), isPercentage: true });
     setIsMutating(false);
   };
 
@@ -267,6 +333,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
   };
 
   const fDate = (d) => format(d, 'EEEEที่ d MMM yyyy', { locale: th });
+  const fMonth = (d) => format(d, 'MMMM yyyy', { locale: th });
   const fTime = (d) => format(d, 'HH:mm');
   const activeTasks = activeTab === 'upcoming' ? upcomingTasks : historyTasks;
 
@@ -298,15 +365,29 @@ export default function PartTimePage({ user, lang = 'en' }) {
       <div className="grid grid-cols-2 gap-4 mb-8">
         <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-green-500">
           <p className="text-xs text-main opacity-70 font-medium mb-1">{t.earned}</p>
-          <span className="text-2xl font-bold text-green-500">฿{stats.earned.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+          <span className="text-2xl font-bold text-green-500">฿{stats.earned.toLocaleString()}</span>
         </div>
         <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-amber-500">
           <p className="text-xs text-main opacity-70 font-medium mb-1">{t.expected}</p>
-          <span className="text-xl font-bold text-amber-500">฿{stats.pending.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+          <span className="text-xl font-bold text-amber-500">฿{stats.pending.toLocaleString()}</span>
         </div>
         <div className="col-span-2 liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-primary-500 border border-dashed border-main/20">
-          <p className="text-sm text-main opacity-70 font-medium mb-1">{t.total}</p>
-          <span className="text-2xl font-bold text-primary-500">฿{stats.total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+          <div className="flex justify-between items-center mb-1">
+             <p className="text-sm text-main opacity-70 font-medium">{t.total}</p>
+             <span className="text-2xl font-bold text-primary-500">฿{stats.total.toLocaleString()}</span>
+          </div>
+          {settings.socialSecurity && settings.showInIncome && (
+             <>
+               <div className="flex justify-between items-center mb-1 border-t border-main/10 pt-2 mt-2">
+                 <p className="text-sm text-red-600 dark:text-red-400 opacity-90 font-medium">{lang === 'th' ? 'หักประกันสังคม (-5%)' : 'SSO Deduction (-5%)'}</p>
+                 <span className="text-lg font-bold text-red-600 dark:text-red-400">-฿{stats.ssoDeducted.toLocaleString()}</span>
+               </div>
+               <div className="flex justify-between items-center">
+                 <p className="text-sm text-purple-600 dark:text-purple-400 font-bold">{lang === 'th' ? 'รายได้สุทธิ' : 'Net Income'}</p>
+                 <span className="text-xl font-bold text-purple-600 dark:text-purple-400">฿{stats.netTotal.toLocaleString()}</span>
+               </div>
+             </>
+          )}
         </div>
       </div>
 
@@ -354,11 +435,28 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.amount}</label>
-                  <input type="number" step="any" value={expenseFormData.amount} onChange={e => setExpenseFormData({...expenseFormData, amount: e.target.value})} required min="0" className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                  <div className="flex gap-2">
+                    <input type="number" step="any" value={expenseFormData.amount} onChange={e => setExpenseFormData({...expenseFormData, amount: e.target.value})} required min="0" className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                    <select 
+                      value={expenseFormData.isPercentage ? 'percent' : 'flat'} 
+                      onChange={e => setExpenseFormData({...expenseFormData, isPercentage: e.target.value === 'percent'})}
+                      className="px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main font-bold"
+                      style={{ backgroundColor: 'var(--glass-bg-input)' }}
+                    >
+                      <option value="percent">%</option>
+                      <option value="flat">฿</option>
+                    </select>
+                  </div>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.fromDate}</label>
-                  <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={expenseFormData.date} onChange={e => setExpenseFormData({...expenseFormData, date: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
+                    {expenseFormData.isPercentage ? 'ประจำเดือน' : t.fromDate}
+                  </label>
+                  {expenseFormData.isPercentage ? (
+                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="month" value={expenseFormData.month} onChange={e => setExpenseFormData({...expenseFormData, month: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                  ) : (
+                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={expenseFormData.date} onChange={e => setExpenseFormData({...expenseFormData, date: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                  )}
                 </div>
               </div>
               
@@ -462,7 +560,17 @@ export default function PartTimePage({ user, lang = 'en' }) {
           const isCompleted = task.status === TASK_STATUS.DONE || (task.actualStart && task.actualEnd);
           
           if (task.isExpense) {
-            const expenseAmount = Number(task.amount) || 0;
+            let expenseAmount = 0;
+            if (task.isPercentage) {
+              const d = new Date(task.start);
+              const monthKey = !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : null;
+              const monthEarned = monthKey ? (monthlyGross.earned[monthKey] || 0) : 0;
+              const monthPending = monthKey ? (monthlyGross.pending[monthKey] || 0) : 0;
+              expenseAmount = (monthEarned + monthPending) * (Number(task.amount) / 100);
+            } else {
+              expenseAmount = Number(task.amount) || 0;
+            }
+            
             return (
               <motion.div 
                 key={task.id} 
@@ -491,13 +599,15 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     </span>
                   </div>
                   <div className="text-sm text-main opacity-80 space-y-1.5 bg-white/30 dark:bg-black/20 p-3 rounded-xl border border-white/40 dark:border-white/5 w-fit">
-                    <p className="flex items-center gap-2"><span className="w-4">📅</span> {fDate(task.start)}</p>
+                    <p className="flex items-center gap-2"><span className="w-4">📅</span> {task.isPercentage ? `ประจำเดือน ${fMonth(task.start)}` : fDate(task.start)}</p>
                   </div>
                 </div>
 
                 <div className="flex flex-row md:flex-col items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
                   <div className="text-right flex-1 md:flex-none p-3 bg-red-500/10 rounded-xl border border-red-500/20">
-                    <p className="text-sm text-red-600 dark:text-red-400 font-bold mb-1 flex items-center justify-end gap-1">{t.expenses}</p>
+                    <p className="text-sm text-red-600 dark:text-red-400 font-bold mb-1 flex items-center justify-end gap-1">
+                      {task.isPercentage ? `${task.amount}% (${t.expenses})` : t.expenses}
+                    </p>
                     <p className="text-2xl font-bold text-red-600 dark:text-red-400">-฿{expenseAmount.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
                   </div>
                 </div>

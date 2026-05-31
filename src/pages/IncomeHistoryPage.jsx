@@ -15,8 +15,10 @@ import {
 
 import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { TASK_STATUS, RATE_TYPE } from '../constants';
 import { saveTask } from '../services/taskService';
+import { calcSSO } from '../utils/socialSecurity';
 import SwipeableRow from '../components/SwipeableRow';
 import ConfirmDialog from '../components/ConfirmDialog';
 
@@ -24,6 +26,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
   const navigate = useNavigate();
   const { tasks: allTasks, isLoading } = useTasks();
   const { showToast } = useToast();
+  const { settings } = useSettings();
   
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
@@ -195,19 +198,29 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
       return ((current - previous) / previous) * 100;
     };
 
+    const totalGross = totalIncome < 0 ? 0 : totalIncome;
+    let ssoDeduction = 0;
+    let netIncome = totalGross;
+
+    if (settings.socialSecurity && settings.showInIncome && totalGross > 0) {
+      const sso = calcSSO(totalGross);
+      ssoDeduction = sso.deduction;
+      netIncome = sso.netIncome;
+    }
+
     return {
-      summary: { totalIncome: totalIncome < 0 ? 0 : totalIncome, shiftCount, totalHours },
+      summary: { totalGross: Math.round(totalGross), ssoDeduction, netIncome, shiftCount, totalHours },
       chartData: chartArr,
       latestDay,
       shiftsList: shiftsInMonth,
       comparison: {
         lastMonth: lastMonthIncome,
-        lastMonthChange: getChange(totalIncome, lastMonthIncome),
+        lastMonthChange: getChange(netIncome, lastMonthIncome),
         avg6Months: avg6Months,
-        avgChange: getChange(totalIncome, avg6Months)
+        avgChange: getChange(netIncome, avg6Months)
       }
     };
-  }, [partTimeTasks, selectedMonth]);
+  }, [partTimeTasks, selectedMonth, settings.socialSecurity, settings.showInIncome]);
 
   const formatThMonthYear = (dateStr) => {
     const d = new Date(`${dateStr}-01`);
@@ -295,9 +308,20 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 blur-3xl rounded-full -translate-y-1/2 translate-x-1/4"></div>
           
           <p className="text-[#534AB7] font-bold text-sm mb-1">{formatFullThMonthYear(selectedMonth)} · รวม</p>
-          <h2 className="text-[#3C3489] text-[32px] font-black mb-6 tracking-tight">
-            ฿{(summary.totalIncome).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+          <h2 className="text-[#3C3489] text-[32px] font-black mb-2 tracking-tight">
+            ฿{summary.netIncome.toLocaleString()}
           </h2>
+          
+          {settings.socialSecurity && settings.showInIncome && summary.ssoDeduction > 0 ? (
+            <div className="flex items-center gap-2 mb-6">
+              <span className="text-sm font-bold text-red-500">
+                -฿{summary.ssoDeduction.toLocaleString()}
+              </span>
+              <span className="text-xs text-[#534AB7] font-medium opacity-80">(หักประกันสังคม 5%)</span>
+            </div>
+          ) : (
+            <div className="mb-6"></div>
+          )}
           
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-[rgba(255,255,255,0.7)] rounded-[16px] p-4 border border-[rgba(255,255,255,0.5)]">

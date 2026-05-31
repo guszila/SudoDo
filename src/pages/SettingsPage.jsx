@@ -1,244 +1,502 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, Loader2, Check, AlertTriangle, Database, Trash2, Moon, Sun, Languages, Settings } from 'lucide-react';
-import { saveTask } from '../services/taskService';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  ArrowLeft, ChevronRight, Moon, Sun, Languages, Calendar,
+  Bell, Clock, Flame, Globe, Download,
+  ShieldCheck, RefreshCw, Database, Info, Star,
+  Trash2, LogOut, Check
+} from 'lucide-react';
+import { useSettings } from '../contexts/SettingsContext';
 import { useTasks } from '../contexts/TasksContext';
+import { saveTask, fetchTasks } from '../services/taskService';
 import ConfirmDialog from '../components/ConfirmDialog';
+import { useToast } from '../contexts/ToastContext';
+import pkg from '../../package.json' assert { type: 'json' };
+import { auth } from '../firebase';
+import { signOut } from 'firebase/auth';
+
+const SectionLabel = ({ children }) => (
+  <div className="text-[11px] font-[500] text-[#4B439F] dark:text-[#AFA9EC] tracking-[0.08em] px-4 mb-1.5 uppercase">
+    {children}
+  </div>
+);
+
+const GlassCard = ({ children, className = '' }) => (
+  <div className={`bg-[rgba(255,255,255,0.35)] dark:bg-[rgba(255,255,255,0.08)] backdrop-blur-[20px] border-[0.5px] border-[rgba(255,255,255,0.5)] dark:border-[rgba(255,255,255,0.12)] rounded-[16px] mx-4 mb-4 overflow-hidden shadow-sm ${className}`}>
+    {children}
+  </div>
+);
+
+const Row = ({ icon: Icon, iconBgClass, iconColorClass = 'text-[#1a1a2e]', title, subtitle, rightElement, onClick, isLast }) => (
+  <div 
+    onClick={onClick}
+    className={`flex items-center min-h-[52px] px-4 py-[13px] ${!isLast ? 'border-b-[0.5px] border-[rgba(255,255,255,0.3)] dark:border-[rgba(255,255,255,0.08)]' : ''} ${onClick ? 'cursor-pointer active:bg-black/5 dark:active:bg-white/5 transition-colors' : ''}`}
+  >
+    <div className={`w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0 mr-3 ${iconBgClass} ${iconColorClass}`}>
+      <Icon size={16} />
+    </div>
+    <div className="flex-1 min-w-0 flex flex-col justify-center">
+      <div className="text-[14px] font-[500] text-main leading-none mb-[2px]">{title}</div>
+      {subtitle && <div className="text-[12px] text-main/60 leading-none mt-1">{subtitle}</div>}
+    </div>
+    <div className="shrink-0 ml-3 flex items-center gap-2">
+      {rightElement}
+    </div>
+  </div>
+);
+
+const Toggle = ({ checked, onChange }) => (
+  <div 
+    onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
+    className={`relative w-[44px] h-[26px] rounded-[13px] cursor-pointer transition-colors duration-200 ease-in-out shrink-0 ${checked ? 'bg-primary-500' : 'bg-black/20 dark:bg-white/20'}`}
+  >
+    <div 
+      className={`absolute top-[3px] left-[3px] w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-200 ease-in-out ${checked ? 'translate-x-[18px]' : 'translate-x-0'}`}
+    />
+  </div>
+);
+
+const ActionSheet = ({ isOpen, onClose, title, children }) => {
+  return (
+    <AnimatePresence>
+      {isOpen && (
+        <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+          <motion.div 
+            initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
+            onClick={onClose}
+            className="absolute inset-0 backdrop-blur-md cursor-pointer"
+            style={{ backgroundColor: 'var(--overlay-bg)' }}
+          />
+          <motion.div 
+            initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ duration: 0.25, ease: "easeOut" }}
+            className="relative liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl pb-8 pt-4 px-4"
+          >
+            <div className="w-12 h-1.5 bg-black/10 dark:bg-white/20 rounded-full mx-auto mb-6" />
+            {title && <h3 className="text-lg font-bold text-center mb-4 text-[#1a1a2e] dark:text-white">{title}</h3>}
+            {children}
+          </motion.div>
+        </div>
+      )}
+    </AnimatePresence>
+  );
+};
 
 export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }) {
   const navigate = useNavigate();
+  const { settings, updateSettings } = useSettings();
   const { tasks } = useTasks();
+  const { showToast } = useToast();
   
-  const [successMsg, setSuccessMsg] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+  // Storage Count State
+  const [storageCounts, setStorageCounts] = useState({ tasks: 0, shifts: 0 });
+  const [isCountingStorage, setIsCountingStorage] = useState(true);
+
+  // Sheets & Dialogs State
+  const [activeSheet, setActiveSheet] = useState(null); // 'language', 'weekStart', 'resetIncome'
+  const [resetConfirmText, setResetConfirmText] = useState('');
+  const [isResetting, setIsResetting] = useState(false);
   
-  // Data Reset State
-  const [resetIncomeConfirmText, setResetIncomeConfirmText] = useState('');
-  const [isResettingIncome, setIsResettingIncome] = useState(false);
-  
-  // Delete Data State
-  const [showDeleteDataConfirm, setShowDeleteDataConfirm] = useState(false);
-  const [deleteDataConfirmText, setDeleteDataConfirmText] = useState('');
-  const [isDeletingData, setIsDeletingData] = useState(false);
+  const [deleteConfirmStep, setDeleteConfirmStep] = useState(0); // 0: closed, 1: dialog, 2: input
+  const [deleteConfirmText, setDeleteConfirmText] = useState('');
+  const [isDeleting, setIsDeleting] = useState(false);
+
+  const t = {
+    display: lang === 'en' ? 'Display' : 'การแสดงผล',
+    theme: lang === 'en' ? 'Dark Mode' : 'Dark Mode',
+    themeSub: lang === 'en' ? 'Switch to dark theme' : 'ปรับหน้าจอให้มืดลง',
+    language: lang === 'en' ? 'Language' : 'ภาษา',
+    weekStartTitle: lang === 'en' ? 'First Day of Week' : 'วันเริ่มต้นสัปดาห์',
+    sunday: lang === 'en' ? 'Sunday' : 'อาทิตย์',
+    monday: lang === 'en' ? 'Monday' : 'จันทร์',
+    notifications: lang === 'en' ? 'Notifications' : 'การแจ้งเตือน',
+    notifyTasks: lang === 'en' ? 'Task Reminders' : 'แจ้งเตือนงาน',
+    notifyTasksSub: lang === 'en' ? '15 mins before due' : 'ก่อนถึงกำหนด 15 นาที',
+    notifyShifts: lang === 'en' ? 'Shift Reminders' : 'แจ้งเตือนกะงาน',
+    notifyShiftsSub: lang === 'en' ? '30 mins before start' : 'ก่อนเริ่มงาน 30 นาที',
+    notifyStreak: lang === 'en' ? 'Streak Reminders' : 'แจ้งเตือน Streak',
+    notifyStreakSub: lang === 'en' ? 'Remind if app not opened' : 'เตือนถ้าลืมเปิดแอปวันนี้',
+    calendar: lang === 'en' ? 'Calendar' : 'ปฏิทิน',
+    syncGoogle: lang === 'en' ? 'Sync Google Calendar' : 'ซิงค์ Google Calendar',
+    notConnected: lang === 'en' ? 'Not connected' : 'ยังไม่ได้เชื่อมต่อ',
+    new: lang === 'en' ? 'NEW' : 'ใหม่',
+    exportPdf: lang === 'en' ? 'Export Shifts to PDF' : 'Export ตารางเวร PDF',
+    data: lang === 'en' ? 'Data' : 'ข้อมูล',
+    socialSecurity: lang === 'en' ? 'Social Security' : 'ประกันสังคม',
+    ssoSub: lang === 'en' ? 'Auto calculate 5% deduction' : 'คำนวณหัก 5% อัตโนมัติ',
+    resetIncome: lang === 'en' ? 'Reset Income' : 'รีเซ็ตรายได้',
+    resetIncomeSub: lang === 'en' ? 'Clear history, start from ฿0' : 'ล้างประวัติ เริ่มนับใหม่จาก ฿0',
+    storage: lang === 'en' ? 'Storage Usage' : 'ข้อมูลที่ใช้',
+    storageSub: lang === 'en' ? `${storageCounts.tasks} tasks · ${storageCounts.shifts} shifts` : `งาน ${storageCounts.tasks} รายการ · กะ ${storageCounts.shifts} รายการ`,
+    about: lang === 'en' ? 'About' : 'เกี่ยวกับ',
+    version: lang === 'en' ? 'Version' : 'เวอร์ชัน',
+    reviewApp: lang === 'en' ? 'Review App' : 'รีวิวแอป',
+    reviewAppSub: lang === 'en' ? 'Rate on App Store' : 'ให้คะแนนบน App Store',
+    dangerZone: lang === 'en' ? 'Danger Zone' : 'Danger Zone',
+    deleteAll: lang === 'en' ? 'Delete All Data' : 'ลบข้อมูลทั้งหมด',
+    logout: lang === 'en' ? 'Log Out' : 'ออกจากระบบ',
+    selectLang: lang === 'en' ? 'Select Language' : 'เลือกภาษา',
+    thai: lang === 'en' ? 'Thai' : 'ภาษาไทย',
+    english: lang === 'en' ? 'English' : 'English',
+    resetConfirmTitle: lang === 'en' ? 'Reset Income History' : 'รีเซ็ตประวัติรายได้',
+    warning: lang === 'en' ? 'Warning!' : 'คำเตือน!',
+    resetWarnText: lang === 'en' ? 'This will delete all shift and income history. Starts from ฿0. Cannot be undone.' : 'การกระทำนี้จะลบกะงานและประวัติรายได้ทั้งหมดของคุณ เริ่มนับใหม่จาก ฿0 ไม่สามารถย้อนกลับได้',
+    confirmWord: lang === 'en' ? 'confirm' : 'ยืนยัน',
+    typeConfirm: lang === 'en' ? "Type 'confirm'" : "พิมพ์คำว่า 'ยืนยัน'",
+    deleting: lang === 'en' ? 'Deleting...' : 'กำลังลบ...',
+    deleteBtn: lang === 'en' ? 'Delete Income History' : 'ลบประวัติรายได้',
+    deleteAllTitle: lang === 'en' ? 'Confirm Delete All Data' : 'ยืนยันการลบข้อมูลทั้งหมด',
+    deleteAllMsg: lang === 'en' ? 'This will permanently delete all tasks and shifts, but not your account.' : 'การกระทำนี้จะลบงานและกะทั้งหมดของคุณออกจากระบบอย่างถาวร แต่จะไม่ลบบัญชีผู้ใช้ของคุณ',
+    continue: lang === 'en' ? 'Continue' : 'ดำเนินการต่อ',
+    cancel: lang === 'en' ? 'Cancel' : 'ยกเลิก',
+    finalConfirm: lang === 'en' ? 'Final Confirmation' : 'การยืนยันขั้นตอนสุดท้าย',
+    type: lang === 'en' ? 'Type' : 'พิมพ์',
+    deletePerm: lang === 'en' ? 'Delete Permanently' : 'ลบถาวร',
+    logoutConfirm: lang === 'en' ? 'Are you sure you want to log out?' : 'คุณต้องการออกจากระบบใช่หรือไม่?',
+    comingSoon: lang === 'en' ? 'Coming soon' : 'ฟีเจอร์นี้จะเปิดให้ใช้งานเร็วๆ นี้',
+    inDev: lang === 'en' ? 'Feature in development' : 'ฟีเจอร์ Export PDF กำลังอยู่ระหว่างพัฒนา',
+    resetSuccess: lang === 'en' ? 'Income history reset successfully' : 'รีเซ็ตประวัติรายได้ทั้งหมดสำเร็จ',
+    resetError: lang === 'en' ? 'Error resetting income' : 'เกิดข้อผิดพลาดในการรีเซ็ตรายได้',
+    deleteSuccess: lang === 'en' ? 'All data deleted successfully' : 'ลบข้อมูลทั้งหมดเรียบร้อยแล้ว',
+    deleteError: lang === 'en' ? 'Error deleting data' : 'เกิดข้อผิดพลาดในการลบข้อมูล',
+  };
+
+  useEffect(() => {
+    if (!user) return;
+    const countStorage = async () => {
+      setIsCountingStorage(true);
+      try {
+        const userTasks = await fetchTasks(user.uid);
+        let tCount = 0;
+        let sCount = 0;
+        userTasks.forEach(t => {
+          if (t.isPartTime) sCount++;
+          else tCount++;
+        });
+        setStorageCounts({ tasks: tCount, shifts: sCount });
+      } catch (err) {
+        console.error(err);
+      } finally {
+        setIsCountingStorage(false);
+      }
+    };
+    countStorage();
+  }, [user]);
+
+  const handleToggle = (key, value) => {
+    // Optimistic UI updates for immediate feedback
+    if (key === 'darkMode') toggleTheme();
+    
+    updateSettings({ [key]: value });
+  };
+
+  const handleSetLanguage = (newLang) => {
+    setLang(newLang);
+    updateSettings({ language: newLang });
+    setActiveSheet(null);
+  };
+
+  const handleSetWeekStart = (day) => {
+    updateSettings({ weekStart: day });
+    setActiveSheet(null);
+  };
 
   const handleResetIncome = async () => {
-    if (resetIncomeConfirmText !== 'ยืนยัน') return;
-    
-    setIsResettingIncome(true);
-    setSuccessMsg('');
-    setErrorMsg('');
+    if (resetConfirmText !== t.confirmWord) return;
+    setIsResetting(true);
     try {
       const historyTasks = tasks.filter(t => t.isPartTime);
       for (const task of historyTasks) {
         await saveTask('DELETE', { id: task.id }, user.uid);
       }
-      setSuccessMsg(lang === 'th' ? 'รีเซ็ตประวัติรายได้ทั้งหมดสำเร็จ' : 'Income history reset successfully');
-      setResetIncomeConfirmText('');
-      setTimeout(() => setSuccessMsg(''), 3000);
+      showToast(t.resetSuccess, { duration: 3000 });
+      setActiveSheet(null);
+      setResetConfirmText('');
     } catch (error) {
       console.error(error);
-      setErrorMsg(lang === 'th' ? 'เกิดข้อผิดพลาดในการรีเซ็ตรายได้' : 'Failed to reset income history');
+      showToast(t.resetError, { duration: 3000 });
     } finally {
-      setIsResettingIncome(false);
+      setIsResetting(false);
     }
   };
 
-  const handleDeleteAllData = async () => {
-    if (deleteDataConfirmText !== user.displayName) return;
-    
-    setShowDeleteDataConfirm(false);
-    setIsDeletingData(true);
-    setSuccessMsg('');
-    setErrorMsg('');
+  const handleDeleteData = async () => {
+    if (deleteConfirmText !== user.displayName) return;
+    setIsDeleting(true);
     try {
       for (const task of tasks) {
         await saveTask('DELETE', { id: task.id }, user.uid);
       }
-      setSuccessMsg(lang === 'th' ? 'ลบข้อมูลทุกอย่างสำเร็จแล้ว' : 'All data deleted successfully');
-      setDeleteDataConfirmText('');
-      setTimeout(() => setSuccessMsg(''), 3000);
+      showToast(t.deleteSuccess, { duration: 3000 });
+      setDeleteConfirmStep(0);
+      setDeleteConfirmText('');
     } catch (error) {
       console.error(error);
-      setErrorMsg(lang === 'th' ? 'เกิดข้อผิดพลาดในการลบข้อมูล' : 'Failed to delete data');
+      showToast(t.deleteError, { duration: 3000 });
     } finally {
-      setIsDeletingData(false);
+      setIsDeleting(false);
     }
   };
 
-  const toggleLanguage = () => {
-    setLang(prev => prev === 'en' ? 'th' : 'en');
+  const handleLogout = async () => {
+    if (window.confirm(t.logoutConfirm)) {
+      try {
+        await signOut(auth);
+      } catch (error) {
+        console.error('Logout error', error);
+      }
+    }
   };
+
+  const avatarInitial = user?.displayName ? user.displayName.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'U');
 
   return (
     <motion.div 
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -50 }}
-      transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="min-h-screen p-4 md:p-8 font-sans pb-24 md:pb-8 overflow-x-hidden"
+      className="min-h-screen font-sans pb-32 pt-4 overflow-y-auto"
     >
       <div className="max-w-2xl mx-auto">
-        
-        {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
-          <button 
-            onClick={() => navigate('/')}
-            className="liquid-glass-button p-3 flex items-center justify-center text-main"
-            style={{ ':hover': { backgroundColor: 'var(--glass-bg-strong)' } }}
-          >
-            <ArrowLeft size={24} />
-          </button>
-          <h1 className="text-3xl font-bold tracking-tight text-main">{lang === 'th' ? 'ตั้งค่าแอป (Settings)' : 'Settings'}</h1>
+        {/* Profile Card */}
+        <div 
+          onClick={() => navigate('/profile')}
+          className="flex items-center mx-4 mb-6 p-4 bg-[rgba(255,255,255,0.6)] dark:bg-[rgba(255,255,255,0.08)] backdrop-blur-[20px] border-[0.5px] border-white/40 dark:border-[rgba(255,255,255,0.12)] rounded-[20px] cursor-pointer active:scale-[0.98] transition-transform shadow-sm"
+        >
+          <div className="w-14 h-14 rounded-full bg-[#CECBF6] dark:bg-[rgba(175,169,236,0.3)] text-[#2D2665] dark:text-[#AFA9EC] flex items-center justify-center text-2xl font-bold shrink-0 shadow-inner">
+            {avatarInitial}
+          </div>
+          <div className="flex-1 min-w-0 px-4">
+            <h2 className="text-[18px] font-bold text-[#1a1a2e] dark:text-white truncate">{user?.displayName || 'User'}</h2>
+            <p className="text-[13px] text-[#888780] dark:text-[#A0A0A0] truncate">{user?.email}</p>
+          </div>
+          <ChevronRight className="text-[#888780] shrink-0" size={20} />
         </div>
 
-        {successMsg && (
-          <div className="mb-6 p-4 bg-green-500/20 border border-green-500/30 rounded-[16px] flex items-center gap-2 text-green-700 font-medium">
-            <Check size={20} /> {successMsg}
-          </div>
-        )}
-        
-        {errorMsg && (
-          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-[16px] flex items-center gap-2 text-red-700 font-medium">
-            <AlertTriangle size={20} /> {errorMsg}
-          </div>
-        )}
+        {/* Section 1: การแสดงผล */}
+        <SectionLabel>{t.display}</SectionLabel>
+        <GlassCard>
+          <Row 
+            icon={theme === 'dark' ? Moon : Sun} iconBgClass="bg-[rgba(127,119,221,0.2)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            title={t.theme} subtitle={t.themeSub}
+            rightElement={<Toggle checked={theme === 'dark'} onChange={(val) => handleToggle('darkMode', val)} />}
+          />
+          <Row 
+            icon={Languages} iconBgClass="bg-[rgba(127,119,221,0.2)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            title={t.language} subtitle={lang === 'th' ? 'ไทย' : 'English'}
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            onClick={() => setActiveSheet('language')}
+          />
+          <Row 
+            icon={Calendar} iconBgClass="bg-[rgba(127,119,221,0.2)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            title={t.weekStartTitle} subtitle={settings?.weekStart === 'จันทร์' ? t.monday : (settings?.weekStart === 'อาทิตย์' ? t.sunday : (lang === 'en' ? 'Sunday' : 'อาทิตย์'))}
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            onClick={() => setActiveSheet('weekStart')}
+            isLast
+          />
+        </GlassCard>
 
-        {/* Display Settings */}
-        <div className="liquid-glass-card p-6 md:p-8 mb-8 relative">
-          <h3 className="text-lg font-bold text-main mb-6 flex items-center gap-2 border-b border-main/10 pb-4">
-            <Settings size={20} className="text-primary-500" /> {lang === 'th' ? 'การแสดงผล (Display)' : 'Display'}
-          </h3>
-          
-          <div className="space-y-4">
-            <div className="flex items-center justify-between p-4 bg-main/5 border border-main/10 rounded-[16px]">
-              <div className="flex items-center gap-3">
-                {theme === 'dark' ? <Moon size={24} className="text-indigo-500" /> : <Sun size={24} className="text-yellow-500" />}
-                <div>
-                  <h4 className="font-bold text-main">{lang === 'th' ? 'ธีมแอปพลิเคชัน' : 'App Theme'}</h4>
-                  <p className="text-sm text-main/70">{lang === 'th' ? 'เลือกโหมดมืดหรือสว่าง' : 'Choose dark or light mode'}</p>
-                </div>
-              </div>
-              <div 
-                onClick={toggleTheme}
-                className="relative w-16 h-8 rounded-full bg-black/10 dark:bg-white/10 cursor-pointer p-1 transition-colors border border-black/5 dark:border-white/5 shadow-inner"
-              >
-                <motion.div 
-                  className="w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-md"
-                  animate={{ x: theme === 'dark' ? 32 : 0 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                >
-                  {theme === 'dark' ? <Moon size={14} className="text-indigo-600" /> : <Sun size={14} className="text-amber-500" />}
-                </motion.div>
-              </div>
-            </div>
+        {/* Section 2: การแจ้งเตือน */}
+        <SectionLabel>{t.notifications}</SectionLabel>
+        <GlassCard>
+          <Row 
+            icon={Bell} iconBgClass="bg-[rgba(240,159,39,0.2)]" iconColorClass="text-[#E5A040] dark:text-[#FAC775]"
+            title={t.notifyTasks} subtitle={t.notifyTasksSub}
+            rightElement={<Toggle checked={settings?.notifyTasks ?? true} onChange={(val) => handleToggle('notifyTasks', val)} />}
+          />
+          <Row 
+            icon={Clock} iconBgClass="bg-[rgba(240,159,39,0.2)]" iconColorClass="text-[#E5A040] dark:text-[#FAC775]"
+            title={t.notifyShifts} subtitle={t.notifyShiftsSub}
+            rightElement={<Toggle checked={settings?.notifyShifts ?? true} onChange={(val) => handleToggle('notifyShifts', val)} />}
+          />
+          <Row 
+            icon={Flame} iconBgClass="bg-[rgba(240,159,39,0.2)]" iconColorClass="text-[#E5A040] dark:text-[#FAC775]"
+            title={t.notifyStreak} subtitle={t.notifyStreakSub}
+            rightElement={<Toggle checked={settings?.notifyStreak ?? false} onChange={(val) => handleToggle('notifyStreak', val)} />}
+            isLast
+          />
+        </GlassCard>
 
-            <div className="flex items-center justify-between p-4 bg-main/5 border border-main/10 rounded-[16px]">
-              <div className="flex items-center gap-3">
-                <Languages size={24} className="text-primary-500" />
-                <div>
-                  <h4 className="font-bold text-main">{lang === 'th' ? 'ภาษา (Language)' : 'Language'}</h4>
-                  <p className="text-sm text-main/70">{lang === 'th' ? 'สลับภาษาไทย / English' : 'Switch Thai / English'}</p>
-                </div>
-              </div>
-              <div 
-                onClick={toggleLanguage}
-                className="relative w-16 h-8 rounded-full bg-black/10 dark:bg-white/10 cursor-pointer p-1 transition-colors border border-black/5 dark:border-white/5 shadow-inner flex items-center justify-between px-2 text-[10px] font-bold text-main/50"
-              >
-                <span>TH</span>
-                <span>EN</span>
-                <motion.div 
-                  className="absolute w-6 h-6 rounded-full bg-white flex items-center justify-center shadow-md text-[10px] font-bold text-primary-600 top-1 left-1"
-                  animate={{ x: lang === 'en' ? 32 : 0 }}
-                  transition={{ type: "spring", stiffness: 500, damping: 30 }}
-                >
-                  {lang === 'en' ? 'EN' : 'TH'}
-                </motion.div>
-              </div>
-            </div>
-          </div>
-        </div>
+        {/* Section 3: ปฏิทิน */}
+        <SectionLabel>{t.calendar}</SectionLabel>
+        <GlassCard>
+          <Row 
+            icon={Globe} iconBgClass="bg-[rgba(29,158,117,0.2)]" iconColorClass="text-[#34A853] dark:text-[#5DCAA5]"
+            title={t.syncGoogle} subtitle={t.notConnected}
+            rightElement={
+              <>
+                <div className="bg-[#534AB7] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{t.new}</div>
+                <ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />
+              </>
+            }
+            onClick={() => {
+              showToast(t.comingSoon);
+            }}
+          />
+          <Row 
+            icon={Download} iconBgClass="bg-[rgba(29,158,117,0.2)]" iconColorClass="text-[#34A853] dark:text-[#5DCAA5]"
+            title={t.exportPdf}
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            onClick={() => showToast(t.inDev)}
+            isLast
+          />
+        </GlassCard>
 
-        {/* Data Section */}
-        <div className="liquid-glass-card p-6 md:p-8 mb-8 relative">
-          <h3 className="text-lg font-bold text-main mb-6 flex items-center gap-2 border-b border-main/10 pb-4">
-            <Database size={20} className="text-amber-500" /> {lang === 'th' ? 'ข้อมูล (Data)' : 'Data'}
-          </h3>
-          
-          <div className="space-y-8">
-            {/* Reset Income */}
-            <div className="bg-amber-500/5 border border-amber-500/20 p-5 rounded-[16px]">
-              <h4 className="font-bold text-amber-600 dark:text-amber-400 mb-2 flex items-center gap-2">
-                <Trash2 size={16} /> {lang === 'th' ? 'รีเซ็ตประวัติรายได้' : 'Reset Income History'}
-              </h4>
-              <p className="text-sm text-main/70 mb-4">
-                {lang === 'th' ? 'จะลบประวัติรายได้ทั้งหมด และเริ่มนับใหม่จาก ฿0' : 'Delete all income history and start fresh from ฿0'}
-              </p>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input 
-                  type="text" 
-                  value={resetIncomeConfirmText} 
-                  onChange={(e) => setResetIncomeConfirmText(e.target.value)}
-                  className="flex-1 px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-amber-500 text-main transition-shadow"
-                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                  placeholder={lang === 'th' ? "พิมพ์คำว่า 'ยืนยัน' เพื่อลบ" : "Type 'ยืนยัน' to delete"}
-                />
-                <button 
-                  onClick={handleResetIncome}
-                  disabled={isResettingIncome || resetIncomeConfirmText !== 'ยืนยัน'}
-                  className="px-6 py-3 bg-amber-500 text-white font-bold rounded-[16px] hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all shadow-md active:scale-95 disabled:opacity-50 sm:w-auto w-full flex justify-center items-center h-[50px]"
-                >
-                  {isResettingIncome ? <Loader2 size={20} className="animate-spin" /> : (lang === 'th' ? 'รีเซ็ตรายได้' : 'Reset Income')}
-                </button>
-              </div>
-            </div>
+        {/* Section 4: ข้อมูล */}
+        <SectionLabel>{t.data}</SectionLabel>
+        <GlassCard>
+          <Row 
+            icon={ShieldCheck} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            title={t.socialSecurity} subtitle={t.ssoSub}
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            onClick={() => navigate('/social-security')}
+          />
+          <Row 
+            icon={RefreshCw} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            title={t.resetIncome} subtitle={t.resetIncomeSub}
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            onClick={() => setActiveSheet('resetIncome')}
+          />
+          <Row 
+            icon={Database} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            title={t.storage} 
+            subtitle={isCountingStorage ? (
+              <div className="h-3 w-32 bg-main/10 animate-pulse rounded mt-1"></div>
+            ) : t.storageSub}
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            onClick={() => {}}
+            isLast
+          />
+        </GlassCard>
 
-            {/* Delete All Data */}
-            <div className="bg-red-500/5 border border-red-500/20 p-5 rounded-[16px]">
-              <h4 className="font-bold text-red-600 dark:text-red-400 mb-2 flex items-center gap-2">
-                <AlertTriangle size={16} /> {lang === 'th' ? 'ลบข้อมูลทั้งหมด' : 'Delete All Data'}
-              </h4>
-              <p className="text-sm text-main/70 mb-4">
-                {lang === 'th' ? 'ลบงานและกะทั้งหมดออกจากระบบ การกระทำนี้ไม่สามารถกู้คืนได้ (ไม่ลบบัญชีผู้ใช้)' : 'Delete all tasks and shifts. This cannot be undone. (Does not delete your account)'}
-              </p>
-              <button 
-                onClick={() => setShowDeleteDataConfirm(true)}
-                className="px-6 py-3 bg-red-500/10 text-red-600 font-bold rounded-[16px] hover:bg-red-500/20 transition-all active:scale-95 border border-red-500/20 w-full sm:w-auto"
-              >
-                {lang === 'th' ? 'ลบข้อมูลทั้งหมด' : 'Delete All Data'}
-              </button>
-            </div>
-          </div>
+        {/* Section 5: เกี่ยวกับ */}
+        <SectionLabel>{t.about}</SectionLabel>
+        <GlassCard>
+          <Row 
+            icon={Info} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            title={t.version} subtitle={pkg.version || '1.0.0'}
+          />
+          <Row 
+            icon={Star} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            title={t.reviewApp} subtitle={t.reviewAppSub}
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            onClick={() => window.open('https://appstore.com', '_blank')}
+            isLast
+          />
+        </GlassCard>
+
+        {/* Section 6: Danger Zone */}
+        <SectionLabel>{t.dangerZone}</SectionLabel>
+        <div className="bg-[rgba(252,235,235,0.5)] dark:bg-[rgba(163,45,45,0.15)] backdrop-blur-[20px] border-[0.5px] border-[rgba(242,148,148,0.4)] dark:border-[rgba(240,149,149,0.2)] rounded-[16px] mx-4 mb-8 overflow-hidden shadow-sm">
+          <Row 
+            icon={Trash2} iconBgClass="bg-transparent" iconColorClass="text-red-500"
+            title={<span className="text-red-500 font-bold">{t.deleteAll}</span>} 
+            rightElement={<ChevronRight size={20} className="text-red-500/50" />}
+            onClick={() => setDeleteConfirmStep(1)}
+          />
+          <Row 
+            icon={LogOut} iconBgClass="bg-transparent" iconColorClass="text-red-500"
+            title={<span className="text-red-500 font-bold">{t.logout}</span>}
+            rightElement={<ChevronRight size={20} className="text-red-500/50" />}
+            onClick={handleLogout}
+            isLast
+          />
         </div>
 
       </div>
 
+      {/* Language Sheet */}
+      <ActionSheet isOpen={activeSheet === 'language'} onClose={() => setActiveSheet(null)} title={t.selectLang}>
+        <div className="space-y-2">
+          {['th', 'en'].map(l => (
+            <button 
+              key={l} onClick={() => handleSetLanguage(l)}
+              className="w-full p-4 rounded-[16px] bg-black/5 dark:bg-white/5 flex items-center justify-between active:bg-black/10 transition-colors"
+            >
+              <span className="font-bold text-[#1a1a2e] dark:text-white">{l === 'th' ? t.thai : t.english}</span>
+              {lang === l && <Check size={20} className="text-[#4B439F] dark:text-[#AFA9EC]" />}
+            </button>
+          ))}
+        </div>
+      </ActionSheet>
+
+      {/* Week Start Sheet */}
+      <ActionSheet isOpen={activeSheet === 'weekStart'} onClose={() => setActiveSheet(null)} title={t.weekStartTitle}>
+        <div className="space-y-2">
+          {['อาทิตย์', 'จันทร์'].map(day => (
+            <button 
+              key={day} onClick={() => handleSetWeekStart(day)}
+              className="w-full p-4 rounded-[16px] bg-black/5 dark:bg-white/5 flex items-center justify-between active:bg-black/10 transition-colors"
+            >
+              <span className="font-bold text-[#1a1a2e] dark:text-white">{day === 'อาทิตย์' ? t.sunday : t.monday}</span>
+              {settings?.weekStart === day && <Check size={20} className="text-[#4B439F] dark:text-[#AFA9EC]" />}
+            </button>
+          ))}
+        </div>
+      </ActionSheet>
+
+      {/* Reset Income Sheet */}
+      <ActionSheet isOpen={activeSheet === 'resetIncome'} onClose={() => { setActiveSheet(null); setResetConfirmText(''); }} title={t.resetConfirmTitle}>
+        <div className="text-center mb-6">
+          <p className="text-red-500 font-bold mb-2">{t.warning}</p>
+          <p className="text-sm text-gray-500 dark:text-gray-400">
+            {t.resetWarnText}
+          </p>
+        </div>
+        <input 
+          type="text" 
+          value={resetConfirmText}
+          onChange={e => setResetConfirmText(e.target.value)}
+          placeholder={t.typeConfirm}
+          className="w-full px-4 py-3 rounded-[16px] bg-gray-100 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500 mb-4 text-center font-bold text-[#1a1a2e] dark:text-white"
+        />
+        <button
+          disabled={resetConfirmText !== t.confirmWord || isResetting}
+          onClick={handleResetIncome}
+          className="w-full py-4 bg-red-500 text-white font-bold rounded-[16px] disabled:opacity-50 active:scale-[0.98] transition-all"
+        >
+          {isResetting ? t.deleting : t.deleteBtn}
+        </button>
+      </ActionSheet>
+
+      {/* Delete All Data Triple Confirm */}
       <ConfirmDialog 
-        isOpen={showDeleteDataConfirm}
-        title={lang === 'th' ? "ยืนยันการลบข้อมูลทั้งหมด" : "Confirm Data Deletion"}
-        message={lang === 'th' ? `โปรดพิมพ์ชื่อแสดงผลของคุณเพื่อยืนยัน\n(ชื่อปัจจุบัน: ${user?.displayName})` : `Please type your display name to confirm\n(Current: ${user?.displayName})`}
-        confirmText={lang === 'th' ? "ลบถาวร" : "Delete Permanently"}
-        cancelText={lang === 'th' ? "ยกเลิก" : "Cancel"}
+        isOpen={deleteConfirmStep === 1}
+        title={t.deleteAllTitle}
+        message={t.deleteAllMsg}
+        confirmText={t.continue}
+        cancelText={t.cancel}
         isDanger={true}
-        onConfirm={handleDeleteAllData}
-        onCancel={() => {
-          setShowDeleteDataConfirm(false);
-          setDeleteDataConfirmText('');
-        }}
+        onConfirm={() => setDeleteConfirmStep(2)}
+        onCancel={() => setDeleteConfirmStep(0)}
       />
-      {showDeleteDataConfirm && (
-         <div className="fixed inset-0 z-[60] flex items-center justify-center pointer-events-none p-4">
-            <input 
-              type="text" 
-              value={deleteDataConfirmText} 
-              onChange={(e) => setDeleteDataConfirmText(e.target.value)}
-              className="mt-[160px] max-w-sm w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-red-500 text-main transition-shadow pointer-events-auto shadow-2xl"
-              style={{ backgroundColor: 'var(--glass-bg-strong)', border: '1px solid var(--glass-border)' }}
-              placeholder={`พิมพ์ '${user?.displayName}'`}
-              autoFocus
-            />
-         </div>
-      )}
+
+      <ActionSheet isOpen={deleteConfirmStep === 2} onClose={() => { setDeleteConfirmStep(0); setDeleteConfirmText(''); }} title={t.finalConfirm}>
+         <div className="text-center mb-6">
+          <p className="text-sm text-gray-500 dark:text-gray-400 mb-2">
+            {lang === 'en' ? (
+              <>Please type <strong>{user?.displayName}</strong> to confirm deleting all data</>
+            ) : (
+              <>โปรดพิมพ์ชื่อ <strong>{user?.displayName}</strong> เพื่อยืนยันการลบข้อมูลทั้งหมด</>
+            )}
+          </p>
+        </div>
+        <input 
+          type="text" 
+          value={deleteConfirmText}
+          onChange={e => setDeleteConfirmText(e.target.value)}
+          placeholder={`${t.type} '${user?.displayName}'`}
+          className="w-full px-4 py-3 rounded-[16px] bg-gray-100 dark:bg-gray-800 focus:outline-none focus:ring-2 focus:ring-red-500 mb-4 text-center font-bold text-[#1a1a2e] dark:text-white"
+        />
+        <button
+          disabled={deleteConfirmText !== user?.displayName || isDeleting}
+          onClick={handleDeleteData}
+          className="w-full py-4 bg-red-500 text-white font-bold rounded-[16px] disabled:opacity-50 active:scale-[0.98] transition-all"
+        >
+          {isDeleting ? t.deleting : t.deletePerm}
+        </button>
+      </ActionSheet>
+
     </motion.div>
   );
 }

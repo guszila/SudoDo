@@ -8,11 +8,14 @@ import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, R
 import { useNavigate } from 'react-router-dom';
 
 import { useTasks } from '../contexts/TasksContext';
+import { useSettings } from '../contexts/SettingsContext';
 import { updateUserStreak } from '../services/userService';
 import { saveTask } from '../services/taskService';
+import { calcSSO } from '../utils/socialSecurity';
 import { TASK_STATUS, TASK_PRIORITY, PRIORITY_WEIGHT, RATE_TYPE } from '../constants';
 export default function TodayPage({ user }) {
   const { tasks, isLoading: tasksLoading } = useTasks();
+  const { settings } = useSettings();
   const [streakData, setStreakData] = useState({ currentStreak: 0, bestStreak: 0, history: [] });
   const [isLoadingStreak, setIsLoadingStreak] = useState(true);
   const [chartType, setChartType] = useState('bar'); // 'bar' or 'line'
@@ -51,7 +54,7 @@ export default function TodayPage({ user }) {
     initData();
   }, [user]);
 
-  const { todayTasks, highPriorityCount, todayIncome, chartData, weeklyStreak, totalToday, doneToday, pendingToday } = useMemo(() => {
+  const { todayTasks, highPriorityCount, todayIncome, todayNetIncome, todaySSODeduction, chartData, weeklyStreak, totalToday, doneToday, pendingToday } = useMemo(() => {
     let income = 0;
     const tTasks = [];
     const oTasks = [];
@@ -166,10 +169,20 @@ export default function TodayPage({ user }) {
       return a.end.getTime() - b.end.getTime();
     });
 
+    let todayNetIncome = income;
+    let todaySSODeduction = 0;
+    if (settings.socialSecurity && settings.showInIncome && income > 0) {
+      const sso = calcSSO(income);
+      todaySSODeduction = sso.deduction;
+      todayNetIncome = sso.netIncome;
+    }
+
     return { 
       todayTasks: allTodayTasks.slice(0, 5), 
       highPriorityCount: highPriority, 
-      todayIncome: income,
+      todayIncome: Math.round(income),
+      todayNetIncome,
+      todaySSODeduction,
       chartData: cData,
       fullChartData: fcData,
       weeklyStreak: wStreak,
@@ -177,7 +190,7 @@ export default function TodayPage({ user }) {
       doneToday: doneT,
       pendingToday: pendingT
     };
-  }, [tasks, streakData, now]);
+  }, [tasks, streakData, now, settings.socialSecurity, settings.showInIncome]);
 
   const getGreeting = () => {
     const hour = now.getHours();
@@ -248,9 +261,16 @@ export default function TodayPage({ user }) {
           </div>
           
           <div className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all">
-            <h3 className="text-sm font-bold text-main/80 mb-2">รายได้วันนี้</h3>
+            <h3 className="text-sm font-bold text-main/80 mb-2 flex items-center justify-between">
+              รายได้วันนี้
+              {settings.socialSecurity && settings.showInIncome && todaySSODeduction > 0 && (
+                <span className="text-[10px] bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded font-bold border border-red-500/20">
+                  -5% ประกัน
+                </span>
+              )}
+            </h3>
             <div className="text-3xl md:text-4xl font-black text-green-500 dark:text-green-400 mb-1">
-              ฿{todayIncome.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+              ฿{todayNetIncome.toLocaleString()}
             </div>
             <p className="text-xs font-medium text-main/60">{todayIncome > 0 ? 'จากกะวันนี้' : 'ไม่มีกะวันนี้'}</p>
           </div>

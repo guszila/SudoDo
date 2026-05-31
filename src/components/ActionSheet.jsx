@@ -14,7 +14,8 @@ export default function ActionSheet({
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
-            className="fixed inset-0 bg-black/50 backdrop-blur-sm z-40"
+            className="fixed inset-0 backdrop-blur-md z-40"
+            style={{ backgroundColor: 'var(--overlay-bg)' }}
             onClick={onClose}
           />
           <motion.div 
@@ -22,9 +23,9 @@ export default function ActionSheet({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-[#1a1a2e] rounded-t-3xl shadow-[0_-10px_40px_rgba(0,0,0,0.1)] px-4 pb-8 pt-4 md:max-w-md mx-auto"
+            className="fixed bottom-0 left-0 right-0 z-50 liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl px-4 pb-8 pt-4 md:max-w-md mx-auto"
           >
-            <div className="w-12 h-1.5 bg-gray-300 dark:bg-gray-700 rounded-full mx-auto mb-6" />
+            <div className="w-12 h-1.5 bg-black/10 dark:bg-white/20 rounded-full mx-auto mb-6" />
             
             <div className="flex flex-col gap-2">
               {options.map((option, idx) => (

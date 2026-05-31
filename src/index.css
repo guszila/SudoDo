@@ -66,7 +66,7 @@
 
 :root {
   --color-text-main: #1a1a2e;
-  --bg-gradient: linear-gradient(135deg, #e8d5f5, #d4e8ff, #fde8f0);
+  --bg-gradient: linear-gradient(135deg, #e8d5f5, #d4e8ff, #fde8f0, #e8d5f5);
   --glass-bg: rgba(255, 255, 255, 0.15);
   --glass-bg-strong: rgba(255, 255, 255, 0.4);
   --glass-bg-input: rgba(255, 255, 255, 0.2);
@@ -78,7 +78,7 @@
 
 .dark {
   --color-text-main: #f0f0ff;
-  --bg-gradient: linear-gradient(135deg, #09090e, #1a153a, #1f152e);
+  --bg-gradient: linear-gradient(135deg, #09090e, #1a153a, #1f152e, #09090e);
   --glass-bg: rgba(20, 20, 30, 0.5);
   --glass-bg-strong: rgba(30, 30, 50, 0.7);
   --glass-bg-input: rgba(30, 30, 45, 0.5);
@@ -135,6 +135,8 @@
 
 body {
   background: var(--bg-gradient);
+  background-size: 300% 300%;
+  animation: gradientBG 20s ease infinite;
   background-attachment: fixed;
   font-family: 'Prompt', system-ui, -apple-system, sans-serif;
   margin: 0;
@@ -142,10 +144,15 @@ body {
   overflow-x: hidden;
   color: var(--color-text-main);
   min-height: 100vh;
-  transition: background 0.5s ease, color 0.3s ease;
+  transition: color 0.3s ease;
 }
 
 /* --- Animations --- */
+@keyframes gradientBG {
+  0% { background-position: 0% 50%; }
+  50% { background-position: 100% 50%; }
+  100% { background-position: 0% 50%; }
+}
 @keyframes slideUpFade {
   0% { opacity: 0; transform: translateY(20px); }
   100% { opacity: 1; transform: translateY(0); }
