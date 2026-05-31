@@ -33,7 +33,6 @@ export default function PartTimePage({ user }) {
     rateType: RATE_TYPE.HOURLY,
     startDate: new Date().toISOString().slice(0, 10),
     endDate: new Date().toISOString().slice(0, 10),
-    selectedDays: DEFAULT_TASK_VALUES.SELECTED_DAYS,
     startTime: DEFAULT_TASK_VALUES.START_TIME,
     endTime: DEFAULT_TASK_VALUES.END_TIME
   });
@@ -112,20 +111,9 @@ export default function PartTimePage({ user }) {
     const end = new Date(formData.endDate);
     const shiftsToAdd = [];
     
-    let daysToInclude = formData.selectedDays;
-    // ถ้าเลือกวันเริ่มต้นและวันสิ้นสุดเป็นวันเดียวกัน ให้บังคับใช้วันนั้นเลย ไม่ต้องสนปุ่มกด
-    if (start.getTime() === end.getTime()) {
-      daysToInclude = [start.getDay()];
-    } else if (daysToInclude.length === 0) {
-      alert("กรุณาเลือกวันในสัปดาห์อย่างน้อย 1 วัน");
-      setIsMutating(false);
-      return;
-    }
-    
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      if (daysToInclude.includes(d.getDay())) {
-        const dateString = d.toISOString().slice(0, 10);
-        const startDateTime = new Date(`${dateString}T${formData.startTime}:00`).toISOString();
+      const dateString = d.toISOString().slice(0, 10);
+      const startDateTime = new Date(`${dateString}T${formData.startTime}:00`).toISOString();
         let endDateObj = new Date(`${dateString}T${formData.endTime}:00`);
         
         if (formData.endTime < formData.startTime) {
@@ -145,7 +133,6 @@ export default function PartTimePage({ user }) {
           actualStart: null,
           actualEnd: null
         });
-      }
     }
 
     if (shiftsToAdd.length === 0) {
@@ -165,16 +152,6 @@ export default function PartTimePage({ user }) {
     setShowAddForm(false);
     setIsMutating(false);
   };
-  
-  const handleToggleDay = (dayId) => {
-    setFormData(prev => {
-      const newDays = prev.selectedDays.includes(dayId)
-        ? prev.selectedDays.filter(id => id !== dayId)
-        : [...prev.selectedDays, dayId];
-      return { ...prev, selectedDays: newDays };
-    });
-  };
-  
   const handleMarkDone = async (task) => {
     const updated = {
       ...task,
@@ -211,7 +188,7 @@ export default function PartTimePage({ user }) {
     setIsMutating(false);
   };
 
-  const fDate = (d) => format(d, 'd MMM yyyy', { locale: th });
+  const fDate = (d) => format(d, 'EEEEที่ d MMM yyyy', { locale: th });
   const fTime = (d) => format(d, 'HH:mm');
   const activeTasks = activeTab === 'upcoming' ? upcomingTasks : historyTasks;
 
@@ -308,22 +285,6 @@ export default function PartTimePage({ user }) {
                       <option value="daily">/ วัน</option>
                     </select>
                   </div>
-                </div>
-              </div>
-
-              <div>
-                <label className="block text-sm font-medium text-main mb-2 opacity-80">เลือกวันในสัปดาห์</label>
-                <div className="flex flex-wrap gap-2">
-                  {daysOfWeek.map(day => (
-                    <button
-                      key={day.id}
-                      type="button"
-                      onClick={() => handleToggleDay(day.id)}
-                      className={`w-12 h-12 rounded-xl font-bold transition-all ${formData.selectedDays.includes(day.id) ? 'bg-primary-500 text-white shadow-md scale-105' : 'bg-white/40 dark:bg-black/30 text-main/60 hover:bg-white/60'}`}
-                    >
-                      {day.label}
-                    </button>
-                  ))}
                 </div>
               </div>
 

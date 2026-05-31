@@ -244,13 +244,38 @@ export default function TodayPage({ user }) {
             <p className="text-xs font-medium text-main/60">{todayIncome > 0 ? 'จากกะวันนี้' : 'ไม่มีกะวันนี้'}</p>
           </div>
           
-          <div className="p-4 rounded-[20px] flex flex-col justify-between shadow-lg relative overflow-hidden" 
+          <div className="p-4 rounded-[20px] flex flex-col justify-between shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300" 
                style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.1) 0%, rgba(139,92,246,0.15) 100%)', border: '1px solid rgba(139,92,246,0.2)' }}>
-            <div className="absolute -right-4 -top-4 text-primary-500/10">
-              <Flame size={80} />
-            </div>
+            <motion.div 
+              className="absolute -right-4 -top-4 text-primary-500/10"
+              animate={{ 
+                scale: [1, 1.1, 1],
+                rotate: [0, 10, -5, 0],
+              }}
+              transition={{
+                duration: 4,
+                repeat: Infinity,
+                ease: "easeInOut"
+              }}
+            >
+              <Flame size={80} strokeWidth={1.5} />
+            </motion.div>
             <h3 className="text-sm font-bold text-primary-600 dark:text-primary-400 mb-2 flex items-center gap-1 relative z-10">
-              <Flame size={16} /> Streak
+              <motion.div
+                animate={{ 
+                  scale: [1, 1.15, 1],
+                  rotate: [0, -8, 8, 0],
+                }}
+                transition={{
+                  duration: 2,
+                  repeat: Infinity,
+                  ease: "easeInOut"
+                }}
+                style={{ originY: 0.8 }}
+              >
+                <Flame size={18} className="text-orange-500" fill="currentColor" />
+              </motion.div>
+              Streak
             </h3>
             <div className="text-3xl md:text-4xl font-black text-primary-600 dark:text-primary-500 mb-1 relative z-10">
               {streakData.currentStreak} วัน

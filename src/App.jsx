@@ -14,6 +14,7 @@ import Login from './components/Login';
 import ProfilePage from './pages/ProfilePage';
 import PartTimePage from './pages/PartTimePage';
 import TodayPage from './pages/TodayPage';
+import TasksPage from './pages/TasksPage';
 import Logo from './components/Logo';
 
 import { saveTask } from './services/taskService';
@@ -21,6 +22,39 @@ import { TASK_STATUS, TASK_PRIORITY } from './constants';
 import { translations } from './i18n';
 import { auth } from './firebase';
 import { TasksProvider, useTasks } from './contexts/TasksContext';
+
+class ErrorBoundary extends React.Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null, errorInfo: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    this.setState({ error, errorInfo });
+    console.error("ErrorBoundary caught an error", error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div style={{ padding: '20px', background: 'red', color: 'white', overflow: 'auto', zIndex: 9999, position: 'relative' }}>
+          <h2>Something went wrong.</h2>
+          <details style={{ whiteSpace: 'pre-wrap' }}>
+            {this.state.error && this.state.error.toString()}
+            <br />
+            {this.state.errorInfo && this.state.errorInfo.componentStack}
+          </details>
+        </div>
+      );
+    }
+    return this.props.children; 
+  }
+}
+
 
 const locales = {
   'en-US': enUS,
@@ -281,7 +315,8 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
           <Route path="/" element={CalendarView} />
           <Route path="/today" element={<TodayPage user={user} />} />
           <Route path="/profile" element={<ProfilePage user={user} />} />
-          <Route path="/part-time" element={<PartTimePage user={user} />} />
+          <Route path="/part-time" element={<ErrorBoundary><PartTimePage user={user} /></ErrorBoundary>} />
+          <Route path="/tasks" element={<TasksPage user={user} />} />
         </Routes>
       </AnimatePresence>
 
@@ -304,11 +339,11 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
           <span className={`text-[10px] mt-1 font-medium text-main ${!(location.pathname === '/' && currentView === 'month') && 'opacity-60'}`}>Calendar</span>
         </button>
         <button 
-          onClick={() => { navigate('/'); setCurrentView('agenda'); }}
-          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/' && currentView === 'agenda' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
+          onClick={() => navigate('/tasks')}
+          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/tasks' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <ListTodo size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${!(location.pathname === '/' && currentView === 'agenda') && 'opacity-60'}`}>Tasks</span>
+          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/tasks' && 'opacity-60'}`}>Tasks</span>
         </button>
         <button 
           onClick={() => navigate('/today')}
