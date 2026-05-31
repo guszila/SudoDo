@@ -418,41 +418,43 @@ export default function TodayPage({ user }) {
               </button>
             </div>
 
-            <div className="flex-1 min-h-0">
-              <ResponsiveContainer width="100%" height="100%">
-                {chartType === 'bar' ? (
-                  <BarChart data={fullChartData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
-                    <Tooltip 
-                      cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.4 }}
-                      contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                      itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
-                      formatter={(value) => [`฿${value.toLocaleString()}`, 'รายได้']}
-                      labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
-                    />
-                    <Bar dataKey="income" radius={[8, 8, 8, 8]}>
-                      {fullChartData.map((entry, index) => (
-                        <Cell key={`cell-${index}`} fill={index === fullChartData.length - 1 ? 'var(--color-primary-500)' : 'var(--color-primary-300)'} />
-                      ))}
-                    </Bar>
-                  </BarChart>
-                ) : (
-                  <LineChart data={fullChartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
-                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} />
-                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
-                    <Tooltip 
-                      contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                      itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
-                      formatter={(value) => [`฿${value.toLocaleString()}`, 'รายได้']}
-                      labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
-                    />
-                    <Line type="monotone" dataKey="income" stroke="var(--color-primary-500)" strokeWidth={4} dot={{ r: 5, fill: 'var(--color-primary-500)', strokeWidth: 2, stroke: 'white' }} activeDot={{ r: 8 }} />
-                  </LineChart>
-                )}
-              </ResponsiveContainer>
+            <div className="flex-1 min-h-0 relative">
+              <div className="absolute inset-0">
+                <ResponsiveContainer width="100%" height="100%">
+                  {chartType === 'bar' ? (
+                    <BarChart data={fullChartData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
+                      <Tooltip 
+                        cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.4 }}
+                        contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                        itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
+                        formatter={(value) => [`฿${value.toLocaleString()}`, 'รายได้']}
+                        labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
+                      />
+                      <Bar dataKey="income" radius={[8, 8, 8, 8]}>
+                        {fullChartData.map((entry, index) => (
+                          <Cell key={`cell-${index}`} fill={index === fullChartData.length - 1 ? 'var(--color-primary-500)' : 'var(--color-primary-300)'} />
+                        ))}
+                      </Bar>
+                    </BarChart>
+                  ) : (
+                    <LineChart data={fullChartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
+                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} />
+                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
+                      <Tooltip 
+                        contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                        itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
+                        formatter={(value) => [`฿${value.toLocaleString()}`, 'รายได้']}
+                        labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
+                      />
+                      <Line type="monotone" dataKey="income" stroke="var(--color-primary-500)" strokeWidth={4} dot={{ r: 5, fill: 'var(--color-primary-500)', strokeWidth: 2, stroke: 'white' }} activeDot={{ r: 8 }} />
+                    </LineChart>
+                  )}
+                </ResponsiveContainer>
+              </div>
             </div>
           </div>
         </div>

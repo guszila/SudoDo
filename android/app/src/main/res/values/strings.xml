@@ -1,0 +1,7 @@
+<?xml version='1.0' encoding='utf-8'?>
+<resources>
+    <string name="app_name">SudoDo</string>
+    <string name="title_activity_main">SudoDo</string>
+    <string name="package_name">com.sudodo.app</string>
+    <string name="custom_url_scheme">com.sudodo.app</string>
+</resources>
