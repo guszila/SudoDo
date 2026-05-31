@@ -349,7 +349,7 @@ export default function PartTimePage({ user }) {
               </div>
               
               <div className="pt-2">
-                <button type="submit" disabled={isLoading} className="w-full py-4 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition-colors shadow-lg active:scale-[0.98]">
+                <button type="submit" disabled={isMutating || isTasksLoading} className="w-full py-4 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition-colors shadow-lg active:scale-[0.98]">
                   สร้างตารางเวรตามวันที่เลือก
                 </button>
               </div>
@@ -371,13 +371,13 @@ export default function PartTimePage({ user }) {
       )}
 
       <div className="space-y-4 relative min-h-[200px]">
-        {isLoading && (
+        {isTasksLoading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/20 dark:bg-black/20 backdrop-blur-sm rounded-3xl">
              <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
           </div>
         )}
         
-        {activeTasks.length === 0 && !isLoading && (
+        {activeTasks.length === 0 && !isTasksLoading && (
           <div className="text-center py-16 liquid-glass-card rounded-[24px]">
              {activeTab === 'upcoming' ? <CalendarDays className="w-16 h-16 text-main opacity-20 mx-auto mb-4" /> : <History className="w-16 h-16 text-main opacity-20 mx-auto mb-4" />}
              <p className="text-main opacity-60 font-medium text-lg">
