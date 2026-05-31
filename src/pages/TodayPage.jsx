@@ -2,8 +2,8 @@ import React, { useState, useEffect, useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { format, isBefore, startOfDay, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { updateUserStreak } from '../api/firestore';
-import { Flame, DollarSign, Clock, Circle, Check, ArrowLeft, Maximize2, X } from 'lucide-react';
+import { updateUserStreak, saveTask } from '../api/firestore';
+import { Flame, DollarSign, Clock, Circle, Check, ArrowLeft, Maximize2, X, Trash2 } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useTasks } from '../contexts/TasksContext';
@@ -17,6 +17,17 @@ export default function TodayPage({ user }) {
   const navigate = useNavigate();
   
   const [now] = useState(new Date());
+
+  const handleDelete = async (taskId) => {
+    if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบงานนี้?')) {
+      try {
+        await saveTask('DELETE', { id: taskId }, user?.uid);
+      } catch (err) {
+        console.error('Error deleting task:', err);
+        alert('เกิดข้อผิดพลาดในการลบงาน');
+      }
+    }
+  };
 
   useEffect(() => {
     const initData = async () => {
@@ -364,7 +375,7 @@ export default function TodayPage({ user }) {
                          {isOverdue && <span className="text-red-500 font-bold ml-1 bg-red-500/10 px-1.5 rounded text-[9px]">เลยกำหนด</span>}
                       </p>
                     </div>
-                    <div className="flex-shrink-0">
+                    <div className="flex-shrink-0 flex items-center gap-1.5">
                       {task.status === 'Done' ? (
                         <div className="px-3 py-1.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-bold border border-green-500/20 flex items-center gap-1">
                           <Check size={12} /> เสร็จแล้ว
@@ -374,6 +385,13 @@ export default function TodayPage({ user }) {
                           {task.status}
                         </div>
                       )}
+                      <button 
+                        onClick={(e) => { e.stopPropagation(); handleDelete(task.id); }}
+                        className="p-1.5 text-main/30 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
+                        title="ลบงานนี้"
+                      >
+                        <Trash2 size={16} />
+                      </button>
                     </div>
                   </div>
                 );
