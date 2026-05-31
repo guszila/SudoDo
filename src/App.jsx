@@ -313,10 +313,10 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
           <Route path="/" element={CalendarView} />
-          <Route path="/today" element={<TodayPage user={user} />} />
-          <Route path="/profile" element={<ProfilePage user={user} />} />
-          <Route path="/part-time" element={<ErrorBoundary><PartTimePage user={user} /></ErrorBoundary>} />
-          <Route path="/tasks" element={<TasksPage user={user} />} />
+          <Route path="/today" element={<TodayPage user={user} lang={lang} />} />
+          <Route path="/profile" element={<ProfilePage user={user} lang={lang} />} />
+          <Route path="/part-time" element={<ErrorBoundary><PartTimePage user={user} lang={lang} /></ErrorBoundary>} />
+          <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
         </Routes>
       </AnimatePresence>
 
@@ -336,35 +336,35 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
           className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/' && currentView === 'month' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <CalendarIcon size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${!(location.pathname === '/' && currentView === 'month') && 'opacity-60'}`}>Calendar</span>
+          <span className={`text-[10px] mt-1 font-medium text-main ${!(location.pathname === '/' && currentView === 'month') && 'opacity-60'}`}>{lang === 'en' ? 'Calendar' : 'ปฏิทิน'}</span>
         </button>
         <button 
           onClick={() => navigate('/tasks')}
           className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/tasks' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <ListTodo size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/tasks' && 'opacity-60'}`}>Tasks</span>
+          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/tasks' && 'opacity-60'}`}>{lang === 'en' ? 'Tasks' : 'งานทั้งหมด'}</span>
         </button>
         <button 
           onClick={() => navigate('/today')}
           className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/today' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <Home size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/today' && 'opacity-60'}`}>Today</span>
+          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/today' && 'opacity-60'}`}>{lang === 'en' ? 'Today' : 'วันนี้'}</span>
         </button>
         <button 
           onClick={() => navigate('/part-time')}
           className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/part-time' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <DollarSign size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/part-time' && 'opacity-60'}`}>รายได้</span>
+          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/part-time' && 'opacity-60'}`}>{lang === 'en' ? 'Income' : 'รายได้'}</span>
         </button>
         <button 
           onClick={() => navigate('/profile')}
           className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/profile' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <Settings size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/profile' && 'opacity-60'}`}>Settings</span>
+          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/profile' && 'opacity-60'}`}>{lang === 'en' ? 'Settings' : 'ตั้งค่า'}</span>
         </button>
       </nav>
 

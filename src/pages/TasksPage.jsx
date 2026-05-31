@@ -10,9 +10,12 @@ import TaskModal from '../components/TaskModal';
 import { useTasks } from '../contexts/TasksContext';
 import { saveTask } from '../services/taskService';
 import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE } from '../constants';
+import { translations } from '../i18n';
 
-export default function TasksPage({ user }) {
+export default function TasksPage({ user, lang = 'en' }) {
   const { tasks, isLoading } = useTasks();
+  const t = translations[lang].tasks;
+  const tCommon = translations[lang];
   const navigate = useNavigate();
   
   const [activeTab, setActiveTab] = useState('general'); // 'general' | 'partTime'
@@ -111,14 +114,14 @@ export default function TasksPage({ user }) {
           </button>
           <h1 className="text-2xl font-bold text-main flex items-center gap-2 m-0">
             <ListTodo className="text-primary-500" size={28} />
-            งานทั้งหมด
+            {lang === 'en' ? 'All Tasks' : 'งานทั้งหมด'}
           </h1>
         </div>
         <button 
           onClick={() => { setEditingTask(null); setIsModalOpen(true); }}
           className="p-2 md:px-4 md:py-2 bg-primary-500 text-white rounded-full flex items-center gap-2 hover:bg-primary-600 transition-colors shadow-md active:scale-95"
         >
-          <Plus size={20} /> <span className="hidden md:inline font-bold">เพิ่มงานใหม่</span>
+          <Plus size={20} /> <span className="hidden md:inline font-bold">{tCommon.addTask}</span>
         </button>
       </div>
 
@@ -129,13 +132,13 @@ export default function TasksPage({ user }) {
             onClick={() => setActiveTab('general')}
             className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'general' ? 'bg-[#6c63ff] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
           >
-            <CalendarDays size={16} /> งานทั่วไป
+            <CalendarDays size={16} /> {t.generalTasks}
           </button>
           <button 
             onClick={() => setActiveTab('partTime')}
             className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'partTime' ? 'bg-[#6c63ff] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
           >
-            <DollarSign size={16} /> กะงาน
+            <DollarSign size={16} /> {t.shifts}
           </button>
         </div>
 
@@ -145,13 +148,13 @@ export default function TasksPage({ user }) {
             onClick={() => setActiveStatus('pending')}
             className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeStatus === 'pending' ? 'bg-[#6c63ff] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
           >
-            ค้างอยู่
+            {t.pending}
           </button>
           <button 
             onClick={() => setActiveStatus('done')}
             className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeStatus === 'done' ? 'bg-[#6c63ff] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
           >
-            เสร็จแล้ว
+            {t.done}
           </button>
         </div>
       </div>
@@ -161,7 +164,7 @@ export default function TasksPage({ user }) {
           <div className="text-center py-16 liquid-glass-card rounded-[24px]">
              <ListTodo className="w-16 h-16 text-main opacity-20 mx-auto mb-4" />
              <p className="text-main opacity-60 font-medium text-lg">
-               ไม่มีงานในหมวดหมู่นี้
+               {t.noTasks}
              </p>
           </div>
         )}
@@ -248,7 +251,7 @@ export default function TasksPage({ user }) {
         onSave={handleEditSave}
         onDelete={(id) => handleDelete(id, { stopPropagation: () => {} })}
         task={editingTask}
-        lang="th"
+        lang={lang}
       />
     </motion.div>
   );

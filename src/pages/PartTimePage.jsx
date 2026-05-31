@@ -10,8 +10,10 @@ import TaskModal from '../components/TaskModal';
 import { useTasks } from '../contexts/TasksContext';
 import { saveTask } from '../services/taskService';
 import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE, DEFAULT_TASK_VALUES } from '../constants';
+import { translations } from '../i18n';
 
-export default function PartTimePage({ user }) {
+export default function PartTimePage({ user, lang = 'en' }) {
+  const t = translations[lang].partTime;
   const { tasks: allTasks, isLoading: isTasksLoading } = useTasks();
   const navigate = useNavigate();
   
@@ -179,7 +181,7 @@ export default function PartTimePage({ user }) {
   };
 
   const handleResetIncome = async () => {
-    if (!window.confirm('คุณแน่ใจหรือไม่ว่าต้องการ "รีเซ็ตรายได้" ?\n\nระบบจะทำการลบประวัติการทำงานที่เสร็จสิ้นแล้วทั้งหมด และยอดเงินจะกลับเป็น 0')) return;
+    if (!window.confirm('คุณแน่ใจหรือไม่ว่าต้องการ "รีเซ็ตรายได้" ?\n\nระบบจะทำการลบ{t.historyTitle}ที่เสร็จสิ้นแล้วทั้งหมด และยอดเงินจะกลับเป็น 0')) return;
     
     setIsMutating(true);
     for (const task of historyTasks) {
@@ -213,21 +215,21 @@ export default function PartTimePage({ user }) {
         </button>
         <h1 className="text-2xl font-bold text-main flex items-center gap-2 m-0">
           <CalendarDays className="text-primary-500" size={28} />
-          ตารางเวร & รายได้
+          {t.title}
         </h1>
       </div>
 
       <div className="grid grid-cols-2 gap-4 mb-8">
         <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-green-500">
-          <p className="text-xs text-main opacity-70 font-medium mb-1">รายได้ที่ได้แล้ว (Earned)</p>
+          <p className="text-xs text-main opacity-70 font-medium mb-1">{t.earned}</p>
           <span className="text-2xl font-bold text-green-500">฿{stats.earned.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
         <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-amber-500">
-          <p className="text-xs text-main opacity-70 font-medium mb-1">คาดว่าจะได้รับ (Expected)</p>
+          <p className="text-xs text-main opacity-70 font-medium mb-1">{t.expected}</p>
           <span className="text-xl font-bold text-amber-500">฿{stats.pending.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
         <div className="col-span-2 liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-primary-500 border border-dashed border-main/20">
-          <p className="text-sm text-main opacity-70 font-medium mb-1">รายได้รวมทั้งหมด (Total)</p>
+          <p className="text-sm text-main opacity-70 font-medium mb-1">{t.total}</p>
           <span className="text-2xl font-bold text-primary-500">฿{stats.total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
       </div>
@@ -238,20 +240,20 @@ export default function PartTimePage({ user }) {
             onClick={() => setActiveTab('upcoming')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all text-sm ${activeTab === 'upcoming' ? 'bg-primary-500 text-white shadow-md' : 'bg-white/20 text-main hover:bg-white/40'}`}
           >
-            <CalendarDays size={16} /> ตารางเวรล่วงหน้า
+            <CalendarDays size={16} /> {t.upcoming}
           </button>
           <button 
             onClick={() => setActiveTab('history')}
             className={`flex items-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all text-sm ${activeTab === 'history' ? 'bg-primary-500 text-white shadow-md' : 'bg-white/20 text-main hover:bg-white/40'}`}
           >
-            <History size={16} /> ประวัติ
+            <History size={16} /> {t.history}
           </button>
         </div>
         <button 
           onClick={() => setShowAddForm(!showAddForm)}
           className="flex items-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-full transition-all shadow-md active:scale-95 text-sm"
         >
-          <Plus size={16} /> {showAddForm ? 'ปิด' : 'เพิ่มกะ'}
+          <Plus size={16} /> {showAddForm ? t.close : t.addShift}
         </button>
       </div>
 
@@ -259,12 +261,12 @@ export default function PartTimePage({ user }) {
         {showAddForm && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-6">
             <form onSubmit={handleAddShift} className="liquid-glass-card p-6 space-y-5 border-2 border-primary-500/30 bg-primary-500/5">
-              <h3 className="font-bold text-main">เพิ่มตารางเวรล่วงหน้า (สามารถเพิ่มหลายวันได้)</h3>
+              <h3 className="font-bold text-main">เพิ่ม{t.upcoming} (สามารถเพิ่มหลายวันได้)</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">ชื่องาน/สถานที่</label>
-                  <input type="text" list="job-titles" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="เช่น ร้านกาแฟ" />
+                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.jobTitle}</label>
+                  <input type="text" list="job-titles" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="{t.jobTitlePlaceholder}" />
                   <datalist id="job-titles">
                     {uniqueTitles.map((title, idx) => (
                       <option key={idx} value={title} />
@@ -272,7 +274,7 @@ export default function PartTimePage({ user }) {
                   </datalist>
                 </div>
                 <div>
-                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">อัตราค่าจ้าง (บาท)</label>
+                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.hourlyRate}</label>
                   <div className="flex gap-2">
                     <input type="number" step="any" value={formData.hourlyRate} onChange={e => setFormData({...formData, hourlyRate: e.target.value})} required min="0" className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
                     <select 
@@ -281,8 +283,8 @@ export default function PartTimePage({ user }) {
                       className="px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main font-bold"
                       style={{ backgroundColor: 'var(--glass-bg-input)' }}
                     >
-                      <option value="hourly">/ ชั่วโมง</option>
-                      <option value="daily">/ วัน</option>
+                      <option value="hourly">{t.perHour}</option>
+                      <option value="daily">{t.perDay}</option>
                     </select>
                   </div>
                 </div>
@@ -291,21 +293,21 @@ export default function PartTimePage({ user }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">ตั้งแต่วันที่</label>
+                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.fromDate}</label>
                     <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาเริ่มงาน</label>
+                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.startTime}</label>
                     <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
-                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">ถึงวันที่</label>
+                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.toDate}</label>
                     <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาเลิกงาน</label>
+                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.endTime}</label>
                     <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="time" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
                   </div>
                 </div>
@@ -313,7 +315,7 @@ export default function PartTimePage({ user }) {
               
               <div className="pt-2">
                 <button type="submit" disabled={isMutating || isTasksLoading} className="w-full py-4 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-colors shadow-lg active:scale-[0.98]">
-                  สร้างตารางเวรตามวันที่เลือก
+                  {t.createShifts}
                 </button>
               </div>
             </form>
@@ -323,12 +325,12 @@ export default function PartTimePage({ user }) {
 
       {activeTab === 'history' && historyTasks.length > 0 && (
         <div className="flex justify-between items-center mb-4 px-1">
-          <h3 className="text-lg font-bold text-main">ประวัติการทำงาน</h3>
+          <h3 className="text-lg font-bold text-main">{t.historyTitle}</h3>
           <button 
             onClick={handleResetIncome}
             className="text-sm font-bold text-red-500 bg-red-500/10 hover:bg-red-500/20 px-4 py-2 rounded-xl transition-colors active:scale-95 flex items-center gap-2"
           >
-            <Trash2 size={16} /> รีเซ็ตรายได้
+            <Trash2 size={16} /> {t.resetIncome}
           </button>
         </div>
       )}
@@ -344,7 +346,7 @@ export default function PartTimePage({ user }) {
           <div className="text-center py-16 liquid-glass-card rounded-[24px]">
              {activeTab === 'upcoming' ? <CalendarDays className="w-16 h-16 text-main opacity-20 mx-auto mb-4" /> : <History className="w-16 h-16 text-main opacity-20 mx-auto mb-4" />}
              <p className="text-main opacity-60 font-medium text-lg">
-               {activeTab === 'upcoming' ? 'ยังไม่มีตารางเวรล่วงหน้า' : 'ยังไม่มีประวัติการทำงาน'}
+               {activeTab === 'upcoming' ? 'ยังไม่มี{t.upcoming}' : 'ยังไม่มี{t.historyTitle}'}
              </p>
           </div>
         )}
@@ -402,13 +404,13 @@ export default function PartTimePage({ user }) {
               <div className="flex flex-row md:flex-col items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
                 {isCompleted ? (
                   <div className="text-right flex-1 md:flex-none p-3 bg-green-500/10 rounded-xl border border-green-500/20">
-                    <p className="text-sm text-green-600 dark:text-green-400 font-bold mb-1 flex items-center justify-end gap-1"><CheckCircle2 size={16}/> เสร็จสิ้น</p>
+                    <p className="text-sm text-green-600 dark:text-green-400 font-bold mb-1 flex items-center justify-end gap-1"><CheckCircle2 size={16}/> {t.completed}</p>
                     <p className="text-2xl font-bold text-green-600 dark:text-green-400">+฿{earnings.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2 w-full">
                     <div className="text-right text-amber-500 mb-1 flex-1 md:flex-none p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                       <p className="text-xs font-bold mb-0.5">คาดว่าจะได้รับ (Expected)</p>
+                       <p className="text-xs font-bold mb-0.5">{t.expected}</p>
                        <p className="text-lg font-bold">+฿{earnings.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className="flex gap-2">
@@ -418,7 +420,7 @@ export default function PartTimePage({ user }) {
                         className={`flex-1 md:w-36 flex items-center justify-center gap-2 py-2 text-white font-bold rounded-xl transition-all ${isFutureTask ? 'bg-slate-400 cursor-not-allowed opacity-50 dark:opacity-30' : 'bg-green-500 hover:bg-green-600 active:scale-95'}`}
                       >
                         {isFutureTask ? <Clock size={16} /> : <CheckCircle2 size={16} />} 
-                        {isFutureTask ? 'ยังไม่ถึงวัน' : 'เสร็จงาน'}
+                        {isFutureTask ? t.notReached : t.markDone}
                       </button>
                     </div>
                   </div>
@@ -435,7 +437,7 @@ export default function PartTimePage({ user }) {
         onSave={handleEditSave}
         onDelete={handleDelete}
         task={editingTask}
-        lang="th"
+        lang={lang}
       />
     </motion.div>
   );

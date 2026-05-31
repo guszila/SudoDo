@@ -19,6 +19,41 @@ export const translations = {
       noEventsInRange: 'There are no events in this range.',
       showMore: total => `+ ${total} more`
     },
+    tasks: {
+      generalTasks: "General Tasks",
+      shifts: "Shifts",
+      pending: "Pending",
+      done: "Done",
+      noTasks: "No tasks found"
+    },
+    partTime: {
+      title: "Shifts & Income",
+      earned: "Earned",
+      expected: "Expected",
+      total: "Total Income",
+      upcoming: "Upcoming Shifts",
+      history: "History",
+      addShift: "Add Shift",
+      close: "Close",
+      addShiftTitle: "Add Future Shifts (Multiple days supported)",
+      jobTitle: "Job Title/Location",
+      hourlyRate: "Hourly Rate (THB)",
+      perHour: "/ Hour",
+      perDay: "/ Day",
+      fromDate: "From Date",
+      toDate: "To Date",
+      startTime: "Start Time",
+      endTime: "End Time",
+      createShifts: "Create Shifts",
+      historyTitle: "Work History",
+      resetIncome: "Reset Income",
+      noUpcoming: "No upcoming shifts",
+      noHistory: "No work history",
+      completed: "Completed",
+      notReached: "Not Reached",
+      markDone: "Mark Done",
+      jobTitlePlaceholder: "e.g. Coffee Shop"
+    },
     modal: {
       editTask: "Edit Task",
       newTask: "New Task",
@@ -31,7 +66,11 @@ export const translations = {
       status: "Status",
       delete: "Delete",
       cancel: "Cancel",
-      saveTask: "Save Task"
+      saveTask: "Save Task",
+      allDay: "All Day",
+      priority: "Priority",
+      quickDone: "Done! Click to undo",
+      quickMarkDone: "Click to mark as done ✅"
     },
     status: {
       "To-Do": "To-Do",
@@ -59,6 +98,41 @@ export const translations = {
       noEventsInRange: 'ไม่มีกิจกรรมในช่วงนี้',
       showMore: total => `+ ดูเพิ่มอีก ${total}`
     },
+    tasks: {
+      generalTasks: "งานทั่วไป",
+      shifts: "กะงาน",
+      pending: "ค้างอยู่",
+      done: "เสร็จแล้ว",
+      noTasks: "ไม่พบงาน"
+    },
+    partTime: {
+      title: "ตารางเวร & รายได้",
+      earned: "รายได้ที่ได้แล้ว (Earned)",
+      expected: "คาดว่าจะได้รับ (Expected)",
+      total: "รายได้รวมทั้งหมด (Total)",
+      upcoming: "ตารางเวรล่วงหน้า",
+      history: "ประวัติ",
+      addShift: "เพิ่มกะ",
+      close: "ปิด",
+      addShiftTitle: "เพิ่มตารางเวรล่วงหน้า (สามารถเพิ่มหลายวันได้)",
+      jobTitle: "ชื่องาน/สถานที่",
+      hourlyRate: "อัตราค่าจ้าง (บาท)",
+      perHour: "/ ชั่วโมง",
+      perDay: "/ วัน",
+      fromDate: "ตั้งแต่วันที่",
+      toDate: "ถึงวันที่",
+      startTime: "เวลาเริ่มงาน",
+      endTime: "เวลาเลิกงาน",
+      createShifts: "สร้างตารางเวรตามวันที่เลือก",
+      historyTitle: "ประวัติการทำงาน",
+      resetIncome: "รีเซ็ตรายได้",
+      noUpcoming: "ยังไม่มีตารางเวรล่วงหน้า",
+      noHistory: "ยังไม่มีประวัติการทำงาน",
+      completed: "เสร็จสิ้น",
+      notReached: "ยังไม่ถึงวัน",
+      markDone: "เสร็จงาน",
+      jobTitlePlaceholder: "เช่น ร้านกาแฟ"
+    },
     modal: {
       editTask: "แก้ไขงาน",
       newTask: "สร้างงานใหม่",
@@ -71,7 +145,11 @@ export const translations = {
       status: "สถานะ",
       delete: "ลบ",
       cancel: "ยกเลิก",
-      saveTask: "บันทึกงาน"
+      saveTask: "บันทึกงาน",
+      allDay: "ทั้งวัน (All Day)",
+      priority: "ระดับความสำคัญ",
+      quickDone: "เสร็จแล้ว! กดเพื่อยกเลิก",
+      quickMarkDone: "กดเพื่อทำเครื่องหมายเสร็จ ✅"
     },
     status: {
       "To-Do": "สิ่งที่ต้องทำ (To-Do)",

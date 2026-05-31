@@ -137,9 +137,9 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             style={{ border: formData.status === TASK_STATUS.DONE ? '2px solid rgba(34,197,94,0.4)' : '2px dashed var(--glass-border-strong)' }}
           >
             {formData.status === TASK_STATUS.DONE ? (
-              <><CheckCircle2 size={24} /> เสร็จแล้ว! กดเพื่อยกเลิก</>
+              <><CheckCircle2 size={24} /> {t.quickDone}</>
             ) : (
-              <><Circle size={24} /> กดเพื่อทำเครื่องหมายเสร็จ ✅</>
+              <><Circle size={24} /> {t.quickMarkDone}</>
             )}
           </button>
         )}
@@ -176,7 +176,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             </div>
             
             <div>
-              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">ระดับความสำคัญ</label>
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.priority}</label>
               <div 
                 className="flex rounded-[16px] overflow-hidden p-1"
                 style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
@@ -259,7 +259,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                 onChange={(e) => setFormData(prev => ({ ...prev, isAllDay: e.target.checked }))}
                 className="w-5 h-5 rounded text-primary-500 focus:ring-primary-500"
               />
-              <span className="text-sm font-bold text-main">ทั้งวัน (All Day)</span>
+              <span className="text-sm font-bold text-main">{t.allDay}</span>
             </label>
             
             <div>
