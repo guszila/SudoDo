@@ -124,32 +124,32 @@ export default function TasksPage({ user }) {
 
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         {/* Type Tabs */}
-        <div className="flex bg-black/5 dark:bg-white/10 p-1.5 rounded-2xl w-full md:w-auto">
+        <div className="flex p-1.5 rounded-2xl w-full md:w-auto" style={{ background: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.4)' }}>
           <button 
             onClick={() => setActiveTab('general')}
-            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'general' ? 'bg-white dark:bg-slate-800 text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'general' ? 'bg-[#6c63ff] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
           >
             <CalendarDays size={16} /> งานทั่วไป
           </button>
           <button 
             onClick={() => setActiveTab('partTime')}
-            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'partTime' ? 'bg-white dark:bg-slate-800 text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'partTime' ? 'bg-[#6c63ff] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
           >
             <DollarSign size={16} /> กะงาน
           </button>
         </div>
 
         {/* Status Tabs */}
-        <div className="flex bg-black/5 dark:bg-white/10 p-1.5 rounded-2xl w-full md:w-auto ml-auto">
+        <div className="flex p-1.5 rounded-2xl w-full md:w-auto ml-auto" style={{ background: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.4)' }}>
           <button 
             onClick={() => setActiveStatus('pending')}
-            className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeStatus === 'pending' ? 'bg-white dark:bg-slate-800 text-amber-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+            className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeStatus === 'pending' ? 'bg-[#6c63ff] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
           >
             ค้างอยู่
           </button>
           <button 
             onClick={() => setActiveStatus('done')}
-            className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeStatus === 'done' ? 'bg-white dark:bg-slate-800 text-green-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+            className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeStatus === 'done' ? 'bg-[#6c63ff] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
           >
             เสร็จแล้ว
           </button>

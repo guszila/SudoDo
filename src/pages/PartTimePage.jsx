@@ -217,16 +217,16 @@ export default function PartTimePage({ user }) {
         </h1>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
-        <div className="liquid-glass-card p-5 flex flex-col justify-center border-l-4 border-l-green-500">
-          <p className="text-sm text-main opacity-70 font-medium mb-1">รายได้ที่ได้แล้ว (Earned)</p>
-          <span className="text-3xl font-bold text-green-500">฿{stats.earned.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+      <div className="grid grid-cols-2 gap-4 mb-8">
+        <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-green-500">
+          <p className="text-xs text-main opacity-70 font-medium mb-1">รายได้ที่ได้แล้ว (Earned)</p>
+          <span className="text-2xl font-bold text-green-500">฿{stats.earned.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
-        <div className="liquid-glass-card p-5 flex flex-col justify-center border-l-4 border-l-amber-500">
-          <p className="text-sm text-main opacity-70 font-medium mb-1">รายได้ที่คาดว่าจะได้รับ (Expected)</p>
-          <span className="text-2xl font-bold text-amber-500">฿{stats.pending.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
+        <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-amber-500">
+          <p className="text-xs text-main opacity-70 font-medium mb-1">คาดว่าจะได้รับ (Expected)</p>
+          <span className="text-xl font-bold text-amber-500">฿{stats.pending.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
-        <div className="liquid-glass-card p-5 flex flex-col justify-center border-l-4 border-l-primary-500 border border-dashed border-main/20">
+        <div className="col-span-2 liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-primary-500 border border-dashed border-main/20">
           <p className="text-sm text-main opacity-70 font-medium mb-1">รายได้รวมทั้งหมด (Total)</p>
           <span className="text-2xl font-bold text-primary-500">฿{stats.total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
@@ -249,7 +249,7 @@ export default function PartTimePage({ user }) {
         </div>
         <button 
           onClick={() => setShowAddForm(!showAddForm)}
-          className="flex items-center gap-2 px-4 py-2.5 bg-green-500 hover:bg-green-600 text-white font-bold rounded-full transition-all shadow-[0_4px_16px_0_rgba(34,197,94,0.3)] active:scale-95 text-sm"
+          className="flex items-center gap-2 px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-full transition-all shadow-md active:scale-95 text-sm"
         >
           <Plus size={16} /> {showAddForm ? 'ปิด' : 'เพิ่มกะ'}
         </button>
@@ -258,7 +258,7 @@ export default function PartTimePage({ user }) {
       <AnimatePresence>
         {showAddForm && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-6">
-            <form onSubmit={handleAddShift} className="liquid-glass-card p-6 space-y-5 border-2 border-green-500/30 bg-green-500/5">
+            <form onSubmit={handleAddShift} className="liquid-glass-card p-6 space-y-5 border-2 border-primary-500/30 bg-primary-500/5">
               <h3 className="font-bold text-main">เพิ่มตารางเวรล่วงหน้า (สามารถเพิ่มหลายวันได้)</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -312,7 +312,7 @@ export default function PartTimePage({ user }) {
               </div>
               
               <div className="pt-2">
-                <button type="submit" disabled={isMutating || isTasksLoading} className="w-full py-4 bg-green-500 text-white font-bold rounded-xl hover:bg-green-600 transition-colors shadow-lg active:scale-[0.98]">
+                <button type="submit" disabled={isMutating || isTasksLoading} className="w-full py-4 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-colors shadow-lg active:scale-[0.98]">
                   สร้างตารางเวรตามวันที่เลือก
                 </button>
               </div>
@@ -415,7 +415,7 @@ export default function PartTimePage({ user }) {
                       <button 
                         onClick={() => !isFutureTask && handleMarkDone(task)} 
                         disabled={isFutureTask}
-                        className={`flex-1 md:w-36 flex items-center justify-center gap-2 py-2 text-white font-bold rounded-xl transition-all ${isFutureTask ? 'bg-slate-400 cursor-not-allowed opacity-50 dark:opacity-30' : 'bg-primary-500 hover:bg-primary-600 active:scale-95'}`}
+                        className={`flex-1 md:w-36 flex items-center justify-center gap-2 py-2 text-white font-bold rounded-xl transition-all ${isFutureTask ? 'bg-slate-400 cursor-not-allowed opacity-50 dark:opacity-30' : 'bg-green-500 hover:bg-green-600 active:scale-95'}`}
                       >
                         {isFutureTask ? <Clock size={16} /> : <CheckCircle2 size={16} />} 
                         {isFutureTask ? 'ยังไม่ถึงวัน' : 'เสร็จงาน'}

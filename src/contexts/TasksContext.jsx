@@ -31,7 +31,8 @@ export const TasksProvider = ({ children, user }) => {
           ...item,
           start: new Date(item.start),
           end: new Date(item.end),
-          priority: item.priority || TASK_PRIORITY.MEDIUM
+          priority: item.priority || TASK_PRIORITY.MEDIUM,
+          allDay: item.isAllDay || false
         }));
 
         formattedData.sort((a, b) => PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority]);

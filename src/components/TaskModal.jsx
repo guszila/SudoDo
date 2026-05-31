@@ -31,7 +31,8 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         priority: task.priority || TASK_PRIORITY.MEDIUM,
         isPartTime: task.isPartTime || false,
         hourlyRate: task.hourlyRate || DEFAULT_TASK_VALUES.HOURLY_RATE,
-        rateType: task.rateType || 'hourly'
+        rateType: task.rateType || 'hourly',
+        isAllDay: task.isAllDay || false
       });
     } else {
       setFormData({
@@ -43,7 +44,8 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         priority: TASK_PRIORITY.MEDIUM,
         isPartTime: false,
         hourlyRate: DEFAULT_TASK_VALUES.HOURLY_RATE,
-        rateType: 'hourly'
+        rateType: 'hourly',
+        isAllDay: false
       });
     }
   }, [task, isOpen]);
@@ -156,97 +158,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
               placeholder={t.titlePlaceholder}
             />
           </div>
-          
-          <div>
-            <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.description}</label>
-            <textarea 
-              name="description" 
-              value={formData.description} 
-              onChange={handleChange} 
-              rows={3}
-              className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow"
-              style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-              placeholder={t.descriptionPlaceholder}
-            />
-          </div>
 
-          {formData.isPartTime && (
-            <div>
-              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">อัตราค่าจ้าง (บาท)</label>
-              <div className="flex gap-2">
-                <input 
-                  type="number" 
-                  step="any"
-                  name="hourlyRate"
-                  value={formData.hourlyRate} 
-                  onChange={handleChange}
-                  required min="0" 
-                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" 
-                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }} 
-                />
-                <select 
-                  name="rateType"
-                  value={formData.rateType} 
-                  onChange={handleChange}
-                  className="px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main font-bold appearance-none"
-                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                >
-                  <option value="hourly">/ ชั่วโมง</option>
-                  <option value="daily">/ วัน</option>
-                </select>
-              </div>
-            </div>
-          )}
-
-          <div className="space-y-4">
-            <div>
-              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.startTime}</label>
-              <div className="grid grid-cols-2 gap-2">
-                <input 
-                  onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
-                  type="date" 
-                  value={formData.start.split('T')[0]} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, start: `${e.target.value}T${prev.start.split('T')[1] || '00:00'}` }))}
-                  required
-                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
-                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                />
-                <input 
-                  onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
-                  type="time" 
-                  value={formData.start.split('T')[1] || '00:00'} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, start: `${prev.start.split('T')[0] || new Date().toISOString().slice(0, 10)}T${e.target.value}` }))}
-                  required
-                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
-                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                />
-              </div>
-            </div>
-            <div>
-              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.endTime}</label>
-              <div className="grid grid-cols-2 gap-2">
-                <input 
-                  onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
-                  type="date" 
-                  value={formData.end.split('T')[0]} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, end: `${e.target.value}T${prev.end.split('T')[1] || '00:00'}` }))}
-                  required
-                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
-                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                />
-                <input 
-                  onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
-                  type="time" 
-                  value={formData.end.split('T')[1] || '00:00'} 
-                  onChange={(e) => setFormData(prev => ({ ...prev, end: `${prev.end.split('T')[0] || new Date().toISOString().slice(0, 10)}T${e.target.value}` }))}
-                  required
-                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
-                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                />
-              </div>
-            </div>
-          </div>
-          
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.status}</label>
@@ -292,6 +204,117 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
               </div>
             </div>
           </div>
+          
+          <div>
+            <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.description}</label>
+            <textarea 
+              name="description" 
+              value={formData.description} 
+              onChange={handleChange} 
+              rows={3}
+              className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow"
+              style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+              placeholder={t.descriptionPlaceholder}
+            />
+          </div>
+
+          {formData.isPartTime && (
+            <div>
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">อัตราค่าจ้าง (บาท)</label>
+              <div className="flex gap-2">
+                <input 
+                  type="number" 
+                  step="any"
+                  name="hourlyRate"
+                  value={formData.hourlyRate} 
+                  onChange={handleChange}
+                  required min="0" 
+                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" 
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }} 
+                />
+                <select 
+                  name="rateType"
+                  value={formData.rateType} 
+                  onChange={handleChange}
+                  className="px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main font-bold appearance-none"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                >
+                  <option value="hourly">/ ชั่วโมง</option>
+                  <option value="daily">/ วัน</option>
+                </select>
+              </div>
+            </div>
+          )}
+
+          <div className="space-y-4">
+            <label 
+              htmlFor="isAllDay" 
+              className="flex items-center gap-3 mb-2 min-h-[44px] w-full cursor-pointer px-4 rounded-[16px] transition-colors"
+              style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+            >
+              <input
+                type="checkbox"
+                id="isAllDay"
+                checked={formData.isAllDay}
+                onChange={(e) => setFormData(prev => ({ ...prev, isAllDay: e.target.checked }))}
+                className="w-5 h-5 rounded text-primary-500 focus:ring-primary-500"
+              />
+              <span className="text-sm font-bold text-main">ทั้งวัน (All Day)</span>
+            </label>
+            
+            <div>
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.startTime}</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input 
+                  onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
+                  type="date" 
+                  value={formData.start.split('T')[0]} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, start: `${e.target.value}T${prev.start.split('T')[1] || '00:00'}` }))}
+                  required
+                  className="w-full px-2 py-3 text-sm rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                />
+                {!formData.isAllDay && (
+                  <input 
+                    onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
+                    type="time" 
+                    value={formData.start.split('T')[1] || '00:00'} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, start: `${prev.start.split('T')[0] || new Date().toISOString().slice(0, 10)}T${e.target.value}` }))}
+                    required
+                    className="w-full px-2 py-3 text-sm rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
+                    style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                  />
+                )}
+              </div>
+            </div>
+            <div>
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.endTime}</label>
+              <div className="grid grid-cols-2 gap-2">
+                <input 
+                  onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
+                  type="date" 
+                  value={formData.end.split('T')[0]} 
+                  onChange={(e) => setFormData(prev => ({ ...prev, end: `${e.target.value}T${prev.end.split('T')[1] || '00:00'}` }))}
+                  required
+                  className="w-full px-2 py-3 text-sm rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                />
+                {!formData.isAllDay && (
+                  <input 
+                    onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
+                    type="time" 
+                    value={formData.end.split('T')[1] || '00:00'} 
+                    onChange={(e) => setFormData(prev => ({ ...prev, end: `${prev.end.split('T')[0] || new Date().toISOString().slice(0, 10)}T${e.target.value}` }))}
+                    required
+                    className="w-full px-2 py-3 text-sm rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
+                    style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                  />
+                )}
+              </div>
+            </div>
+          </div>
+          
+
 
           <div className="flex justify-between items-center mt-8 pt-4">
             {task?.id ? (
