@@ -52,7 +52,14 @@ export const translations = {
       completed: "Completed",
       notReached: "Not Reached",
       markDone: "Mark Done",
-      jobTitlePlaceholder: "e.g. Coffee Shop"
+      jobTitlePlaceholder: "e.g. Coffee Shop",
+      addExpense: "Add Expense",
+      addExpenseTitle: "Add Expense / Deduction",
+      expenseTitle: "Expense Detail",
+      amount: "Amount",
+      createExpense: "Save Expense",
+      expenseTitlePlaceholder: "e.g. Social Security, Tax",
+      expenses: "Expenses"
     },
     modal: {
       editTask: "Edit Task",
@@ -131,7 +138,14 @@ export const translations = {
       completed: "เสร็จสิ้น",
       notReached: "ยังไม่ถึงวัน",
       markDone: "เสร็จงาน",
-      jobTitlePlaceholder: "เช่น ร้านกาแฟ"
+      jobTitlePlaceholder: "เช่น ร้านกาแฟ",
+      addExpense: "เพิ่มรายจ่าย",
+      addExpenseTitle: "เพิ่มรายจ่าย / หักเงิน",
+      expenseTitle: "รายการ",
+      amount: "จำนวนเงิน (บาท)",
+      createExpense: "บันทึกรายจ่าย",
+      expenseTitlePlaceholder: "เช่น ประกันสังคม, ค่าเดินทาง",
+      expenses: "รายจ่าย"
     },
     modal: {
       editTask: "แก้ไขงาน",

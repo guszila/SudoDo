@@ -3,7 +3,7 @@ import React, { useState, useEffect, useCallback } from 'react';
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, isBefore, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import { enUS, th } from 'date-fns/locale';
-import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Languages, LogOut, Home, Settings, ListTodo, User, Moon, Sun, DollarSign } from 'lucide-react';
+import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Languages, LogOut, Home, Settings, ListTodo, User, Moon, Sun, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -12,7 +12,9 @@ import TaskModal from './components/TaskModal';
 import StatsBar from './components/StatsBar';
 import Login from './components/Login';
 import ProfilePage from './pages/ProfilePage';
+import SettingsPage from './pages/SettingsPage';
 import PartTimePage from './pages/PartTimePage';
+import IncomeHistoryPage from './pages/IncomeHistoryPage';
 import TodayPage from './pages/TodayPage';
 import TasksPage from './pages/TasksPage';
 import Logo from './components/Logo';
@@ -22,6 +24,7 @@ import { TASK_STATUS, TASK_PRIORITY } from './constants';
 import { translations } from './i18n';
 import { auth } from './firebase';
 import { TasksProvider, useTasks } from './contexts/TasksContext';
+import { ToastProvider } from './contexts/ToastContext';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -217,6 +220,97 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
     );
   };
 
+  const CustomToolbar = ({ date, view, views, label, onNavigate, onView }) => {
+    const goToBack = () => onNavigate('PREV');
+    const goToNext = () => onNavigate('NEXT');
+    const goToToday = () => onNavigate('TODAY');
+
+    const now = new Date();
+    let isCurrent = false;
+    if (view === 'month') {
+      isCurrent = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    } else if (view === 'day') {
+      isCurrent = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    } else {
+      isCurrent = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
+    }
+
+    return (
+      <div className="rbc-toolbar flex-col gap-0 mb-4 border-none bg-transparent p-0">
+        <div style={{
+          background: 'rgba(255,255,255,0.25)',
+          backdropFilter: 'blur(12px)',
+          border: '0.5px solid rgba(255,255,255,0.4)',
+          borderRadius: '16px',
+          padding: '12px 16px',
+          marginBottom: '12px'
+        }} className="flex justify-between items-center w-full shadow-sm">
+          
+          <button 
+            onClick={goToToday}
+            disabled={isCurrent}
+            style={{
+              padding: '5px 12px',
+              borderRadius: '20px',
+              background: 'rgba(127,119,221,0.15)',
+              border: '0.5px solid rgba(127,119,221,0.4)',
+              fontSize: '12px',
+              color: '#534AB7',
+              fontWeight: 500,
+              opacity: isCurrent ? 0.4 : 1,
+              cursor: isCurrent ? 'default' : 'pointer'
+            }}
+            className="transition-opacity active:scale-95 flex-shrink-0"
+          >
+            {lang === 'th' ? 'วันนี้' : 'Today'}
+          </button>
+
+          <div style={{ fontSize: '15px', fontWeight: 500, color: '#3C3489', textAlign: 'center' }} className="flex-1 px-2 truncate">
+            {view === 'month' ? `${format(date, 'MMMM', { locale: lang === 'th' ? th : enUS })} ${date.getFullYear()}` : label}
+          </div>
+
+          <div className="flex gap-[4px] flex-shrink-0">
+            <button 
+              onClick={goToBack}
+              style={{
+                width: '32px', height: '32px', borderRadius: '50%',
+                background: 'rgba(255,255,255,0.35)',
+                border: '0.5px solid rgba(255,255,255,0.4)'
+              }}
+              className="flex items-center justify-center hover:bg-white/50 dark:hover:bg-white/10 transition-colors active:scale-90"
+            >
+              <ChevronLeft size={14} color="#534AB7" />
+            </button>
+            <button 
+              onClick={goToNext}
+              style={{
+                width: '32px', height: '32px', borderRadius: '50%',
+                background: 'rgba(255,255,255,0.35)',
+                border: '0.5px solid rgba(255,255,255,0.4)'
+              }}
+              className="flex items-center justify-center hover:bg-white/50 dark:hover:bg-white/10 transition-colors active:scale-90"
+            >
+              <ChevronRight size={14} color="#534AB7" />
+            </button>
+          </div>
+        </div>
+
+        <div className="rbc-btn-group w-full flex justify-center !mb-2 mt-0">
+          {views.map(name => (
+            <button
+              type="button"
+              key={name}
+              className={view === name ? 'rbc-active' : ''}
+              onClick={() => onView(name)}
+            >
+              {t.calendarMessages[name] || name}
+            </button>
+          ))}
+        </div>
+      </div>
+    );
+  };
+
   const CalendarView = (
     <motion.div 
       initial={{ opacity: 0, scale: 0.98 }}
@@ -232,20 +326,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
         </div>
         
         <div className="flex items-center gap-2">
-          <button 
-            onClick={toggleTheme}
-            className="liquid-glass-button p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-main"
-            title={theme === 'dark' ? 'Switch to Light Mode' : 'Switch to Dark Mode'}
-          >
-            {theme === 'dark' ? <Sun size={20} className="text-yellow-400" /> : <Moon size={20} className="text-indigo-600" />}
-          </button>
-          <button 
-            onClick={toggleLanguage}
-            className="liquid-glass-button p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-main"
-            title={lang === 'th' ? 'Switch to English' : 'เปลี่ยนเป็นภาษาไทย'}
-          >
-            {lang === 'th' ? <span className="font-bold text-sm">TH</span> : <span className="font-bold text-sm">EN</span>}
-          </button>
+
           <button 
             onClick={() => { setSelectedTask(null); setIsModalOpen(true); }}
             className="hidden md:flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-[20px] transition-all shadow-[0_4px_16px_0_rgba(108,99,255,0.3)] active:scale-95 border"
@@ -293,7 +374,8 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
               event: EventComponent,
               month: {
                 dateHeader: CustomDateHeader
-              }
+              },
+              toolbar: CustomToolbar
             }}
             eventPropGetter={eventPropGetter}
             views={['month', 'week', 'day', 'agenda']}
@@ -315,19 +397,23 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
           <Route path="/" element={CalendarView} />
           <Route path="/today" element={<TodayPage user={user} lang={lang} />} />
           <Route path="/profile" element={<ProfilePage user={user} lang={lang} />} />
+          <Route path="/settings" element={<ErrorBoundary><SettingsPage user={user} lang={lang} setLang={setLang} theme={theme} toggleTheme={toggleTheme} /></ErrorBoundary>} />
           <Route path="/part-time" element={<ErrorBoundary><PartTimePage user={user} lang={lang} /></ErrorBoundary>} />
+          <Route path="/income/history" element={<ErrorBoundary><IncomeHistoryPage user={user} lang={lang} /></ErrorBoundary>} />
           <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
         </Routes>
       </AnimatePresence>
 
       {/* Mobile Floating Action Button */}
-      <button 
-        onClick={() => { setSelectedTask(null); setIsModalOpen(true); }}
-        className="md:hidden fixed bottom-24 right-6 w-14 h-14 bg-primary-500 text-white rounded-full flex items-center justify-center shadow-[0_8px_32px_0_rgba(108,99,255,0.4)] border z-50 active:scale-90 transition-transform"
-        style={{ borderColor: 'var(--glass-border)' }}
-      >
-        <Plus size={28} />
-      </button>
+      {location.pathname === '/' && (
+        <button 
+          onClick={() => { setSelectedTask(null); setIsModalOpen(true); }}
+          className="md:hidden fixed bottom-24 right-6 w-14 h-14 bg-primary-500 text-white rounded-full flex items-center justify-center shadow-[0_8px_32px_0_rgba(108,99,255,0.4)] border z-50 active:scale-90 transition-transform"
+          style={{ borderColor: 'var(--glass-border)' }}
+        >
+          <Plus size={28} />
+        </button>
+      )}
 
       {/* Mobile Bottom Navigation */}
       <nav className="md:hidden fixed bottom-0 left-0 right-0 liquid-glass border-x-0 border-b-0 rounded-t-[28px] rounded-b-none p-2 pb-safe flex justify-around items-center z-50 h-[72px]">
@@ -360,11 +446,11 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
           <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/part-time' && 'opacity-60'}`}>{lang === 'en' ? 'Income' : 'รายได้'}</span>
         </button>
         <button 
-          onClick={() => navigate('/profile')}
-          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/profile' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
+          onClick={() => navigate('/settings')}
+          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/settings' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <Settings size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/profile' && 'opacity-60'}`}>{lang === 'en' ? 'Settings' : 'ตั้งค่า'}</span>
+          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/settings' && 'opacity-60'}`}>{lang === 'en' ? 'Settings' : 'ตั้งค่า'}</span>
         </button>
       </nav>
 
@@ -385,7 +471,13 @@ export default function App() {
   const [authLoading, setAuthLoading] = useState(true);
 
   // Language state
-  const [lang, setLang] = useState('th');
+  const [lang, setLang] = useState(() => {
+    return localStorage.getItem('lang') || 'th';
+  });
+
+  useEffect(() => {
+    localStorage.setItem('lang', lang);
+  }, [lang]);
 
   // Theme state
   const [theme, setTheme] = useState(() => {
@@ -427,14 +519,16 @@ export default function App() {
   }
 
   return (
-    <TasksProvider user={user}>
-      <MainApp 
-        user={user} 
-        lang={lang} 
-        setLang={setLang} 
-        theme={theme} 
-        toggleTheme={toggleTheme} 
-      />
-    </TasksProvider>
+    <ToastProvider>
+      <TasksProvider user={user}>
+        <MainApp 
+          user={user} 
+          lang={lang} 
+          setLang={setLang} 
+          theme={theme} 
+          toggleTheme={toggleTheme} 
+        />
+      </TasksProvider>
+    </ToastProvider>
   );
 }

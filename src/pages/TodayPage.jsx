@@ -85,28 +85,39 @@ export default function TodayPage({ user }) {
       if (t.isPartTime) {
         const key = format(t.start, 'yyyy-MM');
         if (monthlyIncome[key] !== undefined || fullMonthlyIncome[key] !== undefined) {
-          let earnings = 0;
-          let hours = 0;
-          
-          if (isDone || (t.actualStart && t.actualEnd)) {
-            if (t.actualStart && t.actualEnd) {
-              hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
-            } else {
-              hours = (t.end - t.start) / (1000 * 60 * 60);
+          if (t.isExpense) {
+            if (isDone || (t.actualStart && t.actualEnd)) {
+               const amt = -(Number(t.amount) || 0);
+               if (monthlyIncome[key] !== undefined) monthlyIncome[key].income += amt;
+               if (fullMonthlyIncome[key] !== undefined) fullMonthlyIncome[key].income += amt;
             }
-            if (t.rateType === RATE_TYPE.DAILY) earnings = Number(t.hourlyRate) || 0;
-            else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
-            
-            if (monthlyIncome[key] !== undefined) monthlyIncome[key].income += earnings;
-            if (fullMonthlyIncome[key] !== undefined) fullMonthlyIncome[key].income += earnings;
+          } else {
+            let earnings = 0;
+            let hours = 0;
+            if (isDone || (t.actualStart && t.actualEnd)) {
+              if (t.actualStart && t.actualEnd) {
+                hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
+              } else {
+                hours = (t.end - t.start) / (1000 * 60 * 60);
+              }
+              if (t.rateType === RATE_TYPE.DAILY) earnings = Number(t.hourlyRate) || 0;
+              else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
+              
+              if (monthlyIncome[key] !== undefined) monthlyIncome[key].income += earnings;
+              if (fullMonthlyIncome[key] !== undefined) fullMonthlyIncome[key].income += earnings;
+            }
           }
         }
         
-        if (isSameDay(t.start, now) && isDone) {
+        if (isSameDay(t.start, now) && (isDone || (t.actualStart && t.actualEnd))) {
             let earnings = 0;
-            let hours = (t.end - t.start) / (1000 * 60 * 60);
-            if (t.rateType === RATE_TYPE.DAILY) earnings = Number(t.hourlyRate) || 0;
-            else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
+            if (t.isExpense) {
+                earnings = -(Number(t.amount) || 0);
+            } else {
+                let hours = (t.end - t.start) / (1000 * 60 * 60);
+                if (t.rateType === RATE_TYPE.DAILY) earnings = Number(t.hourlyRate) || 0;
+                else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
+            }
             income += earnings;
         }
       }

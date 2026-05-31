@@ -7,13 +7,18 @@ import { ArrowLeft, CheckCircle2, CircleDashed, Clock, Edit, ListTodo, Plus, Tra
 import { useNavigate } from 'react-router-dom';
 
 import TaskModal from '../components/TaskModal';
+import TaskCard from '../components/TaskCard';
+import ActionSheet from '../components/ActionSheet';
+import ConfirmDialog from '../components/ConfirmDialog';
 import { useTasks } from '../contexts/TasksContext';
+import { useToast } from '../contexts/ToastContext';
 import { saveTask } from '../services/taskService';
-import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE } from '../constants';
+import { TASK_STATUS } from '../constants';
 import { translations } from '../i18n';
 
 export default function TasksPage({ user, lang = 'en' }) {
   const { tasks, isLoading } = useTasks();
+  const { showToast } = useToast();
   const t = translations[lang].tasks;
   const tCommon = translations[lang];
   const navigate = useNavigate();
@@ -23,6 +28,15 @@ export default function TasksPage({ user, lang = 'en' }) {
   const [editingTask, setEditingTask] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
+
+  // Bulk Selection State
+  const [isSelectionMode, setIsSelectionMode] = useState(false);
+  const [selectedTaskIds, setSelectedTaskIds] = useState(new Set());
+  
+  // Action/Confirm state
+  const [actionTask, setActionTask] = useState(null);
+  const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
+  const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
   // Derived state
   const { generalPending, generalDone, partTimePending, partTimeDone } = useMemo(() => {
@@ -60,8 +74,7 @@ export default function TasksPage({ user, lang = 'en' }) {
     }
   }, [activeTab, activeStatus, generalPending, generalDone, partTimePending, partTimeDone]);
 
-  const handleMarkDone = async (task, e) => {
-    e.stopPropagation();
+  const handleMarkDone = async (task) => {
     const updated = {
       ...task,
       start: task.start.toISOString(),
@@ -73,12 +86,69 @@ export default function TasksPage({ user, lang = 'en' }) {
     setIsMutating(false);
   };
 
-  const handleDelete = async (taskId, e) => {
-    e.stopPropagation();
-    if (!window.confirm('คุณต้องการลบงานนี้หรือไม่?')) return;
+  const confirmDelete = async (taskToDelete) => {
+    setDeleteConfirmTask(null);
     setIsMutating(true);
-    await saveTask('DELETE', { id: taskId }, user.uid);
+    
+    // Backup for undo
+    const backupTask = { ...taskToDelete };
+    
+    await saveTask('DELETE', { id: taskToDelete.id }, user.uid);
     setIsMutating(false);
+    
+    showToast('ลบเรียบร้อยแล้ว', {
+      duration: 5000,
+      onUndo: async () => {
+        await saveTask('ADD', backupTask, user.uid);
+      }
+    });
+  };
+
+  const handleBulkDelete = async () => {
+    setBulkDeleteConfirm(false);
+    setIsMutating(true);
+    
+    const tasksToDelete = displayedTasks.filter(t => selectedTaskIds.has(t.id));
+    
+    // Backup for undo
+    const backupTasks = [...tasksToDelete];
+    
+    // Delete one by one since we don't have a bulk API currently
+    for (const task of tasksToDelete) {
+      await saveTask('DELETE', { id: task.id }, user.uid);
+    }
+    
+    setSelectedTaskIds(new Set());
+    setIsSelectionMode(false);
+    setIsMutating(false);
+    
+    showToast(`ลบ ${tasksToDelete.length} งานเรียบร้อยแล้ว`, {
+      duration: 5000,
+      onUndo: async () => {
+        // Restore all
+        for (const task of backupTasks) {
+          await saveTask('ADD', task, user.uid);
+        }
+      }
+    });
+  };
+
+  const toggleSelectTask = (taskId) => {
+    const newSelected = new Set(selectedTaskIds);
+    if (newSelected.has(taskId)) {
+      newSelected.delete(taskId);
+    } else {
+      newSelected.add(taskId);
+    }
+    setSelectedTaskIds(newSelected);
+  };
+
+  const toggleSelectAll = () => {
+    if (selectedTaskIds.size === displayedTasks.length) {
+      setSelectedTaskIds(new Set());
+    } else {
+      setSelectedTaskIds(new Set(displayedTasks.map(t => t.id)));
+    }
   };
 
   const handleEditSave = async (taskData) => {
@@ -117,12 +187,41 @@ export default function TasksPage({ user, lang = 'en' }) {
             {lang === 'en' ? 'All Tasks' : 'งานทั้งหมด'}
           </h1>
         </div>
-        <button 
-          onClick={() => { setEditingTask(null); setIsModalOpen(true); }}
-          className="p-2 md:px-4 md:py-2 bg-primary-500 text-white rounded-full flex items-center gap-2 hover:bg-primary-600 transition-colors shadow-md active:scale-95"
-        >
-          <Plus size={20} /> <span className="hidden md:inline font-bold">{tCommon.addTask}</span>
-        </button>
+        {isSelectionMode ? (
+          <div className="flex items-center gap-4">
+            <button 
+              onClick={toggleSelectAll} 
+              className="text-sm font-bold text-main/70 hover:text-primary-500"
+            >
+              เลือกทั้งหมด
+            </button>
+            <button 
+              onClick={() => {
+                setIsSelectionMode(false);
+                setSelectedTaskIds(new Set());
+              }}
+              className="px-4 py-2 rounded-full font-bold bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
+            >
+              ยกเลิก
+            </button>
+          </div>
+        ) : (
+          <div className="flex gap-2">
+            <button 
+              onClick={() => setIsSelectionMode(true)}
+              className="p-2 md:px-4 md:py-2 text-main/70 rounded-full font-bold hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+            >
+              <span className="hidden md:inline">เลือก</span>
+              <CheckCircle2 size={20} className="md:hidden" />
+            </button>
+            <button 
+              onClick={() => { setEditingTask(null); setIsModalOpen(true); }}
+              className="p-2 md:px-4 md:py-2 bg-primary-500 text-white rounded-full flex items-center gap-2 hover:bg-primary-600 transition-colors shadow-md active:scale-95"
+            >
+              <Plus size={20} /> <span className="hidden md:inline font-bold">{tCommon.addTask}</span>
+            </button>
+          </div>
+        )}
       </div>
 
       <div className="flex flex-col md:flex-row gap-4 mb-6">
@@ -170,80 +269,81 @@ export default function TasksPage({ user, lang = 'en' }) {
         )}
 
         <AnimatePresence>
-          {displayedTasks.map(task => {
-            const isCompleted = task.status === TASK_STATUS.DONE || (task.isPartTime && task.actualStart && task.actualEnd);
-            const isOverdue = !isCompleted && isBefore(endOfDay(task.end), now) && !isSameDay(task.end, now);
-            const isFutureTask = !isCompleted && isBefore(endOfDay(now), task.start);
-
-            let priorityColor = 'bg-amber-500 text-amber-600';
-            if (task.priority === TASK_PRIORITY.HIGH) priorityColor = 'bg-red-500 text-red-600';
-            if (task.priority === TASK_PRIORITY.LOW) priorityColor = 'bg-green-500 text-green-600';
-
-            return (
-              <motion.div 
-                layout
-                initial={{ opacity: 0, y: 10 }}
-                animate={{ opacity: 1, y: 0 }}
-                exit={{ opacity: 0, scale: 0.95 }}
-                key={task.id} 
-                onClick={() => { setEditingTask(task); setIsModalOpen(true); }}
-                className={`liquid-glass-card p-4 flex items-center gap-4 rounded-[20px] cursor-pointer group hover:border-primary-500/30 transition-all ${isCompleted ? 'opacity-60' : ''}`}
-              >
-                <button 
-                  onClick={(e) => {
-                     if (task.isPartTime && isFutureTask) {
-                        e.stopPropagation();
-                        return; // Cannot mark future part time as done easily
-                     }
-                     handleMarkDone(task, e);
-                  }}
-                  className={`flex-shrink-0 p-1 rounded-full transition-transform active:scale-90 ${isCompleted ? 'text-green-500 hover:text-amber-500' : 'text-main/20 hover:text-green-500'} ${task.isPartTime && isFutureTask ? 'cursor-not-allowed opacity-30' : ''}`}
-                >
-                  {isCompleted ? <CheckCircle2 size={28} /> : <CircleDashed size={28} />}
-                </button>
-                
-                <div className="flex-1 min-w-0">
-                  <h3 className={`font-bold text-lg text-main truncate ${isCompleted ? 'line-through' : ''}`}>{task.title}</h3>
-                  <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-main/70">
-                    <span className="flex items-center gap-1 bg-black/5 dark:bg-white/10 px-2 py-0.5 rounded-md">
-                      <Clock size={12} /> {fDate(task.start)} {fTime(task.start)} - {fTime(task.end)}
-                    </span>
-                    
-                    {!task.isPartTime && (
-                      <span className={`px-2 py-0.5 rounded-md bg-opacity-20 font-bold ${priorityColor.split(' ')[0]}/10 ${priorityColor.split(' ')[1]}`}>
-                        {task.priority}
-                      </span>
-                    )}
-
-                    {task.isPartTime && (
-                      <span className="px-2 py-0.5 bg-primary-500/10 text-primary-600 dark:text-primary-400 rounded-md font-bold">
-                        ฿{task.hourlyRate}{task.rateType === RATE_TYPE.DAILY ? '/วัน' : '/ชม.'}
-                      </span>
-                    )}
-                    
-                    {isOverdue && <span className="text-red-500 font-bold bg-red-500/10 px-2 py-0.5 rounded-md">เลยกำหนด</span>}
-                  </div>
-                </div>
-
-                <div className="flex gap-1 md:gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button 
-                    onClick={(e) => { e.stopPropagation(); setEditingTask(task); setIsModalOpen(true); }} 
-                    className="p-2 text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-500/20 rounded-full transition-all"
-                  >
-                    <Edit size={16} />
-                  </button>
-                  <button 
-                    onClick={(e) => handleDelete(task.id, e)} 
-                    className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full transition-all"
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-              </motion.div>
-            );
-          })}
+          {displayedTasks.map(task => (
+            <TaskCard
+              key={task.id}
+              task={task}
+              now={now}
+              isSelectionMode={isSelectionMode}
+              isSelected={selectedTaskIds.has(task.id)}
+              onToggleSelect={toggleSelectTask}
+              onToggleStatus={handleMarkDone}
+              onEdit={(t) => { setEditingTask(t); setIsModalOpen(true); }}
+              onDelete={(t) => setDeleteConfirmTask(t)}
+              onLongPress={(t) => setActionTask(t)}
+            />
+          ))}
         </AnimatePresence>
       </div>
+
+      <AnimatePresence>
+        {isSelectionMode && selectedTaskIds.size > 0 && (
+          <motion.div 
+            initial={{ opacity: 0, y: 100 }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: 100 }}
+            className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-[#1a1a2e] border-t border-main/10 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-30 flex justify-between items-center"
+          >
+            <span className="font-bold text-main">
+              เลือกแล้ว {selectedTaskIds.size} รายการ
+            </span>
+            <button 
+              onClick={() => setBulkDeleteConfirm(true)}
+              className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-red-500/30 transition-colors"
+            >
+              ลบที่เลือก
+            </button>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <ActionSheet 
+        isOpen={!!actionTask}
+        onClose={() => setActionTask(null)}
+        options={[
+          {
+            label: 'แก้ไข',
+            icon: <Edit size={20} />,
+            onClick: () => { setEditingTask(actionTask); setIsModalOpen(true); }
+          },
+          {
+            label: 'ลบงานนี้',
+            icon: <Trash2 size={20} />,
+            isDanger: true,
+            onClick: () => setDeleteConfirmTask(actionTask)
+          }
+        ]}
+      />
+
+      <ConfirmDialog 
+        isOpen={!!deleteConfirmTask}
+        title="ยืนยันการลบ"
+        message={`ลบงาน '${deleteConfirmTask?.title}' ใช่ไหม?\nการกระทำนี้ไม่สามารถย้อนกลับได้`}
+        confirmText="ลบ"
+        isDanger={true}
+        onConfirm={() => confirmDelete(deleteConfirmTask)}
+        onCancel={() => setDeleteConfirmTask(null)}
+      />
+
+      <ConfirmDialog 
+        isOpen={bulkDeleteConfirm}
+        title="ยืนยันการลบหลายรายการ"
+        message={`ลบ ${selectedTaskIds.size} งาน ใช่ไหม?\nการกระทำนี้ไม่สามารถย้อนกลับได้`}
+        confirmText="ลบ"
+        isDanger={true}
+        onConfirm={handleBulkDelete}
+        onCancel={() => setBulkDeleteConfirm(false)}
+      />
 
       <TaskModal 
         isOpen={isModalOpen}

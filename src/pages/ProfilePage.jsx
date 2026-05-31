@@ -3,9 +3,12 @@ import React, { useState, useEffect } from 'react';
 import { updateProfile, updatePassword, signOut } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, User, LogOut, Loader2, Check, Lock, AlertTriangle } from 'lucide-react';
+import { ArrowLeft, User, LogOut, Loader2, Check, Lock, AlertTriangle, Database, Trash2 } from 'lucide-react';
 
 import { auth } from '../firebase';
+import { useTasks } from '../contexts/TasksContext';
+import { saveTask } from '../services/taskService';
+import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function ProfilePage({ user }) {
   const navigate = useNavigate();
@@ -18,6 +21,17 @@ export default function ProfilePage({ user }) {
   const [errorMsg, setErrorMsg] = useState('');
   
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+
+  const { tasks } = useTasks();
+  
+  // Data Reset State
+  const [resetIncomeConfirmText, setResetIncomeConfirmText] = useState('');
+  const [isResettingIncome, setIsResettingIncome] = useState(false);
+  
+  // Delete Data State
+  const [showDeleteDataConfirm, setShowDeleteDataConfirm] = useState(false);
+  const [deleteDataConfirmText, setDeleteDataConfirmText] = useState('');
+  const [isDeletingData, setIsDeletingData] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -79,6 +93,50 @@ export default function ProfilePage({ user }) {
       navigate('/');
     } catch (error) {
       console.error("Logout error", error);
+    }
+  };
+
+  const handleResetIncome = async () => {
+    if (resetIncomeConfirmText !== 'ยืนยัน') return;
+    
+    setIsResettingIncome(true);
+    setSuccessMsg('');
+    setErrorMsg('');
+    try {
+      const historyTasks = tasks.filter(t => t.isPartTime);
+      for (const task of historyTasks) {
+        await saveTask('DELETE', { id: task.id }, user.uid);
+      }
+      setSuccessMsg('รีเซ็ตประวัติรายได้ทั้งหมดสำเร็จ');
+      setResetIncomeConfirmText('');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (error) {
+      console.error(error);
+      setErrorMsg('เกิดข้อผิดพลาดในการรีเซ็ตรายได้');
+    } finally {
+      setIsResettingIncome(false);
+    }
+  };
+
+  const handleDeleteAllData = async () => {
+    if (deleteDataConfirmText !== user.displayName) return;
+    
+    setShowDeleteDataConfirm(false);
+    setIsDeletingData(true);
+    setSuccessMsg('');
+    setErrorMsg('');
+    try {
+      for (const task of tasks) {
+        await saveTask('DELETE', { id: task.id }, user.uid);
+      }
+      setSuccessMsg('ลบข้อมูลทุกอย่างสำเร็จแล้ว');
+      setDeleteDataConfirmText('');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    } catch (error) {
+      console.error(error);
+      setErrorMsg('เกิดข้อผิดพลาดในการลบข้อมูล');
+    } finally {
+      setIsDeletingData(false);
     }
   };
 
@@ -192,6 +250,8 @@ export default function ProfilePage({ user }) {
           </div>
         </div>
 
+        {/* Data Section (Moved to Settings) */}
+
         {/* Logout Section */}
         <div className="liquid-glass-card p-6 md:p-8 flex flex-col items-center sm:flex-row sm:justify-between sm:items-center gap-4">
           <div>
@@ -225,6 +285,8 @@ export default function ProfilePage({ user }) {
           )}
         </div>
       </div>
+
+      {/* Deleted Data Dialog (Moved to Settings) */}
     </motion.div>
   );
 }
