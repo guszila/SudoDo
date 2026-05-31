@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { format, isBefore, startOfDay, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { updateUserStreak } from '../api/firestore';
-import { Flame, DollarSign, Clock, Circle, Check, ArrowLeft } from 'lucide-react';
+import { Flame, DollarSign, Clock, Circle, Check, ArrowLeft, Maximize2, X } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 import { useTasks } from '../contexts/TasksContext';
@@ -13,6 +13,7 @@ export default function TodayPage({ user }) {
   const [streakData, setStreakData] = useState({ currentStreak: 0, bestStreak: 0, history: [] });
   const [isLoadingStreak, setIsLoadingStreak] = useState(true);
   const [chartType, setChartType] = useState('bar'); // 'bar' or 'line'
+  const [isChartExpanded, setIsChartExpanded] = useState(false);
   const navigate = useNavigate();
   
   const [now] = useState(new Date());
@@ -47,17 +48,30 @@ export default function TodayPage({ user }) {
     
     // Monthly aggregation
     const monthlyIncome = {};
+    const fullMonthlyIncome = {};
+    const monthKeys6 = [];
+    const monthKeys12 = [];
+
     for (let i = 5; i >= 0; i--) {
       const d = subMonths(now, i);
-      monthlyIncome[format(d, 'MMM', { locale: th })] = 0;
+      const key = format(d, 'yyyy-MM');
+      monthKeys6.push(key);
+      monthlyIncome[key] = { name: format(d, 'MMM', { locale: th }), income: 0 };
+    }
+
+    for (let i = 11; i >= 0; i--) {
+      const d = subMonths(now, i);
+      const key = format(d, 'yyyy-MM');
+      monthKeys12.push(key);
+      fullMonthlyIncome[key] = { name: format(d, 'MMM', { locale: th }), income: 0 };
     }
 
     tasks.forEach(t => {
       const isDone = t.status === 'Done';
       
       if (t.isPartTime) {
-        const mKey = format(t.start, 'MMM', { locale: th });
-        if (monthlyIncome[mKey] !== undefined) {
+        const key = format(t.start, 'yyyy-MM');
+        if (monthlyIncome[key] !== undefined || fullMonthlyIncome[key] !== undefined) {
           let earnings = 0;
           let hours = 0;
           
@@ -70,7 +84,8 @@ export default function TodayPage({ user }) {
             if (t.rateType === 'daily') earnings = Number(t.hourlyRate) || 0;
             else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
             
-            monthlyIncome[mKey] += earnings;
+            if (monthlyIncome[key] !== undefined) monthlyIncome[key].income += earnings;
+            if (fullMonthlyIncome[key] !== undefined) fullMonthlyIncome[key].income += earnings;
           }
         }
         
@@ -99,10 +114,8 @@ export default function TodayPage({ user }) {
       }
     });
 
-    const cData = Object.keys(monthlyIncome).map(k => ({
-      name: k,
-      income: monthlyIncome[k]
-    }));
+    const cData = monthKeys6.map(k => monthlyIncome[k]);
+    const fcData = monthKeys12.map(k => fullMonthlyIncome[k]);
 
     const weekStart = startOfWeek(now, { weekStartsOn: 1 });
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
@@ -134,6 +147,7 @@ export default function TodayPage({ user }) {
       highPriorityCount: highPriority, 
       todayIncome: income,
       chartData: cData,
+      fullChartData: fcData,
       weeklyStreak: wStreak,
       totalToday: doneT + pendingT,
       doneToday: doneT,
@@ -273,7 +287,13 @@ export default function TodayPage({ user }) {
               </button>
             </div>
           </div>
-          <div className="h-48 w-full">
+          <div 
+            className="h-48 w-full cursor-pointer hover:opacity-90 transition-opacity relative group"
+            onClick={() => setIsChartExpanded(true)}
+          >
+            <div className="absolute top-2 right-2 bg-black/10 dark:bg-white/10 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10">
+              <Maximize2 className="w-4 h-4 text-main/70" />
+            </div>
             <ResponsiveContainer width="100%" height="100%">
               {chartType === 'bar' ? (
                 <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
@@ -363,6 +383,80 @@ export default function TodayPage({ user }) {
         </div>
 
       </div>
+
+      {/* Expanded Chart Modal */}
+      {isChartExpanded && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsChartExpanded(false)}>
+          <div 
+            className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[80vh] rounded-[32px] p-6 md:p-8 flex flex-col shadow-2xl relative border border-black/5 dark:border-white/10"
+            onClick={e => e.stopPropagation()}
+          >
+            <button 
+              onClick={() => setIsChartExpanded(false)}
+              className="absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main/70 hover:text-main"
+            >
+              <X size={24} />
+            </button>
+            
+            <div className="mb-6">
+              <h2 className="text-2xl font-bold text-main">รายได้ 12 เดือนล่าสุด</h2>
+              <p className="text-main/60 text-sm mt-1">ยอดรวมรายได้จากกะงานในช่วง 1 ปีที่ผ่านมา</p>
+            </div>
+            
+            <div className="flex bg-black/5 dark:bg-white/10 rounded-full p-1 w-max mb-6">
+              <button 
+                onClick={() => setChartType('bar')} 
+                className={`px-4 py-2 text-sm font-bold rounded-full transition-all ${chartType === 'bar' ? 'bg-white dark:bg-slate-800 text-primary-500 shadow-sm' : 'text-main/60'}`}
+              >
+                บาร์
+              </button>
+              <button 
+                onClick={() => setChartType('line')} 
+                className={`px-4 py-2 text-sm font-bold rounded-full transition-all ${chartType === 'line' ? 'bg-white dark:bg-slate-800 text-primary-500 shadow-sm' : 'text-main/60'}`}
+              >
+                เส้น
+              </button>
+            </div>
+
+            <div className="flex-1 min-h-0">
+              <ResponsiveContainer width="100%" height="100%">
+                {chartType === 'bar' ? (
+                  <BarChart data={fullChartData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
+                    <Tooltip 
+                      cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.4 }}
+                      contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                      itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
+                      formatter={(value) => [`฿${value.toLocaleString()}`, 'รายได้']}
+                      labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
+                    />
+                    <Bar dataKey="income" radius={[8, 8, 8, 8]}>
+                      {fullChartData.map((entry, index) => (
+                        <Cell key={`cell-${index}`} fill={index === fullChartData.length - 1 ? 'var(--color-primary-500)' : 'var(--color-primary-300)'} />
+                      ))}
+                    </Bar>
+                  </BarChart>
+                ) : (
+                  <LineChart data={fullChartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                    <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
+                    <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} />
+                    <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
+                    <Tooltip 
+                      contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                      itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
+                      formatter={(value) => [`฿${value.toLocaleString()}`, 'รายได้']}
+                      labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
+                    />
+                    <Line type="monotone" dataKey="income" stroke="var(--color-primary-500)" strokeWidth={4} dot={{ r: 5, fill: 'var(--color-primary-500)', strokeWidth: 2, stroke: 'white' }} activeDot={{ r: 8 }} />
+                  </LineChart>
+                )}
+              </ResponsiveContainer>
+            </div>
+          </div>
+        </div>
+      )}
     </motion.div>
   );
 }
