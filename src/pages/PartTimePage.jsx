@@ -346,7 +346,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
           <div className="text-center py-16 liquid-glass-card rounded-[24px]">
              {activeTab === 'upcoming' ? <CalendarDays className="w-16 h-16 text-main opacity-20 mx-auto mb-4" /> : <History className="w-16 h-16 text-main opacity-20 mx-auto mb-4" />}
              <p className="text-main opacity-60 font-medium text-lg">
-               {activeTab === 'upcoming' ? 'ยังไม่มี{t.upcoming}' : 'ยังไม่มี{t.historyTitle}'}
+               {activeTab === 'upcoming' ? t.noUpcoming : t.noHistory}
              </p>
           </div>
         )}
