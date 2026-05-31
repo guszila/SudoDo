@@ -1,17 +1,28 @@
 import React, { useState, useMemo, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { DollarSign, Clock, CheckCircle2, CircleDashed, Plus, ArrowLeft, Play, Square, Trash2, CalendarDays, History } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle2, CircleDashed, Plus, ArrowLeft, Play, Square, Trash2, CalendarDays, History, Edit } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { saveTask, fetchTasks } from '../api/firestore';
+import { saveTask } from '../api/firestore';
 import { syncTasksToGAS } from '../api/googleSheets';
+import { useTasks } from '../contexts/TasksContext';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
+import TaskModal from '../components/TaskModal';
 
 export default function PartTimePage({ user }) {
+  const { tasks: allTasks, isLoading: isTasksLoading } = useTasks();
   const navigate = useNavigate();
-  const [tasks, setTasks] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  
+  const tasks = useMemo(() => {
+    const formattedData = allTasks.filter(t => t.isPartTime);
+    formattedData.sort((a, b) => b.start - a.start);
+    return formattedData;
+  }, [allTasks]);
+
+  const [isMutating, setIsMutating] = useState(false);
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'history'
+  const [editingTask, setEditingTask] = useState(null);
+  const [isModalOpen, setIsModalOpen] = useState(false);
   
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
@@ -35,29 +46,7 @@ export default function PartTimePage({ user }) {
     { id: 0, label: 'อา.' },
   ];
 
-  const loadTasks = async () => {
-    if (!user) return;
-    setIsLoading(true);
-    const data = await fetchTasks(user.uid);
-    const formattedData = data.map(item => ({
-      ...item,
-      start: new Date(item.start),
-      end: new Date(item.end),
-    })).filter(t => t.isPartTime);
-    
-    formattedData.sort((a, b) => b.start - a.start);
-    setTasks(formattedData);
-    
-    if (user.email) {
-      syncTasksToGAS(data, user.email);
-    }
-    
-    setIsLoading(false);
-  };
 
-  useEffect(() => {
-    loadTasks();
-  }, [user]);
 
   // Derived state
   const { upcomingTasks, historyTasks } = useMemo(() => {
@@ -77,18 +66,10 @@ export default function PartTimePage({ user }) {
   }, [tasks]);
 
   const stats = useMemo(() => {
-    const currentMonth = new Date().getMonth();
-    const currentYear = new Date().getFullYear();
-    
-    const monthTasks = tasks.filter(t => {
-      const d = new Date(t.start);
-      return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
-    });
-
     let earned = 0;
     let pending = 0;
     
-    monthTasks.forEach(t => {
+    tasks.forEach(t => {
       const rate = Number(t.hourlyRate) || 0;
       const isCompleted = t.status === 'Done' || (t.actualStart && t.actualEnd);
       
@@ -112,21 +93,35 @@ export default function PartTimePage({ user }) {
     return { earned, pending, total: earned + pending };
   }, [tasks]);
 
+  const uniqueTitles = useMemo(() => {
+    const titles = new Set();
+    tasks.forEach(t => {
+      if (t.title) titles.add(t.title);
+    });
+    return Array.from(titles);
+  }, [tasks]);
+
   const handleAddShift = async (e) => {
     e.preventDefault();
-    if (formData.selectedDays.length === 0) {
-      alert("กรุณาเลือกวันในสัปดาห์อย่างน้อย 1 วัน");
-      return;
-    }
     
-    setIsLoading(true);
+    setIsMutating(true);
     
     const start = new Date(formData.startDate);
     const end = new Date(formData.endDate);
     const shiftsToAdd = [];
     
+    let daysToInclude = formData.selectedDays;
+    // ถ้าเลือกวันเริ่มต้นและวันสิ้นสุดเป็นวันเดียวกัน ให้บังคับใช้วันนั้นเลย ไม่ต้องสนปุ่มกด
+    if (start.getTime() === end.getTime()) {
+      daysToInclude = [start.getDay()];
+    } else if (daysToInclude.length === 0) {
+      alert("กรุณาเลือกวันในสัปดาห์อย่างน้อย 1 วัน");
+      setIsMutating(false);
+      return;
+    }
+    
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
-      if (formData.selectedDays.includes(d.getDay())) {
+      if (daysToInclude.includes(d.getDay())) {
         const dateString = d.toISOString().slice(0, 10);
         const startDateTime = new Date(`${dateString}T${formData.startTime}:00`).toISOString();
         let endDateObj = new Date(`${dateString}T${formData.endTime}:00`);
@@ -153,20 +148,20 @@ export default function PartTimePage({ user }) {
 
     if (shiftsToAdd.length === 0) {
       alert("ไม่พบวันที่ตรงกับเงื่อนไขในช่วงเวลาที่เลือก");
-      setIsLoading(false);
+      setIsMutating(false);
       return;
     }
     
     if (shiftsToAdd.length > 31) {
        if(!window.confirm(`คุณกำลังจะสร้างตารางกะงานทั้งหมด ${shiftsToAdd.length} วัน แน่ใจหรือไม่?`)) {
-           setIsLoading(false);
+           setIsMutating(false);
            return;
        }
     }
 
     await Promise.all(shiftsToAdd.map(task => saveTask('ADD', task, user.uid)));
     setShowAddForm(false);
-    await loadTasks();
+    setIsMutating(false);
   };
   
   const handleToggleDay = (dayId) => {
@@ -178,42 +173,53 @@ export default function PartTimePage({ user }) {
     });
   };
   
-  const handleClockIn = async (task) => {
+  const handleMarkDone = async (task) => {
     const updated = {
       ...task,
       start: task.start.toISOString(),
       end: task.end.toISOString(),
-      actualStart: new Date().toISOString(),
-      status: 'In Progress'
-    };
-    setIsLoading(true);
-    await saveTask('EDIT', updated, user.uid);
-    await loadTasks();
-  };
-
-  const handleClockOut = async (task) => {
-    const updated = {
-      ...task,
-      start: task.start.toISOString(),
-      end: task.end.toISOString(),
-      actualEnd: new Date().toISOString(),
       status: 'Done'
     };
-    setIsLoading(true);
+    setIsMutating(true);
     await saveTask('EDIT', updated, user.uid);
-    await loadTasks();
+    setIsMutating(false);
   };
 
   const handleDelete = async (taskId) => {
     if (!window.confirm('คุณต้องการลบกะนี้หรือไม่?')) return;
-    setIsLoading(true);
+    setIsMutating(true);
     await saveTask('DELETE', { id: taskId }, user.uid);
-    await loadTasks();
+    setIsMutating(false);
   }
+
+  const handleEditSave = async (taskData) => {
+    setIsModalOpen(false);
+    setIsMutating(true);
+    await saveTask('EDIT', taskData, user.uid);
+    setIsMutating(false);
+  };
+
+  const handleResetIncome = async () => {
+    if (!window.confirm('คุณแน่ใจหรือไม่ว่าต้องการ "รีเซ็ตรายได้" ?\n\nระบบจะทำการลบประวัติการทำงานที่เสร็จสิ้นแล้วทั้งหมด และยอดเงินจะกลับเป็น 0')) return;
+    
+    setIsMutating(true);
+    for (const task of historyTasks) {
+      await saveTask('DELETE', { id: task.id }, user.uid);
+    }
+    setIsMutating(false);
+  };
 
   const fDate = (d) => format(d, 'd MMM yyyy', { locale: th });
   const fTime = (d) => format(d, 'HH:mm');
   const activeTasks = activeTab === 'upcoming' ? upcomingTasks : historyTasks;
+
+  if (isTasksLoading || isMutating) {
+    return (
+      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#121212]">
+        <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
 
   return (
     <motion.div 
@@ -235,15 +241,15 @@ export default function PartTimePage({ user }) {
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4 mb-8">
         <div className="liquid-glass-card p-5 flex flex-col justify-center border-l-4 border-l-green-500">
           <p className="text-sm text-main opacity-70 font-medium mb-1">รายได้ที่ได้แล้ว (Earned)</p>
-          <span className="text-3xl font-bold text-green-500">฿{stats.earned.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+          <span className="text-3xl font-bold text-green-500">฿{stats.earned.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
         <div className="liquid-glass-card p-5 flex flex-col justify-center border-l-4 border-l-amber-500">
-          <p className="text-sm text-main opacity-70 font-medium mb-1">เงินที่รอรับ (Pending)</p>
-          <span className="text-2xl font-bold text-amber-500">฿{stats.pending.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+          <p className="text-sm text-main opacity-70 font-medium mb-1">รายได้ที่คาดว่าจะได้รับ (Expected)</p>
+          <span className="text-2xl font-bold text-amber-500">฿{stats.pending.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
         <div className="liquid-glass-card p-5 flex flex-col justify-center border-l-4 border-l-primary-500 border border-dashed border-main/20">
-          <p className="text-sm text-main opacity-70 font-medium mb-1">รายได้รวมทั้งหมดเดือนนี้ (Total)</p>
-          <span className="text-2xl font-bold text-primary-500">฿{stats.total.toLocaleString(undefined, { maximumFractionDigits: 0 })}</span>
+          <p className="text-sm text-main opacity-70 font-medium mb-1">รายได้รวมทั้งหมด (Total)</p>
+          <span className="text-2xl font-bold text-primary-500">฿{stats.total.toLocaleString(undefined, { maximumFractionDigits: 2 })}</span>
         </div>
       </div>
 
@@ -279,12 +285,17 @@ export default function PartTimePage({ user }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-main mb-1.5 opacity-80">ชื่องาน/สถานที่</label>
-                  <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="เช่น ร้านกาแฟ" />
+                  <input type="text" list="job-titles" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="เช่น ร้านกาแฟ" />
+                  <datalist id="job-titles">
+                    {uniqueTitles.map((title, idx) => (
+                      <option key={idx} value={title} />
+                    ))}
+                  </datalist>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-main mb-1.5 opacity-80">อัตราค่าจ้าง (บาท)</label>
                   <div className="flex gap-2">
-                    <input type="number" value={formData.hourlyRate} onChange={e => setFormData({...formData, hourlyRate: e.target.value})} required min="0" className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                    <input type="number" step="any" value={formData.hourlyRate} onChange={e => setFormData({...formData, hourlyRate: e.target.value})} required min="0" className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
                     <select 
                       value={formData.rateType} 
                       onChange={e => setFormData({...formData, rateType: e.target.value})}
@@ -347,6 +358,18 @@ export default function PartTimePage({ user }) {
         )}
       </AnimatePresence>
 
+      {activeTab === 'history' && historyTasks.length > 0 && (
+        <div className="flex justify-between items-center mb-4 px-1">
+          <h3 className="text-lg font-bold text-main">ประวัติการทำงาน</h3>
+          <button 
+            onClick={handleResetIncome}
+            className="text-sm font-bold text-red-500 bg-red-500/10 hover:bg-red-500/20 px-4 py-2 rounded-xl transition-colors active:scale-95 flex items-center gap-2"
+          >
+            <Trash2 size={16} /> รีเซ็ตรายได้
+          </button>
+        </div>
+      )}
+
       <div className="space-y-4 relative min-h-[200px]">
         {isLoading && (
           <div className="absolute inset-0 z-10 flex items-center justify-center bg-white/20 dark:bg-black/20 backdrop-blur-sm rounded-3xl">
@@ -364,7 +387,6 @@ export default function PartTimePage({ user }) {
         )}
 
         {activeTasks.map(task => {
-          const isClockedIn = task.actualStart && !task.actualEnd;
           const isCompleted = task.status === 'Done' || (task.actualStart && task.actualEnd);
           
           let earnings = 0;
@@ -384,11 +406,22 @@ export default function PartTimePage({ user }) {
              earnings = hours * (Number(task.hourlyRate) || 0);
           }
 
+          const today = new Date();
+          today.setHours(0, 0, 0, 0);
+          const taskDate = new Date(task.start);
+          taskDate.setHours(0, 0, 0, 0);
+          const isFutureTask = taskDate > today;
+
           return (
             <div key={task.id} className="liquid-glass-card p-5 flex flex-col md:flex-row gap-5 items-start md:items-center relative group hover:border-primary-500/30 transition-colors">
-              <button onClick={() => handleDelete(task.id)} className="absolute top-4 right-4 p-2 text-red-500 opacity-0 group-hover:opacity-100 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full transition-all">
-                <Trash2 size={16} />
-              </button>
+              <div className="absolute top-4 right-4 flex gap-1">
+                <button onClick={() => { setEditingTask(task); setIsModalOpen(true); }} className="p-2 text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-500/20 rounded-full transition-all">
+                  <Edit size={16} />
+                </button>
+                <button onClick={() => handleDelete(task.id)} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full transition-all">
+                  <Trash2 size={16} />
+                </button>
+              </div>
               
               <div className="flex-1 w-full">
                 <div className="flex items-center gap-3 mb-2">
@@ -400,11 +433,6 @@ export default function PartTimePage({ user }) {
                 <div className="text-sm text-main opacity-80 space-y-1.5 bg-white/30 dark:bg-black/20 p-3 rounded-xl border border-white/40 dark:border-white/5">
                   <p className="flex items-center gap-2"><span className="w-4">📅</span> {fDate(task.start)}</p>
                   <p className="flex items-center gap-2"><span className="w-4">⏱️</span> ตาราง: {fTime(task.start)} - {fTime(task.end)}</p>
-                  {(task.actualStart || task.actualEnd) && (
-                    <p className="flex items-center gap-2 text-primary-600 dark:text-primary-400 font-bold mt-1 pt-1 border-t border-main/10">
-                      <span className="w-4">🔴</span> ของจริง: {task.actualStart ? fTime(new Date(task.actualStart)) : '--:--'} - {task.actualEnd ? fTime(new Date(task.actualEnd)) : 'กำลังทำงาน...'}
-                    </p>
-                  )}
                 </div>
               </div>
 
@@ -412,24 +440,23 @@ export default function PartTimePage({ user }) {
                 {isCompleted ? (
                   <div className="text-right flex-1 md:flex-none p-3 bg-green-500/10 rounded-xl border border-green-500/20">
                     <p className="text-sm text-green-600 dark:text-green-400 font-bold mb-1 flex items-center justify-end gap-1"><CheckCircle2 size={16}/> เสร็จสิ้น</p>
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">+฿{earnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">+฿{earnings.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
                   </div>
                 ) : (
                   <div className="flex flex-col gap-2 w-full">
                     <div className="text-right text-amber-500 mb-1 flex-1 md:flex-none p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                       <p className="text-xs font-bold mb-0.5">รอรับ (Pending)</p>
-                       <p className="text-lg font-bold">+฿{earnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+                       <p className="text-xs font-bold mb-0.5">คาดว่าจะได้รับ (Expected)</p>
+                       <p className="text-lg font-bold">+฿{earnings.toLocaleString(undefined, { maximumFractionDigits: 2 })}</p>
                     </div>
                     <div className="flex gap-2">
-                      {!isClockedIn ? (
-                         <button onClick={() => handleClockIn(task)} className="flex-1 md:w-36 flex items-center justify-center gap-2 py-2 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl transition-all active:scale-95">
-                           <Play size={16} /> เข้างาน
-                         </button>
-                      ) : (
-                         <button onClick={() => handleClockOut(task)} className="flex-1 md:w-36 flex items-center justify-center gap-2 py-2 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl transition-all active:scale-95 animate-pulse">
-                           <Square size={16} /> ออกงาน
-                         </button>
-                      )}
+                      <button 
+                        onClick={() => !isFutureTask && handleMarkDone(task)} 
+                        disabled={isFutureTask}
+                        className={`flex-1 md:w-36 flex items-center justify-center gap-2 py-2 text-white font-bold rounded-xl transition-all ${isFutureTask ? 'bg-slate-400 cursor-not-allowed opacity-50 dark:opacity-30' : 'bg-primary-500 hover:bg-primary-600 active:scale-95'}`}
+                      >
+                        {isFutureTask ? <Clock size={16} /> : <CheckCircle2 size={16} />} 
+                        {isFutureTask ? 'ยังไม่ถึงวัน' : 'เสร็จงาน'}
+                      </button>
                     </div>
                   </div>
                 )}
@@ -438,6 +465,15 @@ export default function PartTimePage({ user }) {
           );
         })}
       </div>
+
+      <TaskModal 
+        isOpen={isModalOpen}
+        onClose={() => setIsModalOpen(false)}
+        onSave={handleEditSave}
+        onDelete={handleDelete}
+        task={editingTask}
+        lang="th"
+      />
     </motion.div>
   );
 }

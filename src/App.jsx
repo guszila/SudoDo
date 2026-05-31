@@ -10,12 +10,14 @@ import StatsBar from './components/StatsBar';
 import Login from './components/Login';
 import ProfilePage from './pages/ProfilePage';
 import PartTimePage from './pages/PartTimePage';
+import TodayPage from './pages/TodayPage';
 import Logo from './components/Logo';
 import { translations } from './i18n';
 import { auth } from './firebase';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import { TasksProvider, useTasks } from './contexts/TasksContext';
 
 const locales = {
   'en-US': enUS,
@@ -38,9 +40,8 @@ const StatusIcon = ({ status, className = "" }) => {
   }
 };
 
-export default function App() {
-  const [tasks, setTasks] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+function MainApp({ user, lang, setLang, theme, toggleTheme }) {
+  const { tasks, isLoading } = useTasks();
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
   const [currentView, setCurrentView] = useState('month');
@@ -48,73 +49,8 @@ export default function App() {
   
   const navigate = useNavigate();
   const location = useLocation();
-  
-  // Firebase Auth state
-  const [user, setUser] = useState(null);
-  const [authLoading, setAuthLoading] = useState(true);
 
-  // Language state
-  const [lang, setLang] = useState('th');
   const t = translations[lang];
-
-  // Theme state
-  const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'light';
-  });
-
-  useEffect(() => {
-    const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
-    } else {
-      root.classList.remove('dark');
-    }
-    localStorage.setItem('theme', theme);
-  }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
-
-  useEffect(() => {
-    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
-      setUser(currentUser);
-      setAuthLoading(false);
-    });
-    return () => unsubscribe();
-  }, []);
-
-  const loadTasks = useCallback(async () => {
-    if (!user) return;
-    setIsLoading(true);
-    const data = await fetchTasks(user.uid);
-    const formattedData = data.map(item => ({
-      ...item,
-      start: new Date(item.start),
-      end: new Date(item.end),
-      priority: item.priority || 'กลาง'
-    }));
-
-    // Sort by priority (สูง > กลาง > ต่ำ)
-    const priorityWeight = { 'สูง': 3, 'กลาง': 2, 'ต่ำ': 1 };
-    formattedData.sort((a, b) => priorityWeight[b.priority] - priorityWeight[a.priority]);
-
-    setTasks(formattedData);
-    
-    if (user.email) {
-      syncTasksToGAS(data, user.email);
-    }
-    
-    setIsLoading(false);
-  }, [user]);
-
-  useEffect(() => {
-    if (user) {
-      loadTasks();
-    } else {
-      setTasks([]);
-    }
-  }, [loadTasks, user]);
 
   const handleSelectSlot = ({ start, end }) => {
     setSelectedTask({ start, end });
@@ -128,17 +64,13 @@ export default function App() {
 
   const handleSaveTask = async (taskData) => {
     setIsModalOpen(false);
-    setIsLoading(true);
     const action = taskData.id ? 'EDIT' : 'ADD';
     await saveTask(action, taskData, user.uid);
-    await loadTasks();
   };
 
   const handleDeleteTask = async (taskId) => {
     setIsModalOpen(false);
-    setIsLoading(true);
     await saveTask('DELETE', { id: taskId }, user.uid);
-    await loadTasks();
   };
 
   const handleLogout = async () => {
@@ -248,18 +180,6 @@ export default function App() {
     );
   };
 
-  if (authLoading) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
-      </div>
-    );
-  }
-
-  if (!user) {
-    return <Login lang={lang} />;
-  }
-
   const CalendarView = (
     <motion.div 
       initial={{ opacity: 0, scale: 0.98 }}
@@ -331,6 +251,7 @@ export default function App() {
             onSelectEvent={handleSelectEvent}
             selectable
             longPressThreshold={10}
+            length={365}
             components={{
               event: EventComponent,
               month: {
@@ -347,59 +268,68 @@ export default function App() {
           />
         </main>
       </div>
+    </motion.div>
+  );
+
+  return (
+    <>
+      <AnimatePresence mode="wait">
+        <Routes location={location} key={location.pathname}>
+          <Route path="/" element={CalendarView} />
+          <Route path="/today" element={<TodayPage user={user} />} />
+          <Route path="/profile" element={<ProfilePage user={user} />} />
+          <Route path="/part-time" element={<PartTimePage user={user} />} />
+        </Routes>
+      </AnimatePresence>
 
       {/* Mobile Floating Action Button */}
       <button 
         onClick={() => { setSelectedTask(null); setIsModalOpen(true); }}
-        className="md:hidden fixed bottom-28 right-6 w-14 h-14 bg-primary-500 text-white rounded-full flex items-center justify-center shadow-[0_8px_32px_0_rgba(108,99,255,0.4)] border z-40 active:scale-90 transition-transform"
+        className="md:hidden fixed bottom-24 right-6 w-14 h-14 bg-primary-500 text-white rounded-full flex items-center justify-center shadow-[0_8px_32px_0_rgba(108,99,255,0.4)] border z-50 active:scale-90 transition-transform"
         style={{ borderColor: 'var(--glass-border)' }}
       >
         <Plus size={28} />
       </button>
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 liquid-glass border-x-0 border-b-0 rounded-t-[28px] rounded-b-none p-2 pb-safe flex justify-around items-center z-40 h-[72px]">
+      <nav className="md:hidden fixed bottom-0 left-0 right-0 liquid-glass border-x-0 border-b-0 rounded-t-[28px] rounded-b-none p-2 pb-safe flex justify-around items-center z-50 h-[72px]">
         <button 
-          onClick={() => setCurrentView('month')}
-          className={`flex flex-col items-center justify-center w-full h-full ${currentView === 'month' ? 'text-primary-500' : 'text-slate-400'}`}
+          onClick={() => { navigate('/'); setCurrentView('month'); }}
+          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/' && currentView === 'month' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <CalendarIcon size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${currentView !== 'month' && 'opacity-60'}`}>Calendar</span>
+          <span className={`text-[10px] mt-1 font-medium text-main ${!(location.pathname === '/' && currentView === 'month') && 'opacity-60'}`}>Calendar</span>
         </button>
         <button 
-          onClick={() => setCurrentView('agenda')}
-          className={`flex flex-col items-center justify-center w-full h-full ${currentView === 'agenda' ? 'text-primary-500' : 'text-slate-400'}`}
+          onClick={() => { navigate('/'); setCurrentView('agenda'); }}
+          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/' && currentView === 'agenda' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <ListTodo size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${currentView !== 'agenda' && 'opacity-60'}`}>Tasks</span>
+          <span className={`text-[10px] mt-1 font-medium text-main ${!(location.pathname === '/' && currentView === 'agenda') && 'opacity-60'}`}>Tasks</span>
         </button>
         <button 
-          onClick={() => {
-            setCurrentDate(new Date());
-            setCurrentView('day');
-          }}
-          className={`flex flex-col items-center justify-center w-full h-full ${currentView === 'day' ? 'text-primary-500' : 'text-slate-400'}`}
+          onClick={() => navigate('/today')}
+          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/today' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <Home size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${currentView !== 'day' && 'opacity-60'}`}>Today</span>
+          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/today' && 'opacity-60'}`}>Today</span>
         </button>
         <button 
           onClick={() => navigate('/part-time')}
-          className="flex flex-col items-center justify-center w-full h-full text-slate-400 active:bg-white/10 rounded-xl transition-colors"
+          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/part-time' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <DollarSign size={24} />
-          <span className="text-[10px] mt-1 font-medium text-main opacity-60">รายได้</span>
+          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/part-time' && 'opacity-60'}`}>รายได้</span>
         </button>
         <button 
           onClick={() => navigate('/profile')}
-          className="flex flex-col items-center justify-center w-full h-full text-slate-400 active:bg-white/10 rounded-xl transition-colors"
+          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/profile' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <Settings size={24} />
-          <span className="text-[10px] mt-1 font-medium text-main opacity-60">Settings</span>
+          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/profile' && 'opacity-60'}`}>Settings</span>
         </button>
       </nav>
 
-      {/* Task Modal Popup */}
       <TaskModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -408,16 +338,65 @@ export default function App() {
         task={selectedTask}
         lang={lang}
       />
-    </motion.div>
+    </>
   );
+}
+
+export default function App() {
+  const [user, setUser] = useState(null);
+  const [authLoading, setAuthLoading] = useState(true);
+
+  // Language state
+  const [lang, setLang] = useState('th');
+
+  // Theme state
+  const [theme, setTheme] = useState(() => {
+    return localStorage.getItem('theme') || 'light';
+  });
+
+  useEffect(() => {
+    const root = document.documentElement;
+    if (theme === 'dark') {
+      root.classList.add('dark');
+    } else {
+      root.classList.remove('dark');
+    }
+    localStorage.setItem('theme', theme);
+  }, [theme]);
+
+  const toggleTheme = () => {
+    setTheme(prev => prev === 'light' ? 'dark' : 'light');
+  };
+
+  useEffect(() => {
+    const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
+      setUser(currentUser);
+      setAuthLoading(false);
+    });
+    return () => unsubscribe();
+  }, []);
+
+  if (authLoading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
+      </div>
+    );
+  }
+
+  if (!user) {
+    return <Login lang={lang} />;
+  }
 
   return (
-    <AnimatePresence mode="wait">
-      <Routes location={location} key={location.pathname}>
-        <Route path="/" element={CalendarView} />
-        <Route path="/profile" element={<ProfilePage user={user} />} />
-        <Route path="/part-time" element={<PartTimePage user={user} />} />
-      </Routes>
-    </AnimatePresence>
+    <TasksProvider user={user}>
+      <MainApp 
+        user={user} 
+        lang={lang} 
+        setLang={setLang} 
+        theme={theme} 
+        toggleTheme={toggleTheme} 
+      />
+    </TasksProvider>
   );
 }

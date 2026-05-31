@@ -1,11 +1,12 @@
 import React, { useState, useEffect } from 'react';
 import { X, Trash2, CheckCircle2, Circle } from 'lucide-react';
 import { translations } from '../i18n';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 
 export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lang = 'en' }) {
   const t = translations[lang].modal;
   const statusT = translations[lang].status;
+  const dragControls = useDragControls();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -24,7 +25,10 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         start: task.start ? new Date(task.start).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
         end: task.end ? new Date(task.end).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
         status: task.status || 'To-Do',
-        priority: task.priority || 'กลาง'
+        priority: task.priority || 'กลาง',
+        isPartTime: task.isPartTime || false,
+        hourlyRate: task.hourlyRate || 100,
+        rateType: task.rateType || 'hourly'
       });
     } else {
       setFormData({
@@ -33,10 +37,24 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         start: new Date().toISOString().slice(0, 16),
         end: new Date(new Date().getTime() + 60*60*1000).toISOString().slice(0, 16),
         status: 'To-Do',
-        priority: 'กลาง'
+        priority: 'กลาง',
+        isPartTime: false,
+        hourlyRate: 100,
+        rateType: 'hourly'
       });
     }
   }, [task, isOpen]);
+
+  useEffect(() => {
+    if (isOpen) {
+      document.body.style.overflow = 'hidden';
+    } else {
+      document.body.style.overflow = 'unset';
+    }
+    return () => {
+      document.body.style.overflow = 'unset';
+    };
+  }, [isOpen]);
 
   const handleChange = (e) => {
     const { name, value } = e.target;
@@ -70,9 +88,23 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             exit={{ opacity: 0, y: 50, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
             onClick={(e) => e.stopPropagation()}
+            drag="y"
+            dragControls={dragControls}
+            dragListener={false}
+            dragConstraints={{ top: 0, bottom: 0 }}
+            dragElastic={{ top: 0, bottom: 0.5 }}
+            onDragEnd={(e, info) => {
+              if (info.offset.y > 100 || info.velocity.y > 500) {
+                onClose();
+              }
+            }}
             className="liquid-glass-card w-full max-w-md p-6 relative rounded-t-[32px] md:rounded-[24px] pb-safe max-h-[90vh] overflow-y-auto"
           >
-        <div className="w-12 h-1.5 rounded-full mx-auto mb-6 md:hidden" style={{ backgroundColor: 'var(--glass-border-strong)' }}></div>
+        <div 
+          className="w-12 h-1.5 rounded-full mx-auto mb-6 md:hidden cursor-grab active:cursor-grabbing touch-none" 
+          style={{ backgroundColor: 'var(--glass-border-strong)' }}
+          onPointerDown={(e) => dragControls.start(e)}
+        ></div>
         <button 
           onClick={onClose}
           className="absolute top-4 right-4 p-2 rounded-full transition-colors hidden md:block text-main opacity-60 hover:opacity-100"
@@ -134,6 +166,34 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
               placeholder={t.descriptionPlaceholder}
             />
           </div>
+
+          {formData.isPartTime && (
+            <div>
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">อัตราค่าจ้าง (บาท)</label>
+              <div className="flex gap-2">
+                <input 
+                  type="number" 
+                  step="any"
+                  name="hourlyRate"
+                  value={formData.hourlyRate} 
+                  onChange={handleChange}
+                  required min="0" 
+                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" 
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }} 
+                />
+                <select 
+                  name="rateType"
+                  value={formData.rateType} 
+                  onChange={handleChange}
+                  className="px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main font-bold appearance-none"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                >
+                  <option value="hourly">/ ชั่วโมง</option>
+                  <option value="daily">/ วัน</option>
+                </select>
+              </div>
+            </div>
+          )}
 
           <div className="space-y-4">
             <div>
