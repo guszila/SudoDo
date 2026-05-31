@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
-import { ArrowLeft, User, LogOut, Loader2, Check, Lock, AlertTriangle } from 'lucide-react';
+
 import { updateProfile, updatePassword, signOut } from 'firebase/auth';
-import { auth } from '../firebase';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { ArrowLeft, User, LogOut, Loader2, Check, Lock, AlertTriangle } from 'lucide-react';
+
+import { auth } from '../firebase';
 
 export default function ProfilePage({ user }) {
   const navigate = useNavigate();

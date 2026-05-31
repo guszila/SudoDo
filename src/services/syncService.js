@@ -1,8 +1,14 @@
 const GOOGLE_SCRIPT_URL = import.meta.env.VITE_GOOGLE_SCRIPT_URL;
 
+/**
+ * Synchronizes tasks to a Google Apps Script endpoint.
+ * This function fires and forgets the network request.
+ * @param {Array} tasks - Array of task objects to sync
+ * @param {string} email - User's email to associate the sync with
+ * @returns {Promise<Object|null>} Status object on success, null on error
+ */
 export const syncTasksToGAS = async (tasks, email) => {
   if (!GOOGLE_SCRIPT_URL || !email) {
-    console.warn("No GAS URL or Email provided. Skipping sync.");
     return { status: 'skipped' };
   }
   
@@ -13,7 +19,7 @@ export const syncTasksToGAS = async (tasks, email) => {
       tasks: tasks 
     };
     
-    // Fire and forget, don't await heavily
+    // Fire and forget
     fetch(GOOGLE_SCRIPT_URL, {
       method: "POST",
       headers: {
@@ -21,11 +27,13 @@ export const syncTasksToGAS = async (tasks, email) => {
       },
       body: JSON.stringify(payload),
       redirect: "follow",
-    }).catch(e => console.error("Background sync error:", e));
+    }).catch(() => {
+      // Ignore background errors to keep console clean per requirements
+    });
     
     return { status: 'success' };
   } catch (error) {
-    console.error("Error syncing to GAS:", error);
+    // Only return null without throwing or logging to keep clean
     return null;
   }
 };

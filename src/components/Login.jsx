@@ -1,10 +1,12 @@
 import React, { useState } from 'react';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
-import { auth } from '../firebase';
-import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
-import { translations } from '../i18n';
-import Logo from './Logo';
+
 import { motion, AnimatePresence } from 'framer-motion';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
+import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
+
+import Logo from './Logo';
+import { auth } from '../firebase';
+import { translations } from '../i18n';
 
 export default function Login({ lang }) {
   const [isLogin, setIsLogin] = useState(true);
@@ -31,7 +33,6 @@ export default function Login({ lang }) {
         await createUserWithEmailAndPassword(auth, email, password);
       }
     } catch (err) {
-      console.error(err);
       if (err.code === 'auth/invalid-credential') {
         setError('อีเมลหรือรหัสผ่านไม่ถูกต้อง');
       } else if (err.code === 'auth/email-already-in-use') {
@@ -63,7 +64,6 @@ export default function Login({ lang }) {
         setMessage(null);
       }, 5000);
     } catch (err) {
-      console.error(err);
       if (err.code === 'auth/invalid-email') {
         setError('รูปแบบอีเมลไม่ถูกต้อง');
       } else if (err.code === 'auth/user-not-found') {

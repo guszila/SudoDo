@@ -1,6 +1,8 @@
-import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
-import { subscribeToTasks } from '../api/firestore';
-import { syncTasksToGAS } from '../api/googleSheets';
+import React, { createContext, useContext, useState, useEffect } from 'react';
+
+import { subscribeToTasks } from '../services/taskService';
+import { syncTasksToGAS } from '../services/syncService';
+import { TASK_PRIORITY, PRIORITY_WEIGHT } from '../constants';
 
 const TasksContext = createContext({
   tasks: [],
@@ -29,23 +31,19 @@ export const TasksProvider = ({ children, user }) => {
           ...item,
           start: new Date(item.start),
           end: new Date(item.end),
-          priority: item.priority || 'กลาง'
+          priority: item.priority || TASK_PRIORITY.MEDIUM
         }));
 
-        // Sort by priority (สูง > กลาง > ต่ำ)
-        const priorityWeight = { 'สูง': 3, 'กลาง': 2, 'ต่ำ': 1 };
-        formattedData.sort((a, b) => priorityWeight[b.priority] - priorityWeight[a.priority]);
+        formattedData.sort((a, b) => PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority]);
 
         setTasks(formattedData);
         setError(null);
         setIsLoading(false);
         
-        // Sync to google sheets when tasks update
         if (user.email) {
-          syncTasksToGAS(data, user.email).catch(err => console.error("GAS Sync Error", err));
+          syncTasksToGAS(data, user.email).catch(() => {});
         }
       } catch (err) {
-        console.error("Error formatting tasks:", err);
         setError(err);
         setIsLoading(false);
       }
@@ -60,3 +58,4 @@ export const TasksProvider = ({ children, user }) => {
     </TasksContext.Provider>
   );
 };
+

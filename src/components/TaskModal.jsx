@@ -1,7 +1,10 @@
 import React, { useState, useEffect } from 'react';
-import { X, Trash2, CheckCircle2, Circle } from 'lucide-react';
-import { translations } from '../i18n';
+
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import { X, Trash2, CheckCircle2, Circle } from 'lucide-react';
+
+import { translations } from '../i18n';
+import { TASK_STATUS, TASK_PRIORITY, DEFAULT_TASK_VALUES } from '../constants';
 
 export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lang = 'en' }) {
   const t = translations[lang].modal;
@@ -13,8 +16,8 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
     description: '',
     start: new Date().toISOString().slice(0, 16),
     end: new Date().toISOString().slice(0, 16),
-    status: 'To-Do',
-    priority: 'กลาง'
+    status: TASK_STATUS.TODO,
+    priority: TASK_PRIORITY.MEDIUM
   });
 
   useEffect(() => {
@@ -24,10 +27,10 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         description: task.description || '',
         start: task.start ? new Date(task.start).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
         end: task.end ? new Date(task.end).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
-        status: task.status || 'To-Do',
-        priority: task.priority || 'กลาง',
+        status: task.status || TASK_STATUS.TODO,
+        priority: task.priority || TASK_PRIORITY.MEDIUM,
         isPartTime: task.isPartTime || false,
-        hourlyRate: task.hourlyRate || 100,
+        hourlyRate: task.hourlyRate || DEFAULT_TASK_VALUES.HOURLY_RATE,
         rateType: task.rateType || 'hourly'
       });
     } else {
@@ -36,10 +39,10 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         description: '',
         start: new Date().toISOString().slice(0, 16),
         end: new Date(new Date().getTime() + 60*60*1000).toISOString().slice(0, 16),
-        status: 'To-Do',
-        priority: 'กลาง',
+        status: TASK_STATUS.TODO,
+        priority: TASK_PRIORITY.MEDIUM,
         isPartTime: false,
-        hourlyRate: 100,
+        hourlyRate: DEFAULT_TASK_VALUES.HOURLY_RATE,
         rateType: 'hourly'
       });
     }
@@ -122,16 +125,16 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           <button
             type="button"
             onClick={() => {
-              onSave({ ...task, status: formData.status === 'Done' ? 'To-Do' : 'Done' });
+              onSave({ ...task, status: formData.status === TASK_STATUS.DONE ? TASK_STATUS.TODO : TASK_STATUS.DONE });
             }}
             className={`w-full flex items-center justify-center gap-3 py-4 mb-6 rounded-[18px] text-base font-bold transition-all active:scale-[0.97] ${
-              formData.status === 'Done'
+              formData.status === TASK_STATUS.DONE
                 ? 'bg-green-500/20 text-green-600 border-green-500/40'
                 : 'text-main border-dashed opacity-80 hover:opacity-100'
             }`}
-            style={{ border: formData.status === 'Done' ? '2px solid rgba(34,197,94,0.4)' : '2px dashed var(--glass-border-strong)' }}
+            style={{ border: formData.status === TASK_STATUS.DONE ? '2px solid rgba(34,197,94,0.4)' : '2px dashed var(--glass-border-strong)' }}
           >
-            {formData.status === 'Done' ? (
+            {formData.status === TASK_STATUS.DONE ? (
               <><CheckCircle2 size={24} /> เสร็จแล้ว! กดเพื่อยกเลิก</>
             ) : (
               <><Circle size={24} /> กดเพื่อทำเครื่องหมายเสร็จ ✅</>
@@ -254,9 +257,9 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                 className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main appearance-none"
                 style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
               >
-                <option value="To-Do">{statusT['To-Do']}</option>
-                <option value="In Progress">{statusT['In Progress']}</option>
-                <option value="Done">{statusT['Done']}</option>
+                <option value={TASK_STATUS.TODO}>{statusT['To-Do']}</option>
+                <option value={TASK_STATUS.IN_PROGRESS}>{statusT['In Progress']}</option>
+                <option value={TASK_STATUS.DONE}>{statusT['Done']}</option>
               </select>
             </div>
             
@@ -267,9 +270,9 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                 style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
               >
                 {[
-                  { id: 'สูง', color: 'bg-red-500' },
-                  { id: 'กลาง', color: 'bg-amber-500' },
-                  { id: 'ต่ำ', color: 'bg-green-500' }
+                  { id: TASK_PRIORITY.HIGH, color: 'bg-red-500' },
+                  { id: TASK_PRIORITY.MEDIUM, color: 'bg-amber-500' },
+                  { id: TASK_PRIORITY.LOW, color: 'bg-green-500' }
                 ].map(p => (
                   <button
                     key={p.id}

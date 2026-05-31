@@ -1,6 +1,7 @@
 import React, { useMemo } from 'react';
-import { CheckCircle2, Clock, CircleDashed, ListTodo, TrendingUp } from 'lucide-react';
 import { motion } from 'framer-motion';
+import { CheckCircle2, Clock, CircleDashed, ListTodo, TrendingUp } from 'lucide-react';
+import { TASK_STATUS } from '../constants';
 
 export default function StatsBar({ tasks = [] }) {
   const stats = useMemo(() => {
@@ -13,9 +14,9 @@ export default function StatsBar({ tasks = [] }) {
     });
 
     const total = monthTasks.length;
-    const todo = monthTasks.filter(t => t.status === 'To-Do').length;
-    const inProgress = monthTasks.filter(t => t.status === 'In Progress').length;
-    const done = monthTasks.filter(t => t.status === 'Done').length;
+    const todo = monthTasks.filter(t => t.status === TASK_STATUS.TODO).length;
+    const inProgress = monthTasks.filter(t => t.status === TASK_STATUS.IN_PROGRESS).length;
+    const done = monthTasks.filter(t => t.status === TASK_STATUS.DONE).length;
     
     const completionRate = total > 0 ? Math.round((done / total) * 100) : 0;
 

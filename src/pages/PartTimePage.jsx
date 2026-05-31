@@ -1,13 +1,15 @@
-import React, { useState, useMemo, useEffect } from 'react';
+import React, { useState, useMemo } from 'react';
+
 import { motion, AnimatePresence } from 'framer-motion';
-import { DollarSign, Clock, CheckCircle2, CircleDashed, Plus, ArrowLeft, Play, Square, Trash2, CalendarDays, History, Edit } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { saveTask } from '../api/firestore';
-import { syncTasksToGAS } from '../api/googleSheets';
-import { useTasks } from '../contexts/TasksContext';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
+import { DollarSign, Clock, CheckCircle2, Plus, ArrowLeft, Trash2, CalendarDays, History, Edit } from 'lucide-react';
+import { useNavigate } from 'react-router-dom';
+
 import TaskModal from '../components/TaskModal';
+import { useTasks } from '../contexts/TasksContext';
+import { saveTask } from '../services/taskService';
+import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE, DEFAULT_TASK_VALUES } from '../constants';
 
 export default function PartTimePage({ user }) {
   const { tasks: allTasks, isLoading: isTasksLoading } = useTasks();
@@ -27,13 +29,13 @@ export default function PartTimePage({ user }) {
   const [showAddForm, setShowAddForm] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
-    hourlyRate: 100,
-    rateType: 'hourly',
+    hourlyRate: DEFAULT_TASK_VALUES.HOURLY_RATE,
+    rateType: RATE_TYPE.HOURLY,
     startDate: new Date().toISOString().slice(0, 10),
     endDate: new Date().toISOString().slice(0, 10),
-    selectedDays: [1, 2, 3, 4, 5], // Default M-F
-    startTime: '09:00',
-    endTime: '17:00'
+    selectedDays: DEFAULT_TASK_VALUES.SELECTED_DAYS,
+    startTime: DEFAULT_TASK_VALUES.START_TIME,
+    endTime: DEFAULT_TASK_VALUES.END_TIME
   });
 
   const daysOfWeek = [
@@ -54,7 +56,7 @@ export default function PartTimePage({ user }) {
     const history = [];
     
     tasks.forEach(t => {
-      const isCompleted = t.status === 'Done' || (t.actualStart && t.actualEnd);
+      const isCompleted = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
       if (isCompleted) {
         history.push(t);
       } else {
@@ -71,7 +73,7 @@ export default function PartTimePage({ user }) {
     
     tasks.forEach(t => {
       const rate = Number(t.hourlyRate) || 0;
-      const isCompleted = t.status === 'Done' || (t.actualStart && t.actualEnd);
+      const isCompleted = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
       
       if (isCompleted) {
         let hours = 0;
@@ -80,12 +82,12 @@ export default function PartTimePage({ user }) {
         } else {
           hours = (t.end - t.start) / (1000 * 60 * 60);
         }
-        if (t.rateType === 'daily') earned += rate;
+        if (t.rateType === RATE_TYPE.DAILY) earned += rate;
         else if (hours > 0) earned += hours * rate;
       } else {
         // Pending
         const hours = (t.end - t.start) / (1000 * 60 * 60);
-        if (t.rateType === 'daily') pending += rate;
+        if (t.rateType === RATE_TYPE.DAILY) pending += rate;
         else if (hours > 0) pending += hours * rate;
       }
     });
@@ -135,8 +137,8 @@ export default function PartTimePage({ user }) {
           description: '',
           start: startDateTime,
           end: endDateObj.toISOString(),
-          status: 'To-Do',
-          priority: 'กลาง',
+          status: TASK_STATUS.TODO,
+          priority: TASK_PRIORITY.MEDIUM,
           isPartTime: true,
           hourlyRate: formData.hourlyRate,
           rateType: formData.rateType,
@@ -178,7 +180,7 @@ export default function PartTimePage({ user }) {
       ...task,
       start: task.start.toISOString(),
       end: task.end.toISOString(),
-      status: 'Done'
+      status: TASK_STATUS.DONE
     };
     setIsMutating(true);
     await saveTask('EDIT', updated, user.uid);
@@ -387,7 +389,7 @@ export default function PartTimePage({ user }) {
         )}
 
         {activeTasks.map(task => {
-          const isCompleted = task.status === 'Done' || (task.actualStart && task.actualEnd);
+          const isCompleted = task.status === TASK_STATUS.DONE || (task.actualStart && task.actualEnd);
           
           let earnings = 0;
           let hours = 0;
@@ -400,7 +402,7 @@ export default function PartTimePage({ user }) {
              hours = (task.end - task.start) / (1000 * 60 * 60);
           }
           
-          if (task.rateType === 'daily') {
+          if (task.rateType === RATE_TYPE.DAILY) {
              earnings = Number(task.hourlyRate) || 0;
           } else {
              earnings = hours * (Number(task.hourlyRate) || 0);
@@ -427,7 +429,7 @@ export default function PartTimePage({ user }) {
                 <div className="flex items-center gap-3 mb-2">
                   <h3 className="font-bold text-main text-lg m-0">{task.title}</h3>
                   <span className="px-2 py-1 bg-primary-500/10 text-primary-600 dark:text-primary-400 text-xs rounded-lg font-bold border border-primary-500/20">
-                    ฿{task.hourlyRate}{task.rateType === 'daily' ? '/วัน' : '/ชม.'}
+                    ฿{task.hourlyRate}{task.rateType === RATE_TYPE.DAILY ? '/วัน' : '/ชม.'}
                   </span>
                 </div>
                 <div className="text-sm text-main opacity-80 space-y-1.5 bg-white/30 dark:bg-black/20 p-3 rounded-xl border border-white/40 dark:border-white/5">

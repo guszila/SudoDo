@@ -1,10 +1,13 @@
 import React, { useState, useEffect, useCallback } from 'react';
+
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, isBefore, startOfDay, endOfDay, differenceInDays } from 'date-fns';
 import { enUS, th } from 'date-fns/locale';
 import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Languages, LogOut, Home, Settings, ListTodo, User, Moon, Sun, DollarSign } from 'lucide-react';
-import { fetchTasks, saveTask } from './api/firestore';
-import { syncTasksToGAS } from './api/googleSheets';
+import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
+import { motion, AnimatePresence } from 'framer-motion';
+
 import TaskModal from './components/TaskModal';
 import StatsBar from './components/StatsBar';
 import Login from './components/Login';
@@ -12,11 +15,11 @@ import ProfilePage from './pages/ProfilePage';
 import PartTimePage from './pages/PartTimePage';
 import TodayPage from './pages/TodayPage';
 import Logo from './components/Logo';
+
+import { saveTask } from './services/taskService';
+import { TASK_STATUS, TASK_PRIORITY } from './constants';
 import { translations } from './i18n';
 import { auth } from './firebase';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
-import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
 import { TasksProvider, useTasks } from './contexts/TasksContext';
 
 const locales = {
@@ -34,8 +37,8 @@ const localizer = dateFnsLocalizer({
 
 const StatusIcon = ({ status, className = "" }) => {
   switch (status) {
-    case 'Done': return <CheckCircle2 className={`text-status-done ${className}`} />;
-    case 'In Progress': return <Clock className={`text-status-progress ${className}`} />;
+    case TASK_STATUS.DONE: return <CheckCircle2 className={`text-status-done ${className}`} />;
+    case TASK_STATUS.IN_PROGRESS: return <Clock className={`text-status-progress ${className}`} />;
     default: return <CircleDashed className={`text-status-todo ${className}`} />;
   }
 };
@@ -86,17 +89,17 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
   };
 
   const EventComponent = ({ event }) => {
-    const isDone = event.status === 'Done';
+    const isDone = event.status === TASK_STATUS.DONE;
     let priorityColor = 'bg-amber-500';
-    if (event.priority === 'สูง') priorityColor = 'bg-red-500';
-    if (event.priority === 'ต่ำ') priorityColor = 'bg-green-500';
+    if (event.priority === TASK_PRIORITY.HIGH) priorityColor = 'bg-red-500';
+    if (event.priority === TASK_PRIORITY.LOW) priorityColor = 'bg-green-500';
 
     const now = new Date();
     const isOverdue = !isDone && isBefore(endOfDay(event.end), now);
 
     const handleToggleDone = (e) => {
       e.stopPropagation(); // Prevent opening modal
-      const newStatus = isDone ? 'To-Do' : 'Done';
+      const newStatus = isDone ? TASK_STATUS.TODO : TASK_STATUS.DONE;
       handleSaveTask({ ...event, status: newStatus });
     };
 
@@ -123,25 +126,25 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
   const eventPropGetter = (event) => {
     let borderColor = 'var(--color-status-todo)';
     
-    if (event.status === 'Done') {
+    if (event.status === TASK_STATUS.DONE) {
       borderColor = 'var(--color-status-done)';
-    } else if (event.status === 'In Progress') {
+    } else if (event.status === TASK_STATUS.IN_PROGRESS) {
       borderColor = 'var(--color-status-progress)';
     }
 
     let bgOpacity = '0.4';
-    if (event.priority === 'สูง') bgOpacity = '0.8';
-    if (event.priority === 'ต่ำ') bgOpacity = '0.2';
+    if (event.priority === TASK_PRIORITY.HIGH) bgOpacity = '0.8';
+    if (event.priority === TASK_PRIORITY.LOW) bgOpacity = '0.2';
     
     let bgColor = `rgba(255, 255, 255, ${bgOpacity})`;
     
     if (event.isPartTime) {
-      bgColor = `rgba(34, 197, 94, ${event.status === 'Done' ? '0.15' : '0.3'})`;
+      bgColor = `rgba(34, 197, 94, ${event.status === TASK_STATUS.DONE ? '0.15' : '0.3'})`;
       borderColor = 'rgba(34, 197, 94, 0.8)';
     }
 
     const now = new Date();
-    const isDone = event.status === 'Done';
+    const isDone = event.status === TASK_STATUS.DONE;
     const isOverdue = !isDone && isBefore(endOfDay(event.end), now);
     const isDueToday = !isDone && !isOverdue && startOfDay(event.end).getTime() === startOfDay(now).getTime();
     const isDueSoon = !isDone && !isOverdue && !isDueToday && differenceInDays(startOfDay(event.end), startOfDay(now)) <= 3;
@@ -167,7 +170,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
   const CustomDateHeader = ({ label, date, onDrillDown }) => {
     const now = new Date();
     const hasOverdue = tasks.some(t => {
-      if (t.status === 'Done') return false;
+      if (t.status === TASK_STATUS.DONE) return false;
       const isOverdue = isBefore(endOfDay(t.end), now);
       return isOverdue && startOfDay(t.end).getTime() === startOfDay(date).getTime();
     });

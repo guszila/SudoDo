@@ -1,13 +1,16 @@
 import React, { useState, useEffect, useMemo } from 'react';
+
 import { motion } from 'framer-motion';
-import { format, isBefore, startOfDay, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
+import { format, isBefore, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { updateUserStreak, saveTask } from '../api/firestore';
-import { Flame, DollarSign, Clock, Circle, Check, ArrowLeft, Maximize2, X, Trash2 } from 'lucide-react';
+import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2 } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
-import { useTasks } from '../contexts/TasksContext';
 
+import { useTasks } from '../contexts/TasksContext';
+import { updateUserStreak } from '../services/userService';
+import { saveTask } from '../services/taskService';
+import { TASK_STATUS, TASK_PRIORITY, PRIORITY_WEIGHT, RATE_TYPE } from '../constants';
 export default function TodayPage({ user }) {
   const { tasks, isLoading: tasksLoading } = useTasks();
   const [streakData, setStreakData] = useState({ currentStreak: 0, bestStreak: 0, history: [] });
@@ -23,7 +26,6 @@ export default function TodayPage({ user }) {
       try {
         await saveTask('DELETE', { id: taskId }, user?.uid);
       } catch (err) {
-        console.error('Error deleting task:', err);
         alert('เกิดข้อผิดพลาดในการลบงาน');
       }
     }
@@ -78,7 +80,7 @@ export default function TodayPage({ user }) {
     }
 
     tasks.forEach(t => {
-      const isDone = t.status === 'Done';
+      const isDone = t.status === TASK_STATUS.DONE;
       
       if (t.isPartTime) {
         const key = format(t.start, 'yyyy-MM');
@@ -92,7 +94,7 @@ export default function TodayPage({ user }) {
             } else {
               hours = (t.end - t.start) / (1000 * 60 * 60);
             }
-            if (t.rateType === 'daily') earnings = Number(t.hourlyRate) || 0;
+            if (t.rateType === RATE_TYPE.DAILY) earnings = Number(t.hourlyRate) || 0;
             else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
             
             if (monthlyIncome[key] !== undefined) monthlyIncome[key].income += earnings;
@@ -103,7 +105,7 @@ export default function TodayPage({ user }) {
         if (isSameDay(t.start, now) && isDone) {
             let earnings = 0;
             let hours = (t.end - t.start) / (1000 * 60 * 60);
-            if (t.rateType === 'daily') earnings = Number(t.hourlyRate) || 0;
+            if (t.rateType === RATE_TYPE.DAILY) earnings = Number(t.hourlyRate) || 0;
             else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
             income += earnings;
         }
@@ -120,7 +122,7 @@ export default function TodayPage({ user }) {
             if (isDone) doneT++;
             else pendingT++;
             
-            if (!isDone && t.priority === 'สูง') highPriority++;
+            if (!isDone && t.priority === TASK_PRIORITY.HIGH) highPriority++;
         }
       }
     });
@@ -139,16 +141,16 @@ export default function TodayPage({ user }) {
       isToday: isSameDay(d, now)
     }));
     
-    const priorityWeight = { 'สูง': 3, 'กลาง': 2, 'ต่ำ': 1 };
+
     
     const allTodayTasks = [...oTasks, ...tTasks].sort((a, b) => {
-      const aOverdue = isBefore(a.end, now) && a.status !== 'Done';
-      const bOverdue = isBefore(b.end, now) && b.status !== 'Done';
+      const aOverdue = isBefore(a.end, now) && a.status !== TASK_STATUS.DONE;
+      const bOverdue = isBefore(b.end, now) && b.status !== TASK_STATUS.DONE;
       if (aOverdue && !bOverdue) return -1;
       if (!aOverdue && bOverdue) return 1;
       
-      if (priorityWeight[b.priority] !== priorityWeight[a.priority]) {
-        return priorityWeight[b.priority] - priorityWeight[a.priority];
+      if (PRIORITY_WEIGHT[b.priority] !== PRIORITY_WEIGHT[a.priority]) {
+        return PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority];
       }
       return a.end.getTime() - b.end.getTime();
     });
@@ -175,9 +177,9 @@ export default function TodayPage({ user }) {
   };
 
   const getStatusColor = (status, priority) => {
-    if (status === 'Done') return 'bg-green-500';
-    if (priority === 'สูง') return 'bg-red-500';
-    if (priority === 'ต่ำ') return 'bg-green-500';
+    if (status === TASK_STATUS.DONE) return 'bg-green-500';
+    if (priority === TASK_PRIORITY.HIGH) return 'bg-red-500';
+    if (priority === TASK_PRIORITY.LOW) return 'bg-green-500';
     return 'bg-amber-500';
   };
 
@@ -358,25 +360,25 @@ export default function TodayPage({ user }) {
               </div>
             ) : (
               todayTasks.map(task => {
-                const isOverdue = !isSameDay(task.end, now) && isBefore(task.end, now) && task.status !== 'Done';
+                const isOverdue = !isSameDay(task.end, now) && isBefore(task.end, now) && task.status !== TASK_STATUS.DONE;
                 return (
-                  <div key={task.id} className={`liquid-glass-card p-4 rounded-[20px] flex items-center gap-3 transition-all ${task.status === 'Done' ? 'opacity-60' : 'hover:border-primary-500/30'}`}>
+                  <div key={task.id} className={`liquid-glass-card p-4 rounded-[20px] flex items-center gap-3 transition-all ${task.status === TASK_STATUS.DONE ? 'opacity-60' : 'hover:border-primary-500/30'}`}>
                     <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getStatusColor(task.status, task.priority)} ${isOverdue ? 'animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]' : ''}`} />
                     <div className="flex-1 min-w-0">
-                      <h4 className={`font-bold text-main truncate ${task.status === 'Done' ? 'line-through' : ''}`}>{task.title}</h4>
+                      <h4 className={`font-bold text-main truncate ${task.status === TASK_STATUS.DONE ? 'line-through' : ''}`}>{task.title}</h4>
                       <p className="text-[10px] md:text-xs text-main/60 truncate flex items-center gap-1.5 mt-0.5">
                          {format(task.start, 'HH:mm')} - {format(task.end, 'HH:mm')}
                          <span className="opacity-50">•</span>
                          {task.isPartTime ? (
                            <span className="text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5"><DollarSign size={10} /> กะงาน</span>
                          ) : (
-                           <span className={task.priority === 'สูง' ? 'text-red-500 font-bold' : ''}>สำคัญ{task.priority}</span>
+                           <span className={task.priority === TASK_PRIORITY.HIGH ? 'text-red-500 font-bold' : ''}>สำคัญ{task.priority}</span>
                          )}
                          {isOverdue && <span className="text-red-500 font-bold ml-1 bg-red-500/10 px-1.5 rounded text-[9px]">เลยกำหนด</span>}
                       </p>
                     </div>
                     <div className="flex-shrink-0 flex items-center gap-1.5">
-                      {task.status === 'Done' ? (
+                      {task.status === TASK_STATUS.DONE ? (
                         <div className="px-3 py-1.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-bold border border-green-500/20 flex items-center gap-1">
                           <Check size={12} /> เสร็จแล้ว
                         </div>
