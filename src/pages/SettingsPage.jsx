@@ -6,7 +6,7 @@ import {
   Palette,
   Bell, Clock, Flame, Globe, Download,
   ShieldCheck, RefreshCw, Database, Info, Star,
-  Trash2, LogOut, Check, PlayCircle
+  Trash2, LogOut, Check, PlayCircle, UserX
 } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -16,7 +16,7 @@ import ConfirmDialog from '../components/ConfirmDialog';
 import { useToast } from '../contexts/ToastContext';
 import pkg from '../../package.json' assert { type: 'json' };
 import { auth } from '../firebase';
-import { signOut } from 'firebase/auth';
+import { signOut, deleteUser } from 'firebase/auth';
 
 const SectionLabel = ({ children }) => (
   <div className="text-[11px] font-[500] text-[var(--theme-section-label)] dark:text-[#AFA9EC] tracking-[0.08em] px-4 mb-1.5 uppercase">
@@ -104,6 +104,10 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
   const [deleteConfirmText, setDeleteConfirmText] = useState('');
   const [isDeleting, setIsDeleting] = useState(false);
 
+  const [deleteAccountStep, setDeleteAccountStep] = useState(0);
+  const [deleteAccountText, setDeleteAccountText] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
   const t = {
     display: lang === 'en' ? 'Display' : 'การแสดงผล',
     themeColor: lang === 'en' ? 'Color Theme' : 'ธีมสี',
@@ -140,6 +144,10 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
     dangerZone: lang === 'en' ? 'Danger Zone' : 'Danger Zone',
     restartTour: lang === 'en' ? 'Restart App Tour' : 'เริ่มแนะนำการใช้งานใหม่',
     deleteAll: lang === 'en' ? 'Delete All Data' : 'ลบข้อมูลทั้งหมด',
+    deleteAccount: lang === 'en' ? 'Delete Account' : 'ลบบัญชี',
+    deleteAccountTitle: lang === 'en' ? 'Confirm Account Deletion' : 'ยืนยันการลบบัญชี',
+    deleteAccountMsg: lang === 'en' ? 'This will permanently delete your account and all data. Cannot be undone.' : 'การกระทำนี้จะลบบัญชีและข้อมูลทั้งหมดของคุณอย่างถาวร ไม่สามารถย้อนกลับได้',
+    deleteAccountError: lang === 'en' ? 'Error: Please log out and log back in to verify your identity before deleting.' : 'ข้อผิดพลาด: กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่ เพื่อยืนยันตัวตนก่อนลบบัญชี',
     logout: lang === 'en' ? 'Log Out' : 'ออกจากระบบ',
     selectLang: lang === 'en' ? 'Select Language' : 'เลือกภาษา',
     thai: lang === 'en' ? 'Thai' : 'ภาษาไทย',
@@ -241,6 +249,28 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
       showToast(t.deleteError, { duration: 3000 });
     } finally {
       setIsDeleting(false);
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    if (deleteAccountText !== user.displayName) return;
+    setIsDeletingAccount(true);
+    try {
+      for (const task of tasks) {
+        await saveTask('DELETE', { id: task.id }, user.uid);
+      }
+      await deleteUser(auth.currentUser);
+      // It will auto redirect to login via auth listener
+    } catch (error) {
+      console.error(error);
+      if (error.code === 'auth/requires-recent-login') {
+        showToast(t.deleteAccountError, { duration: 5000 });
+        setDeleteAccountStep(0);
+      } else {
+        showToast(t.deleteError, { duration: 3000 });
+      }
+    } finally {
+      setIsDeletingAccount(false);
     }
   };
 
@@ -416,6 +446,12 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
             onClick={() => setDeleteConfirmStep(1)}
           />
           <Row 
+            icon={UserX} iconBgClass="bg-transparent" iconColorClass="text-red-500"
+            title={<span className="text-red-500 font-bold">{t.deleteAccount}</span>}
+            rightElement={<ChevronRight size={20} className="text-red-500/50" />}
+            onClick={() => setDeleteAccountStep(1)}
+          />
+          <Row 
             icon={LogOut} iconBgClass="bg-transparent" iconColorClass="text-red-500"
             title={<span className="text-red-500 font-bold">{t.logout}</span>}
             rightElement={<ChevronRight size={20} className="text-red-500/50" />}
@@ -549,6 +585,58 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
         </button>
       </ActionSheet>
 
+      {/* Delete Account Sheets */}
+      <ActionSheet isOpen={deleteAccountStep === 1} onClose={() => setDeleteAccountStep(0)} title={t.deleteAccountTitle}>
+        <div className="flex flex-col items-center p-4 pt-0">
+          <div className="w-16 h-16 rounded-full bg-red-100 dark:bg-red-900/30 flex items-center justify-center mb-4">
+            <UserX size={32} className="text-red-500" />
+          </div>
+          <p className="text-center text-main mb-6 opacity-80 leading-relaxed font-medium">
+            {t.deleteAccountMsg}
+          </p>
+          <div className="flex w-full gap-3">
+            <button 
+              onClick={() => setDeleteAccountStep(0)}
+              className="flex-1 py-3.5 rounded-[16px] font-bold bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
+            >
+              {t.cancel}
+            </button>
+            <button 
+              onClick={() => setDeleteAccountStep(2)}
+              className="flex-1 py-3.5 rounded-[16px] font-bold bg-red-500 text-white shadow-lg shadow-red-500/30 hover:bg-red-600 transition-colors"
+            >
+              {t.continue}
+            </button>
+          </div>
+        </div>
+      </ActionSheet>
+
+      <ActionSheet isOpen={deleteAccountStep === 2} onClose={() => { setDeleteAccountStep(0); setDeleteAccountText(''); }} title={t.finalConfirm}>
+        <div className="p-4 pt-0">
+          <p className="text-center text-main mb-4 opacity-80 text-sm font-medium">
+            {t.type} <span className="font-bold text-red-500 select-all">"{user?.displayName}"</span> {lang === 'en' ? 'to confirm' : 'เพื่อยืนยัน'}
+          </p>
+          <input
+            type="text"
+            value={deleteAccountText}
+            onChange={(e) => setDeleteAccountText(e.target.value)}
+            placeholder={user?.displayName || ''}
+            className="w-full bg-black/5 dark:bg-[#1a1a2e] border border-main/10 rounded-[16px] px-4 py-3.5 outline-none focus:border-red-500 transition-colors mb-6 text-center font-bold text-main"
+          />
+          <button 
+            disabled={deleteAccountText !== user?.displayName || isDeletingAccount}
+            onClick={handleDeleteAccount}
+            className={`w-full py-3.5 rounded-[16px] font-bold flex items-center justify-center gap-2 transition-all ${
+              deleteAccountText === user?.displayName && !isDeletingAccount 
+                ? 'bg-red-500 text-white shadow-lg shadow-red-500/30 hover:bg-red-600' 
+                : 'bg-black/5 dark:bg-white/10 text-main opacity-50 cursor-not-allowed'
+            }`}
+          >
+            {isDeletingAccount ? <RefreshCw size={20} className="animate-spin" /> : <UserX size={20} />}
+            {isDeletingAccount ? t.deleting : t.deleteAccount}
+          </button>
+        </div>
+      </ActionSheet>
     </motion.div>
   );
 }
