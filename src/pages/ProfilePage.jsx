@@ -1,14 +1,12 @@
 import React, { useState, useEffect } from 'react';
-
-import { updateProfile, updatePassword, signOut } from 'firebase/auth';
+import { updateProfile, updatePassword, signOut, sendEmailVerification, sendPasswordResetEmail, deleteUser } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { motion } from 'framer-motion';
-import { ArrowLeft, User, LogOut, Loader2, Check, Lock, AlertTriangle, Database, Trash2 } from 'lucide-react';
+import { ArrowLeft, User, LogOut, Loader2, Check, Lock, AlertTriangle, Camera, Mail, Send, Calendar, UserX, RefreshCw } from 'lucide-react';
 
 import { auth } from '../firebase';
 import { useTasks } from '../contexts/TasksContext';
 import { saveTask } from '../services/taskService';
-import ConfirmDialog from '../components/ConfirmDialog';
 
 export default function ProfilePage({ user }) {
   const navigate = useNavigate();
@@ -17,21 +15,19 @@ export default function ProfilePage({ user }) {
   const [newPassword, setNewPassword] = useState('');
   
   const [loading, setLoading] = useState(false);
+  const [sendingVerification, setSendingVerification] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+  
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
   
   const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
+  
+  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
+  const [deleteAccountText, setDeleteAccountText] = useState('');
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const { tasks } = useTasks();
-  
-  // Data Reset State
-  const [resetIncomeConfirmText, setResetIncomeConfirmText] = useState('');
-  const [isResettingIncome, setIsResettingIncome] = useState(false);
-  
-  // Delete Data State
-  const [showDeleteDataConfirm, setShowDeleteDataConfirm] = useState(false);
-  const [deleteDataConfirmText, setDeleteDataConfirmText] = useState('');
-  const [isDeletingData, setIsDeletingData] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -57,6 +53,40 @@ export default function ProfilePage({ user }) {
       setErrorMsg('เกิดข้อผิดพลาดในการอัปเดตชื่อ');
     } finally {
       setLoading(false);
+    }
+  };
+
+  const handleVerifyEmail = async () => {
+    setSendingVerification(true);
+    setSuccessMsg('');
+    setErrorMsg('');
+    try {
+      await sendEmailVerification(user);
+      setSuccessMsg('ส่งลิงก์ยืนยันไปที่อีเมลแล้ว กรุณาตรวจสอบกล่องจดหมาย');
+    } catch (error) {
+      console.error(error);
+      if (error.code === 'auth/too-many-requests') {
+        setErrorMsg('ส่งลิงก์บ่อยเกินไป กรุณารอสักครู่');
+      } else {
+        setErrorMsg('เกิดข้อผิดพลาดในการส่งลิงก์ยืนยันอีเมล');
+      }
+    } finally {
+      setSendingVerification(false);
+    }
+  };
+
+  const handleResetPasswordEmail = async () => {
+    setSendingReset(true);
+    setSuccessMsg('');
+    setErrorMsg('');
+    try {
+      await sendPasswordResetEmail(auth, user.email);
+      setSuccessMsg('ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลแล้ว!');
+    } catch (error) {
+      console.error(error);
+      setErrorMsg('เกิดข้อผิดพลาดในการส่งลิงก์รีเซ็ตรหัสผ่าน');
+    } finally {
+      setSendingReset(false);
     }
   };
 
@@ -87,6 +117,30 @@ export default function ProfilePage({ user }) {
     }
   };
 
+  const handleDeleteAccount = async () => {
+    const matchText = user.displayName || user.email;
+    if (deleteAccountText !== matchText) return;
+    
+    setIsDeletingAccount(true);
+    setSuccessMsg('');
+    setErrorMsg('');
+    try {
+      for (const task of tasks) {
+        await saveTask('DELETE', { id: task.id }, user.uid);
+      }
+      await deleteUser(user);
+    } catch (error) {
+      console.error(error);
+      if (error.code === 'auth/requires-recent-login') {
+         setErrorMsg('กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่ เพื่อยืนยันตัวตนก่อนลบบัญชี');
+      } else {
+         setErrorMsg('เกิดข้อผิดพลาดในการลบบัญชี');
+      }
+      setShowDeleteAccount(false);
+      setIsDeletingAccount(false);
+    }
+  };
+
   const handleLogout = async () => {
     try {
       await signOut(auth);
@@ -96,55 +150,23 @@ export default function ProfilePage({ user }) {
     }
   };
 
-  const handleResetIncome = async () => {
-    if (resetIncomeConfirmText !== 'ยืนยัน') return;
-    
-    setIsResettingIncome(true);
-    setSuccessMsg('');
-    setErrorMsg('');
-    try {
-      const historyTasks = tasks.filter(t => t.isPartTime);
-      for (const task of historyTasks) {
-        await saveTask('DELETE', { id: task.id }, user.uid);
-      }
-      setSuccessMsg('รีเซ็ตประวัติรายได้ทั้งหมดสำเร็จ');
-      setResetIncomeConfirmText('');
-      setTimeout(() => setSuccessMsg(''), 3000);
-    } catch (error) {
-      console.error(error);
-      setErrorMsg('เกิดข้อผิดพลาดในการรีเซ็ตรายได้');
-    } finally {
-      setIsResettingIncome(false);
-    }
-  };
-
-  const handleDeleteAllData = async () => {
-    if (deleteDataConfirmText !== user.displayName) return;
-    
-    setShowDeleteDataConfirm(false);
-    setIsDeletingData(true);
-    setSuccessMsg('');
-    setErrorMsg('');
-    try {
-      for (const task of tasks) {
-        await saveTask('DELETE', { id: task.id }, user.uid);
-      }
-      setSuccessMsg('ลบข้อมูลทุกอย่างสำเร็จแล้ว');
-      setDeleteDataConfirmText('');
-      setTimeout(() => setSuccessMsg(''), 3000);
-    } catch (error) {
-      console.error(error);
-      setErrorMsg('เกิดข้อผิดพลาดในการลบข้อมูล');
-    } finally {
-      setIsDeletingData(false);
-    }
-  };
-
   const getInitials = () => {
     if (user.displayName) {
       return user.displayName.substring(0, 2).toUpperCase();
     }
     return user.email.substring(0, 2).toUpperCase();
+  };
+
+  const getMemberSince = () => {
+    if (!user.metadata?.creationTime) return '';
+    const date = new Date(user.metadata.creationTime);
+    const options = { year: 'numeric', month: 'short', day: 'numeric' };
+    const dateString = date.toLocaleDateString('th-TH', options);
+    
+    const diffTime = Math.abs(new Date() - date);
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    
+    return `เป็นสมาชิกเมื่อ ${dateString} (${diffDays} วัน)`;
   };
 
   return (
@@ -166,20 +188,49 @@ export default function ProfilePage({ user }) {
           >
             <ArrowLeft size={24} />
           </button>
-          <h1 className="text-3xl font-bold tracking-tight text-main">ตั้งค่าโปรไฟล์ (Profile)</h1>
+          <h1 className="text-3xl font-bold tracking-tight text-main">โปรไฟล์ (Profile)</h1>
         </div>
 
         {/* Profile Card */}
         <div className="liquid-glass-card p-6 md:p-8 mb-8 relative">
           <div className="flex flex-col md:flex-row items-center gap-6 mb-8 pb-8" style={{ borderBottom: '1px solid var(--glass-border-strong)' }}>
+            
             <div className="w-28 h-28 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg flex-shrink-0" style={{ border: '4px solid var(--glass-border)' }}>
               {getInitials()}
             </div>
-            <div className="text-center md:text-left">
-              <h2 className="text-2xl font-bold text-main mb-1">{user.displayName || 'ผู้ใช้ SudoDo'}</h2>
-              <p className="text-main opacity-70 flex items-center justify-center md:justify-start gap-2">
-                <User size={16} /> {user.email}
-              </p>
+
+            <div className="text-center md:text-left flex-1">
+              <h2 className="text-2xl font-bold text-main mb-2">{user.displayName || 'ผู้ใช้ SudoDo'}</h2>
+              
+              <div className="flex flex-col gap-1 items-center md:items-start text-sm text-main opacity-80">
+                <p className="flex items-center gap-2">
+                  <Mail size={16} /> {user.email}
+                  {user.emailVerified ? (
+                    <span className="bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-green-500/20">
+                      <Check size={12} /> ยืนยันแล้ว
+                    </span>
+                  ) : (
+                    <span className="bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-amber-500/20">
+                      <AlertTriangle size={12} /> ยังไม่ยืนยัน
+                    </span>
+                  )}
+                </p>
+                <p className="flex items-center gap-2 mt-1">
+                  <Calendar size={16} /> {getMemberSince()}
+                </p>
+              </div>
+
+              {/* Verify Email Button (if not verified) */}
+              {!user.emailVerified && (
+                <button 
+                  onClick={handleVerifyEmail}
+                  disabled={sendingVerification}
+                  className="mt-3 text-sm flex items-center gap-2 text-primary-500 font-bold hover:text-primary-600 transition-colors"
+                >
+                  {sendingVerification ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                  ส่งลิงก์ยืนยันอีเมล
+                </button>
+              )}
             </div>
           </div>
 
@@ -225,7 +276,7 @@ export default function ProfilePage({ user }) {
             {/* Update Password Form */}
             <form onSubmit={handleUpdatePassword}>
               <h3 className="text-lg font-bold text-main mb-4 flex items-center gap-2">
-                <Lock size={20} className="text-primary-500" /> ความปลอดภัย
+                <Lock size={20} className="text-amber-500" /> ความปลอดภัย
               </h3>
               <label className="block text-sm font-medium text-main mb-2 opacity-80">เปลี่ยนรหัสผ่านใหม่ (New Password)</label>
               <div className="flex flex-col sm:flex-row gap-3">
@@ -233,7 +284,7 @@ export default function ProfilePage({ user }) {
                   type="password" 
                   value={newPassword} 
                   onChange={(e) => setNewPassword(e.target.value)}
-                  className="flex-1 px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow"
+                  className="flex-1 px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-amber-500 text-main transition-shadow"
                   style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
                   placeholder="รหัสผ่านใหม่อย่างน้อย 6 ตัวอักษร"
                 />
@@ -246,11 +297,65 @@ export default function ProfilePage({ user }) {
                   {loading ? <Loader2 size={20} className="animate-spin" /> : 'เปลี่ยนรหัสผ่าน'}
                 </button>
               </div>
+              
+              <button
+                type="button"
+                onClick={handleResetPasswordEmail}
+                disabled={sendingReset}
+                className="mt-4 text-sm flex items-center gap-2 text-main opacity-70 hover:opacity-100 transition-opacity font-medium"
+              >
+                {sendingReset ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+                ลืมรหัสผ่าน? ส่งลิงก์ตั้งรหัสผ่านใหม่ไปยังอีเมล
+              </button>
             </form>
           </div>
         </div>
 
-        {/* Data Section (Moved to Settings) */}
+        {/* Delete Account Section */}
+        <div className="liquid-glass-card p-6 md:p-8 mb-8 border-red-500/20" style={{ border: '1px solid rgba(239,68,68,0.2)' }}>
+          <h3 className="text-lg font-bold text-red-500 mb-2 flex items-center gap-2">
+            <UserX size={20} /> ลบบัญชีผู้ใช้ (Delete Account)
+          </h3>
+          <p className="text-sm text-main opacity-70 mb-4">การลบบัญชีจะลบข้อมูลงานและรายได้ของคุณทั้งหมดอย่างถาวร ไม่สามารถกู้คืนได้</p>
+          
+          {showDeleteAccount ? (
+            <div className="mt-4 p-4 rounded-[16px] bg-red-500/10 border border-red-500/20">
+              <p className="text-sm text-red-600 font-medium mb-3">
+                พิมพ์ <span className="font-bold select-all">"{user.displayName || user.email}"</span> เพื่อยืนยันการลบ
+              </p>
+              <input 
+                type="text" 
+                value={deleteAccountText}
+                onChange={(e) => setDeleteAccountText(e.target.value)}
+                className="w-full px-4 py-3 rounded-[12px] bg-white dark:bg-black/20 border border-red-500/30 focus:outline-none focus:border-red-500 text-main mb-3 text-center font-bold"
+                placeholder={user.displayName || user.email}
+              />
+              <div className="flex gap-2">
+                <button 
+                  onClick={() => { setShowDeleteAccount(false); setDeleteAccountText(''); }}
+                  className="flex-1 py-3 text-main font-bold rounded-[12px] bg-black/5 dark:bg-white/5 hover:bg-black/10 transition-colors"
+                >
+                  ยกเลิก
+                </button>
+                <button 
+                  disabled={deleteAccountText !== (user.displayName || user.email) || isDeletingAccount}
+                  onClick={handleDeleteAccount}
+                  className="flex-1 py-3 bg-red-500 text-white font-bold rounded-[12px] hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-red-500/30"
+                >
+                  {isDeletingAccount ? <RefreshCw size={18} className="animate-spin" /> : <Trash2 size={18} />} 
+                  ยืนยันลบถาวร
+                </button>
+              </div>
+            </div>
+          ) : (
+            <button 
+              onClick={() => setShowDeleteAccount(true)}
+              className="px-6 py-3 w-full sm:w-auto bg-red-500 text-white font-bold rounded-[16px] hover:bg-red-600 transition-all shadow-md shadow-red-500/30 active:scale-95"
+            >
+              ลบบัญชีถาวร
+            </button>
+          )}
+        </div>
 
         {/* Logout Section */}
         <div className="liquid-glass-card p-6 md:p-8 flex flex-col items-center sm:flex-row sm:justify-between sm:items-center gap-4">
@@ -284,9 +389,8 @@ export default function ProfilePage({ user }) {
             </button>
           )}
         </div>
-      </div>
 
-      {/* Deleted Data Dialog (Moved to Settings) */}
+      </div>
     </motion.div>
   );
 }
