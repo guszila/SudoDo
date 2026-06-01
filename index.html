@@ -17,11 +17,12 @@
           notifyButton: {
             enable: true,
             displayPredicate: function() {
-              // จะโชว์กระดิ่งก็ต่อเมื่อผู้ใช้ยังไม่ได้เปิดรับแจ้งเตือนเท่านั้น
               return !OneSignal.User.PushSubscription.optedIn;
             }
           },
           allowLocalhostAsSecureOrigin: true,
+          serviceWorkerPath: "sw.js",
+          serviceWorkerParam: { scope: "/" }
         });
         OneSignal.Slidedown.promptPush();
       });
