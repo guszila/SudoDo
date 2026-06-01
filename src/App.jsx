@@ -7,6 +7,7 @@ import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDas
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
+import OneSignal from 'react-onesignal';
 
 import TaskModal from './components/TaskModal';
 import StatsBar from './components/StatsBar';
@@ -601,6 +602,27 @@ export default function App() {
   const toggleTheme = () => {
     setTheme(prev => prev === 'light' ? 'dark' : 'light');
   };
+
+  useEffect(() => {
+    const runOneSignal = async () => {
+      try {
+        if (!OneSignal.initialized) {
+          await OneSignal.init({
+            appId: "bd02df5d-0879-49d5-8997-8a3a0aa219ee",
+            safari_web_id: "web.onesignal.auto.12398f86-c304-472b-bd93-39635fc69310",
+            notifyButton: {
+              enable: true,
+            },
+            allowLocalhostAsSecureOrigin: true,
+          });
+        }
+        OneSignal.Slidedown.promptPush();
+      } catch (error) {
+        console.error("OneSignal init error:", error);
+      }
+    };
+    runOneSignal();
+  }, []);
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
