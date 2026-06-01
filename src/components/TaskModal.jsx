@@ -119,7 +119,9 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         </button>
         
         <h2 className="text-2xl font-bold mb-4 text-main">
-          {task?.id ? t.editTask : t.newTask}
+          {task?.id 
+            ? (formData.isPartTime ? 'แก้ไขกะงาน' : t.editTask) 
+            : (formData.isPartTime ? 'เพิ่มกะงาน' : t.newTask)}
         </h2>
 
         {/* Quick Done Toggle - big and easy to tap on mobile */}
@@ -137,16 +139,18 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             style={{ border: formData.status === TASK_STATUS.DONE ? '2px solid rgba(34,197,94,0.4)' : '2px dashed var(--glass-border-strong)' }}
           >
             {formData.status === TASK_STATUS.DONE ? (
-              <><CheckCircle2 size={24} /> {t.quickDone}</>
+              <><CheckCircle2 size={24} /> {formData.isPartTime ? 'ทำเครื่องหมายว่าจบกะแล้ว' : t.quickDone}</>
             ) : (
-              <><Circle size={24} /> {t.quickMarkDone}</>
+              <><Circle size={24} /> {formData.isPartTime ? 'กดเพื่อทำเครื่องหมายว่าจบกะ' : t.quickMarkDone}</>
             )}
           </button>
         )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>
-            <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.title}</label>
+            <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
+              {formData.isPartTime ? 'ชื่องาน / สถานที่' : t.title}
+            </label>
             <input 
               type="text" 
               name="title" 
@@ -159,54 +163,58 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             />
           </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <div>
-              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.status}</label>
-              <select 
-                name="status" 
-                value={formData.status} 
-                onChange={handleChange}
-                className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main appearance-none"
-                style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-              >
-                <option value={TASK_STATUS.TODO}>{statusT['To-Do']}</option>
-                <option value={TASK_STATUS.IN_PROGRESS}>{statusT['In Progress']}</option>
-                <option value={TASK_STATUS.DONE}>{statusT['Done']}</option>
-              </select>
-            </div>
-            
-            <div>
-              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.priority}</label>
-              <div 
-                className="flex rounded-[16px] overflow-hidden p-1"
-                style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-              >
-                {[
-                  { id: TASK_PRIORITY.HIGH, color: 'bg-red-500' },
-                  { id: TASK_PRIORITY.MEDIUM, color: 'bg-amber-500' },
-                  { id: TASK_PRIORITY.LOW, color: 'bg-green-500' }
-                ].map(p => (
-                  <button
-                    key={p.id}
-                    type="button"
-                    onClick={() => setFormData(prev => ({ ...prev, priority: p.id }))}
-                    className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-[12px] transition-all ${
-                      formData.priority === p.id 
-                        ? 'shadow-sm text-main' 
-                        : 'text-main/70 opacity-70 hover:opacity-100'
-                    }`}
-                    style={{ backgroundColor: formData.priority === p.id ? 'var(--glass-bg-strong)' : 'transparent' }}
-                  >
-                    <div className={`w-2 h-2 rounded-full ${p.color}`}></div>
-                    {p.id}
-                  </button>
-                ))}
+          {!formData.isPartTime && (
+            <div className="grid grid-cols-2 gap-4">
+              <div>
+                <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.status}</label>
+                <select 
+                  name="status" 
+                  value={formData.status} 
+                  onChange={handleChange}
+                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main appearance-none"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                >
+                  <option value={TASK_STATUS.TODO}>{statusT['To-Do']}</option>
+                  <option value={TASK_STATUS.IN_PROGRESS}>{statusT['In Progress']}</option>
+                  <option value={TASK_STATUS.DONE}>{statusT['Done']}</option>
+                </select>
+              </div>
+              
+              <div>
+                <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.priority}</label>
+                <div 
+                  className="flex rounded-[16px] overflow-hidden p-1"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                >
+                  {[
+                    { id: TASK_PRIORITY.HIGH, color: 'bg-red-500' },
+                    { id: TASK_PRIORITY.MEDIUM, color: 'bg-amber-500' },
+                    { id: TASK_PRIORITY.LOW, color: 'bg-green-500' }
+                  ].map(p => (
+                    <button
+                      key={p.id}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, priority: p.id }))}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-[12px] transition-all ${
+                        formData.priority === p.id 
+                          ? 'shadow-sm text-main' 
+                          : 'text-main/70 opacity-70 hover:opacity-100'
+                      }`}
+                      style={{ backgroundColor: formData.priority === p.id ? 'var(--glass-bg-strong)' : 'transparent' }}
+                    >
+                      <div className={`w-2 h-2 rounded-full ${p.color}`}></div>
+                      {p.id}
+                    </button>
+                  ))}
+                </div>
               </div>
             </div>
-          </div>
+          )}
           
           <div>
-            <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.description}</label>
+            <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
+              {formData.isPartTime ? 'หมายเหตุ (ไม่บังคับ)' : t.description}
+            </label>
             <textarea 
               name="description" 
               value={formData.description} 
@@ -247,20 +255,22 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           )}
 
           <div className="space-y-4">
-            <label 
-              htmlFor="isAllDay" 
-              className="flex items-center gap-3 mb-2 min-h-[44px] w-full cursor-pointer px-4 rounded-[16px] transition-colors"
-              style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-            >
-              <input
-                type="checkbox"
-                id="isAllDay"
-                checked={formData.isAllDay}
-                onChange={(e) => setFormData(prev => ({ ...prev, isAllDay: e.target.checked }))}
-                className="w-5 h-5 rounded text-primary-500 focus:ring-primary-500"
-              />
-              <span className="text-sm font-bold text-main">{t.allDay}</span>
-            </label>
+            {!formData.isPartTime && (
+              <label 
+                htmlFor="isAllDay" 
+                className="flex items-center gap-3 mb-2 min-h-[44px] w-full cursor-pointer px-4 rounded-[16px] transition-colors"
+                style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+              >
+                <input
+                  type="checkbox"
+                  id="isAllDay"
+                  checked={formData.isAllDay}
+                  onChange={(e) => setFormData(prev => ({ ...prev, isAllDay: e.target.checked }))}
+                  className="w-5 h-5 rounded text-primary-500 focus:ring-primary-500"
+                />
+                <span className="text-sm font-bold text-main">{t.allDay}</span>
+              </label>
+            )}
             
             <div>
               <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.startTime}</label>
