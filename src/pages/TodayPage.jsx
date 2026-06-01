@@ -13,6 +13,7 @@ import { updateUserStreak } from '../services/userService';
 import { saveTask } from '../services/taskService';
 import { calcSSO } from '../utils/socialSecurity';
 import { TASK_STATUS, TASK_PRIORITY, PRIORITY_WEIGHT, RATE_TYPE } from '../constants';
+import confetti from 'canvas-confetti';
 export default function TodayPage({ user }) {
   const { tasks, isLoading: tasksLoading } = useTasks();
   const { settings } = useSettings();
@@ -23,6 +24,7 @@ export default function TodayPage({ user }) {
   const [showModalChart, setShowModalChart] = useState(false);
   const [isTickerActive, setIsTickerActive] = useState(false);
   const [modalSize, setModalSize] = useState({ width: 600, height: 400 });
+  const [achievementToShow, setAchievementToShow] = useState(null);
   const navigate = useNavigate();
   
   const [now] = useState(new Date());
@@ -57,13 +59,14 @@ export default function TodayPage({ user }) {
     initData();
   }, [user]);
 
-  const { todayTasks, highPriorityCount, todayIncome, todayNetIncome, todaySSODeduction, chartData, fullChartData, weeklyStreak, totalToday, doneToday, pendingToday } = useMemo(() => {
+  const { todayTasks, highPriorityCount, todayIncome, todayNetIncome, todaySSODeduction, chartData, fullChartData, weeklyStreak, totalToday, doneToday, pendingToday, currentWorkStreak, bestWorkStreak, currentMonthIncome } = useMemo(() => {
     let income = 0;
     const tTasks = [];
     const oTasks = [];
     let highPriority = 0;
     let doneT = 0;
     let pendingT = 0;
+    const completedWorkDates = new Set();
     
     // Monthly aggregation
     const monthlyIncome = {};
@@ -89,6 +92,9 @@ export default function TodayPage({ user }) {
       const isDone = t.status === TASK_STATUS.DONE;
       
       if (t.isPartTime) {
+        if ((isDone || (t.actualStart && t.actualEnd)) && !t.isExpense) {
+          completedWorkDates.add(format(new Date(t.start), 'yyyy-MM-dd'));
+        }
         const key = format(t.start, 'yyyy-MM');
         if (monthlyIncome[key] !== undefined || fullMonthlyIncome[key] !== undefined) {
           if (t.isExpense) {
@@ -151,12 +157,53 @@ export default function TodayPage({ user }) {
     const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
     const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
     
+    const sortedWorkDates = Array.from(completedWorkDates).sort((a, b) => b.localeCompare(a));
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const yesterdayDate = new Date(now);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = format(yesterdayDate, 'yyyy-MM-dd');
+
+    let calcCurrentStreak = 0;
+    if (completedWorkDates.has(todayStr) || completedWorkDates.has(yesterdayStr)) {
+      let checkDate = new Date(completedWorkDates.has(todayStr) ? now : yesterdayDate);
+      while (completedWorkDates.has(format(checkDate, 'yyyy-MM-dd'))) {
+        calcCurrentStreak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+    }
+    
+    let calcBestStreak = 0;
+    let tempStreak = 0;
+    let previousDate = null;
+    for (let i = sortedWorkDates.length - 1; i >= 0; i--) {
+       if (i === sortedWorkDates.length - 1) {
+          tempStreak = 1;
+       } else {
+          const currentD = new Date(sortedWorkDates[i]);
+          const prevD = new Date(previousDate);
+          prevD.setDate(prevD.getDate() + 1);
+          if (format(currentD, 'yyyy-MM-dd') === format(prevD, 'yyyy-MM-dd')) {
+             tempStreak++;
+          } else {
+             tempStreak = 1;
+          }
+       }
+       if (tempStreak > calcBestStreak) calcBestStreak = tempStreak;
+       previousDate = sortedWorkDates[i];
+    }
+    
     const wStreak = weekDays.map(d => ({
       day: format(d, 'EE', { locale: th }),
       date: format(d, 'yyyy-MM-dd'),
-      active: streakData.history.includes(format(d, 'yyyy-MM-dd')),
+      active: completedWorkDates.has(format(d, 'yyyy-MM-dd')),
       isToday: isSameDay(d, now)
     }));
+
+    let calcMonthIncome = 0;
+    const currentMonthKey = format(now, 'yyyy-MM');
+    if (monthlyIncome[currentMonthKey]) {
+        calcMonthIncome = monthlyIncome[currentMonthKey].income;
+    }
     
 
     
@@ -191,7 +238,10 @@ export default function TodayPage({ user }) {
       weeklyStreak: wStreak,
       totalToday: doneT + pendingT,
       doneToday: doneT,
-      pendingToday: pendingT
+      pendingToday: pendingT,
+      currentWorkStreak: calcCurrentStreak,
+      bestWorkStreak: calcBestStreak,
+      currentMonthIncome: calcMonthIncome
     };
   }, [tasks, streakData, now, settings.socialSecurity, settings.showInIncome]);
 
@@ -228,6 +278,57 @@ export default function TodayPage({ user }) {
       setShowModalChart(false);
     }
   }, [isChartExpanded]);
+
+
+  useEffect(() => {
+    if (tasksLoading) return;
+    
+    const shown = JSON.parse(localStorage.getItem('achievements_shown') || '{}');
+    const goalSettings = JSON.parse(localStorage.getItem('income_goal') || '{"goalAmount": 5000}');
+    const goalAmount = Number(goalSettings.goalAmount) || 0;
+    
+    const milestones = [100, 30, 14, 7, 3];
+    for (const m of milestones) {
+       if (currentWorkStreak >= m) {
+           const key = `work_streak_${m}`;
+           if (!shown[key]) {
+               setAchievementToShow({
+                   type: 'streak',
+                   title: '🔥 ไฟลุกซู่!',
+                   message: `ยอดเยี่ยม! คุณทำงาน Part-Time ต่อเนื่องมา ${m} วันแล้ว`,
+                   key
+               });
+               return; 
+           }
+           break; 
+       }
+    }
+    
+    if (currentMonthIncome >= goalAmount && goalAmount > 0) {
+        const monthKey = format(now, 'yyyy-MM');
+        const key = `goal_${monthKey}`;
+        if (!shown[key]) {
+            setAchievementToShow({
+                type: 'goal',
+                title: '🏆 ทะลุเป้า!',
+                message: `คุณทำรายได้เดือนนี้ทะลุเป้า ฿${goalAmount.toLocaleString()} แล้ว!`,
+                key
+            });
+        }
+    }
+  }, [currentWorkStreak, currentMonthIncome, tasksLoading, now]);
+
+  useEffect(() => {
+    if (achievementToShow) {
+       confetti({
+           particleCount: 150,
+           spread: 70,
+           origin: { y: 0.6 },
+           colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+           zIndex: 1000
+       });
+    }
+  }, [achievementToShow]);
 
   const getGreeting = () => {
     const hour = now.getHours();
@@ -421,9 +522,9 @@ export default function TodayPage({ user }) {
               Streak
             </h3>
             <div className="text-3xl md:text-4xl font-black text-primary-600 dark:text-primary-500 mb-1 relative z-10 group-hover:scale-105 transition-transform origin-left">
-              {streakData.currentStreak} วัน
+              {currentWorkStreak} วัน
             </div>
-            <p className="text-xs font-medium text-primary-700/70 dark:text-primary-300/70 relative z-10">สถิติสูงสุด {streakData.bestStreak} วัน</p>
+            <p className="text-xs font-medium text-primary-700/70 dark:text-primary-300/70 relative z-10">สถิติสูงสุด {bestWorkStreak} วัน</p>
           </div>
         </div>
 
