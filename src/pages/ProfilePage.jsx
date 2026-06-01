@@ -14,6 +14,7 @@ export default function ProfilePage({ user }) {
   const [displayName, setDisplayName] = useState('');
   const [newPassword, setNewPassword] = useState('');
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem(`avatar_${user?.uid}`) || '');
+  const [showAvatarModal, setShowAvatarModal] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
@@ -220,26 +221,73 @@ export default function ProfilePage({ user }) {
         <div className="liquid-glass-card p-6 md:p-8 mb-8 relative">
           <div className="flex flex-col md:flex-row items-center gap-6 mb-8 pb-8" style={{ borderBottom: '1px solid var(--glass-border-strong)' }}>
             
-            <div className="relative group w-28 h-28 flex-shrink-0">
-              <div className="w-28 h-28 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg overflow-hidden" style={{ border: '4px solid var(--glass-border)' }}>
+            <div className="relative flex-shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowAvatarModal(true)}
+                className="w-28 h-28 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg overflow-hidden relative group active:scale-95 transition-transform"
+                style={{ border: '4px solid var(--glass-border)' }}
+              >
                 {avatarUrl
                   ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                   : getInitials()
                 }
-              </div>
-              <label htmlFor="avatar-upload" className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 active:opacity-100 cursor-pointer transition-opacity">
-                <Camera size={28} className="text-white drop-shadow" />
-              </label>
-              <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
-              {avatarUrl && (
-                <button
-                  type="button"
-                  onClick={handleRemoveAvatar}
-                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors text-xs font-bold border-2 border-white dark:border-gray-900"
-                  title="ลบรูป"
-                >✕</button>
-              )}
+                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                  <Camera size={28} className="text-white" />
+                </div>
+              </button>
+              <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={(e) => { handleAvatarChange(e); setShowAvatarModal(false); }} />
             </div>
+
+            {/* Avatar Modal */}
+            {showAvatarModal && (
+              <div
+                className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+                onClick={() => setShowAvatarModal(false)}
+              >
+                <div
+                  className="bg-white dark:bg-[#1e1e2d] w-full max-w-xs rounded-[28px] p-6 text-center shadow-2xl"
+                  onClick={e => e.stopPropagation()}
+                >
+                  <div className="w-20 h-20 rounded-full mx-auto mb-4 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center overflow-hidden shadow-lg">
+                    {avatarUrl
+                      ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                      : <span className="text-white text-3xl font-bold">{getInitials()}</span>
+                    }
+                  </div>
+                  <h3 className="text-lg font-bold text-main mb-1">รูปโปรไฟล์</h3>
+                  <p className="text-sm text-main/60 mb-6">เลือกการดำเนินการ</p>
+
+                  <div className="flex flex-col gap-3">
+                    <label
+                      htmlFor="avatar-upload"
+                      className="flex items-center justify-center gap-3 w-full py-4 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-2xl cursor-pointer transition-all active:scale-95 shadow-lg shadow-primary-500/20"
+                    >
+                      <Camera size={20} />
+                      อัปโหลดรูปใหม่
+                    </label>
+
+                    {avatarUrl && (
+                      <button
+                        type="button"
+                        onClick={() => { handleRemoveAvatar(); setShowAvatarModal(false); }}
+                        className="flex items-center justify-center gap-3 w-full py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold rounded-2xl transition-all active:scale-95 border border-red-500/20"
+                      >
+                        ลบรูปปัจจุบัน
+                      </button>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setShowAvatarModal(false)}
+                      className="py-3 text-main/50 font-bold rounded-2xl transition-all hover:text-main/80"
+                    >
+                      ยกเลิก
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
 
             <div className="text-center md:text-left flex-1">
               <h2 className="text-2xl font-bold text-main mb-2">{user.displayName || 'ผู้ใช้ SudoDo'}</h2>
