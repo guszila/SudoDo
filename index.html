@@ -15,11 +15,14 @@
           appId: "bd02df5d-0879-49d5-8997-8a3a0aa219ee",
           safari_web_id: "web.onesignal.auto.12398f86-c304-472b-bd93-39635fc69310",
           notifyButton: {
-            enable: false,
+            enable: true,
+            displayPredicate: function() {
+              // จะโชว์กระดิ่งก็ต่อเมื่อผู้ใช้ยังไม่ได้เปิดรับแจ้งเตือนเท่านั้น
+              return !OneSignal.User.PushSubscription.optedIn;
+            }
           },
           allowLocalhostAsSecureOrigin: true,
         });
-        // บังคับเด้งขออนุญาตอัตโนมัติ (ถ้ายังไม่เคยกด)
         OneSignal.Slidedown.promptPush();
       });
     </script>
