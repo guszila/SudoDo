@@ -291,7 +291,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                   value={formData.start.split('T')[0]} 
                   onChange={(e) => setFormData(prev => ({ ...prev, start: `${e.target.value}T${prev.start.split('T')[1] || '00:00'}` }))}
                   required
-                  className="w-full px-4 py-3.5 text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-wider"
+                  className="w-full px-2 sm:px-4 py-3.5 text-xs sm:text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-tight sm:tracking-wider min-w-0"
                   style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
                 />
                 {!formData.isAllDay && (
@@ -301,7 +301,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                     value={formData.start.split('T')[1] || '00:00'} 
                     onChange={(e) => setFormData(prev => ({ ...prev, start: `${prev.start.split('T')[0] || new Date().toISOString().slice(0, 10)}T${e.target.value}` }))}
                     required
-                    className="w-full px-4 py-3.5 text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-wider text-center"
+                    className="w-full px-2 sm:px-4 py-3.5 text-xs sm:text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-tight sm:tracking-wider text-center min-w-0"
                     style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
                   />
                 )}
@@ -316,7 +316,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                   value={formData.end.split('T')[0]} 
                   onChange={(e) => setFormData(prev => ({ ...prev, end: `${e.target.value}T${prev.end.split('T')[1] || '00:00'}` }))}
                   required
-                  className="w-full px-4 py-3.5 text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-wider"
+                  className="w-full px-2 sm:px-4 py-3.5 text-xs sm:text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-tight sm:tracking-wider min-w-0"
                   style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
                 />
                 {!formData.isAllDay && (
@@ -326,7 +326,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                     value={formData.end.split('T')[1] || '00:00'} 
                     onChange={(e) => setFormData(prev => ({ ...prev, end: `${prev.end.split('T')[0] || new Date().toISOString().slice(0, 10)}T${e.target.value}` }))}
                     required
-                    className="w-full px-4 py-3.5 text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-wider text-center"
+                    className="w-full px-2 sm:px-4 py-3.5 text-xs sm:text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-tight sm:tracking-wider text-center min-w-0"
                     style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
                   />
                 )}
