@@ -358,22 +358,22 @@ export default function TodayPage({ user }) {
         </header>
 
         <div className="grid grid-cols-2 gap-4 mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all">
-            <h3 className="text-sm font-bold text-main/80 mb-2">งานทั้งหมด</h3>
-            <div className="text-3xl md:text-4xl font-black text-main mb-1">{totalToday}</div>
+          <div onClick={() => navigate('/tasks')} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all cursor-pointer group active:scale-95">
+            <h3 className="text-sm font-bold text-main/80 mb-2 group-hover:text-primary-500 transition-colors">งานทั้งหมด</h3>
+            <div className="text-3xl md:text-4xl font-black text-main mb-1 group-hover:scale-105 transition-transform origin-left">{totalToday}</div>
             <p className="text-xs font-medium text-main/60">{doneToday} เสร็จ · {pendingToday} ค้างอยู่</p>
           </div>
           
-          <div className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all">
-            <h3 className="text-sm font-bold text-main/80 mb-2">งานด่วนวันนี้</h3>
-            <div className={`text-3xl md:text-4xl font-black mb-1 ${highPriorityCount > 0 ? 'text-red-500' : 'text-main'}`}>
+          <div onClick={() => navigate('/tasks')} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all cursor-pointer group active:scale-95">
+            <h3 className="text-sm font-bold text-main/80 mb-2 group-hover:text-primary-500 transition-colors">งานด่วนวันนี้</h3>
+            <div className={`text-3xl md:text-4xl font-black mb-1 group-hover:scale-105 transition-transform origin-left ${highPriorityCount > 0 ? 'text-red-500' : 'text-main'}`}>
               {highPriorityCount}
             </div>
             <p className="text-xs font-medium text-main/60">ครบกำหนดคืนนี้</p>
           </div>
           
-          <div className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all">
-            <h3 className="text-sm font-bold text-main/80 mb-2 flex items-center justify-between">
+          <div onClick={() => navigate('/part-time')} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all cursor-pointer group active:scale-95">
+            <h3 className="text-sm font-bold text-main/80 mb-2 flex items-center justify-between group-hover:text-primary-500 transition-colors">
               รายได้วันนี้
               {settings.socialSecurity && settings.showInIncome && todaySSODeduction > 0 && (
                 <span className="text-[10px] bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded font-bold border border-red-500/20">
@@ -381,13 +381,13 @@ export default function TodayPage({ user }) {
                 </span>
               )}
             </h3>
-            <div className="text-3xl md:text-4xl font-black text-green-500 dark:text-green-400 mb-1">
+            <div className="text-3xl md:text-4xl font-black text-green-500 dark:text-green-400 mb-1 group-hover:scale-105 transition-transform origin-left">
               ฿{todayNetIncome.toLocaleString()}
             </div>
             <p className="text-xs font-medium text-main/60">{todayIncome > 0 ? 'จากกะวันนี้' : 'ไม่มีกะวันนี้'}</p>
           </div>
           
-          <div className="p-4 rounded-[20px] flex flex-col justify-between shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-transform duration-300" 
+          <div onClick={() => navigate('/')} className="p-4 rounded-[20px] flex flex-col justify-between shadow-lg relative overflow-hidden group hover:scale-[1.02] active:scale-95 transition-all duration-300 cursor-pointer" 
                style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.1) 0%, rgba(139,92,246,0.15) 100%)', border: '1px solid rgba(139,92,246,0.2)' }}>
             <motion.div 
               className="absolute -right-4 -top-4 text-primary-500/10"
@@ -403,7 +403,7 @@ export default function TodayPage({ user }) {
             >
               <Flame size={80} strokeWidth={1.5} />
             </motion.div>
-            <h3 className="text-sm font-bold text-primary-600 dark:text-primary-400 mb-2 flex items-center gap-1 relative z-10">
+            <h3 className="text-sm font-bold text-primary-600 dark:text-primary-400 mb-2 flex items-center gap-1 relative z-10 group-hover:text-primary-500 transition-colors">
               <motion.div
                 animate={{ 
                   scale: [1, 1.15, 1],
@@ -420,7 +420,7 @@ export default function TodayPage({ user }) {
               </motion.div>
               Streak
             </h3>
-            <div className="text-3xl md:text-4xl font-black text-primary-600 dark:text-primary-500 mb-1 relative z-10">
+            <div className="text-3xl md:text-4xl font-black text-primary-600 dark:text-primary-500 mb-1 relative z-10 group-hover:scale-105 transition-transform origin-left">
               {streakData.currentStreak} วัน
             </div>
             <p className="text-xs font-medium text-primary-700/70 dark:text-primary-300/70 relative z-10">สถิติสูงสุด {streakData.bestStreak} วัน</p>
