@@ -906,19 +906,19 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
               {formData.rateType === RATE_TYPE.HOURLY && (
                 <div>
-                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาพักเบรก (ชั่วโมง)</label>
-                  <div className="relative">
+                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาพักเบรก <span className="text-amber-500/70 text-xs">(ไม่นับชั่วโมงนี้ในรายได้)</span></label>
+                  <div className="flex items-center gap-3">
                     <input
                       type="number"
                       value={formData.breakHours}
                       onChange={e => setFormData({...formData, breakHours: e.target.value})}
                       min="0"
                       step="0.5"
-                      className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-main"
+                      className="w-28 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-main font-bold"
                       style={{ backgroundColor: 'var(--glass-bg-input)' }}
                       placeholder="0"
                     />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold opacity-40">ชม. (ไม่ได้รับเงิน)</span>
+                    <span className="text-sm font-bold text-main/50">ชั่วโมง</span>
                   </div>
                 </div>
               )}

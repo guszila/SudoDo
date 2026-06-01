@@ -272,8 +272,8 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
 
           {formData.isPartTime && formData.rateType !== 'daily' && (
             <div>
-              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาพักเบรก (ชั่วโมง)</label>
-              <div className="relative">
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาพักเบรก <span className="text-amber-500/70 text-xs">(ไม่นับชั่วโมงนี้ในรายได้)</span></label>
+              <div className="flex items-center gap-3">
                 <input
                   type="number"
                   name="breakHours"
@@ -281,11 +281,11 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                   onChange={handleChange}
                   min="0"
                   step="0.5"
-                  className="w-full px-4 py-3 rounded-[16px] font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 text-main"
+                  className="w-28 px-4 py-3 rounded-[16px] font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 text-main"
                   style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
                   placeholder="0"
                 />
-                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold opacity-40">ชม. (ไม่ได้รับเงิน)</span>
+                <span className="text-sm font-bold text-main/50">ชั่วโมง</span>
               </div>
             </div>
           )}
