@@ -242,7 +242,8 @@ export default function ProfilePage({ user }) {
             {/* Avatar Modal */}
             {showAvatarModal && (
               <div
-                className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-md"
+                className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+                style={{ backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(8px)' }}
                 onClick={() => setShowAvatarModal(false)}
               >
                 <div
