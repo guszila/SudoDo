@@ -904,24 +904,43 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 <input type="text" value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="ตัวอย่าง: ทำแทนคุณ A" />
               </div>
 
-              {formData.rateType === RATE_TYPE.HOURLY && (
-                <div>
-                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาพักเบรก <span className="text-amber-500/70 text-xs">(ไม่นับชั่วโมงนี้ในรายได้)</span></label>
-                  <div className="flex items-center gap-3">
-                    <input
-                      type="number"
-                      value={formData.breakHours}
-                      onChange={e => setFormData({...formData, breakHours: e.target.value})}
-                      min="0"
-                      step="0.5"
-                      className="w-28 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-main font-bold"
-                      style={{ backgroundColor: 'var(--glass-bg-input)' }}
-                      placeholder="0"
-                    />
-                    <span className="text-sm font-bold text-main/50">ชั่วโมง</span>
+              {formData.rateType === RATE_TYPE.HOURLY && (() => {
+                const startDt = new Date(`${formData.startDate}T${formData.startTime}:00`);
+                let endDt = new Date(`${formData.startDate}T${formData.endTime}:00`);
+                if (formData.endTime < formData.startTime) endDt.setDate(endDt.getDate() + 1);
+                const grossHrs = (endDt - startDt) / (1000 * 60 * 60);
+                const netHrs = Math.max(0, grossHrs - (Number(formData.breakHours) || 0));
+                const estPay = netHrs * (Number(formData.hourlyRate) || 0);
+                return (
+                  <div>
+                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาพักเบรก <span className="text-amber-500/70 text-xs">(ไม่นับชั่วโมงนี้ในรายได้)</span></label>
+                    <div className="flex items-center gap-3 flex-wrap">
+                      <input
+                        type="number"
+                        value={formData.breakHours}
+                        onChange={e => setFormData({...formData, breakHours: e.target.value})}
+                        min="0"
+                        step="0.5"
+                        className="w-28 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-main font-bold"
+                        style={{ backgroundColor: 'var(--glass-bg-input)' }}
+                        placeholder="0"
+                      />
+                      <span className="text-sm font-bold text-main/50">ชั่วโมง</span>
+                      {grossHrs > 0 && (
+                        <div className="ml-auto flex items-center gap-2 px-3 py-2 rounded-xl bg-green-500/10 border border-green-500/20">
+                          <span className="text-xs font-bold text-green-600 dark:text-green-400">
+                            ทำงาน {netHrs % 1 === 0 ? netHrs : netHrs.toFixed(1)} ชม.
+                          </span>
+                          <span className="text-green-500/40 text-xs">·</span>
+                          <span className="text-sm font-black text-green-600 dark:text-green-400">
+                            ≈ ฿{estPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                          </span>
+                        </div>
+                      )}
+                    </div>
                   </div>
-                </div>
-              )}
+                );
+              })()}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid grid-cols-2 gap-3">
