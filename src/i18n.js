@@ -166,9 +166,9 @@ export const translations = {
       quickMarkDone: "กดเพื่อทำเครื่องหมายเสร็จ ✅"
     },
     status: {
-      "To-Do": "สิ่งที่ต้องทำ (To-Do)",
-      "In Progress": "กำลังดำเนินการ (In Progress)",
-      "Done": "เสร็จสิ้น (Done)"
+      "To-Do": "รอทำ",
+      "In Progress": "กำลังทำ",
+      "Done": "เสร็จสิ้น"
     }
   }
 };
