@@ -96,6 +96,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [selectedDateFilter, setSelectedDateFilter] = useState(null);
   const [currentView, setCurrentView] = useState('month'); 
+  const [currentDate, setCurrentDate] = useState(new Date());
   
   const [showTour, setShowTour] = useState(() => {
     return localStorage.getItem('tourCompleted') !== 'true';
