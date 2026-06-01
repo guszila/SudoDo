@@ -549,6 +549,9 @@ export default function PartTimePage({ user, lang = 'en' }) {
           endDateObj.setDate(endDateObj.getDate() + 1);
         }
         
+        const shiftHours = (endDateObj - new Date(startDateTime)) / (1000 * 60 * 60);
+        const canBreak = shiftHours >= 7;
+
         shiftsToAdd.push({
           title: formData.title,
           description: formData.note || '',
@@ -559,7 +562,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
           isPartTime: true,
           hourlyRate: formData.hourlyRate,
           rateType: formData.rateType,
-          breakHours: formData.rateType === RATE_TYPE.HOURLY ? (Number(formData.breakHours) || 0) : 0,
+          breakHours: (formData.rateType === RATE_TYPE.HOURLY && canBreak) ? (Number(formData.breakHours) || 0) : 0,
           actualStart: null,
           actualEnd: null
         });
@@ -909,11 +912,20 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 let endDt = new Date(`${formData.startDate}T${formData.endTime}:00`);
                 if (formData.endTime < formData.startTime) endDt.setDate(endDt.getDate() + 1);
                 const grossHrs = (endDt - startDt) / (1000 * 60 * 60);
-                const netHrs = Math.max(0, grossHrs - (Number(formData.breakHours) || 0));
+                const canTakeBreak = grossHrs >= 7;
+                const breakHrs = canTakeBreak ? (Number(formData.breakHours) || 0) : 0;
+                const netHrs = Math.max(0, grossHrs - breakHrs);
                 const estPay = netHrs * (Number(formData.hourlyRate) || 0);
                 return (
                   <div>
-                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาพักเบรก <span className="text-amber-500/70 text-xs">(ไม่นับชั่วโมงนี้ในรายได้)</span></label>
+                    <div className="flex items-center gap-2 mb-1.5">
+                      <label className="text-sm font-medium text-main opacity-80">เวลาพักเบรก</label>
+                      {grossHrs > 0 && (
+                        canTakeBreak
+                          ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">✓ ทำงาน {grossHrs.toFixed(1)} ชม. มีสิทธิ์พัก</span>
+                          : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-main/10 text-main/40 border border-main/10">ต้องทำงาน 7 ชม.ขึ้นไปจึงจะพักได้</span>
+                      )}
+                    </div>
                     <div className="flex items-center gap-3 flex-wrap">
                       <input
                         type="number"
@@ -921,12 +933,13 @@ export default function PartTimePage({ user, lang = 'en' }) {
                         onChange={e => setFormData({...formData, breakHours: e.target.value})}
                         min="0"
                         step="0.5"
-                        className="w-28 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-main font-bold"
+                        disabled={!canTakeBreak}
+                        className={`w-28 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-main font-bold transition-opacity ${!canTakeBreak ? 'opacity-30 cursor-not-allowed' : ''}`}
                         style={{ backgroundColor: 'var(--glass-bg-input)' }}
                         placeholder="0"
                       />
-                      <span className="text-sm font-bold text-main/50">ชั่วโมง</span>
-                      {grossHrs > 0 && (
+                      <span className={`text-sm font-bold transition-opacity ${!canTakeBreak ? 'opacity-30' : 'text-main/50'}`}>ชั่วโมง</span>
+                      {canTakeBreak && grossHrs > 0 && (
                         <div className="ml-auto flex items-center gap-2 px-3 py-2 rounded-xl bg-green-500/10 border border-green-500/20">
                           <span className="text-xs font-bold text-green-600 dark:text-green-400">
                             ทำงาน {netHrs % 1 === 0 ? netHrs : netHrs.toFixed(1)} ชม.

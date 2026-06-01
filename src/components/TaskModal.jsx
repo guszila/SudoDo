@@ -270,25 +270,39 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             </div>
           )}
 
-          {formData.isPartTime && formData.rateType !== 'daily' && (
-            <div>
-              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาพักเบรก <span className="text-amber-500/70 text-xs">(ไม่นับชั่วโมงนี้ในรายได้)</span></label>
-              <div className="flex items-center gap-3">
-                <input
-                  type="number"
-                  name="breakHours"
-                  value={formData.breakHours}
-                  onChange={handleChange}
-                  min="0"
-                  step="0.5"
-                  className="w-28 px-4 py-3 rounded-[16px] font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 text-main"
-                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                  placeholder="0"
-                />
-                <span className="text-sm font-bold text-main/50">ชั่วโมง</span>
+          {formData.isPartTime && formData.rateType !== 'daily' && (() => {
+            const shiftHrs = formData.start && formData.end
+              ? (new Date(formData.end) - new Date(formData.start)) / (1000 * 60 * 60)
+              : 0;
+            const canTakeBreak = shiftHrs >= 7;
+            return (
+              <div>
+                <div className="flex items-center gap-2 mb-1.5">
+                  <label className="text-sm font-medium text-main opacity-80">เวลาพักเบรก</label>
+                  {shiftHrs > 0 && (
+                    canTakeBreak
+                      ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">✓ มีสิทธิ์พัก</span>
+                      : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-main/10 text-main/40 border border-main/10">ต้องทำงาน 7 ชม.ขึ้นไป</span>
+                  )}
+                </div>
+                <div className="flex items-center gap-3">
+                  <input
+                    type="number"
+                    name="breakHours"
+                    value={formData.breakHours}
+                    onChange={handleChange}
+                    min="0"
+                    step="0.5"
+                    disabled={!canTakeBreak}
+                    className={`w-28 px-4 py-3 rounded-[16px] font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 text-main transition-opacity ${!canTakeBreak ? 'opacity-30 cursor-not-allowed' : ''}`}
+                    style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                    placeholder="0"
+                  />
+                  <span className={`text-sm font-bold transition-opacity ${!canTakeBreak ? 'opacity-30' : 'text-main/50'}`}>ชั่วโมง</span>
+                </div>
               </div>
-            </div>
-          )}
+            );
+          })()}
 
           <div className="space-y-4">
             {!formData.isPartTime && (
