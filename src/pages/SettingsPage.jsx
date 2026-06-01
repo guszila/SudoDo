@@ -6,7 +6,7 @@ import {
   Palette,
   Bell, Clock, Flame, Globe, Download,
   ShieldCheck, RefreshCw, Database, Info, Star,
-  Trash2, LogOut, Check
+  Trash2, LogOut, Check, PlayCircle
 } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -138,6 +138,7 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
     reviewApp: lang === 'en' ? 'Review App' : 'รีวิวแอป',
     reviewAppSub: lang === 'en' ? 'Rate on App Store' : 'ให้คะแนนบน App Store',
     dangerZone: lang === 'en' ? 'Danger Zone' : 'Danger Zone',
+    restartTour: lang === 'en' ? 'Restart App Tour' : 'เริ่มแนะนำการใช้งานใหม่',
     deleteAll: lang === 'en' ? 'Delete All Data' : 'ลบข้อมูลทั้งหมด',
     logout: lang === 'en' ? 'Log Out' : 'ออกจากระบบ',
     selectLang: lang === 'en' ? 'Select Language' : 'เลือกภาษา',
@@ -392,6 +393,15 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
             title={t.reviewApp} subtitle={t.reviewAppSub}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => window.open('https://appstore.com', '_blank')}
+          />
+          <Row 
+            icon={PlayCircle} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
+            title={t.restartTour} 
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            onClick={() => {
+              localStorage.removeItem('tourCompleted');
+              window.location.reload();
+            }}
             isLast
           />
         </GlassCard>
