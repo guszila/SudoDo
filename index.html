@@ -15,10 +15,12 @@
           appId: "bd02df5d-0879-49d5-8997-8a3a0aa219ee",
           safari_web_id: "web.onesignal.auto.12398f86-c304-472b-bd93-39635fc69310",
           notifyButton: {
-            enable: true,
+            enable: false,
           },
           allowLocalhostAsSecureOrigin: true,
         });
+        // บังคับเด้งขออนุญาตอัตโนมัติ (ถ้ายังไม่เคยกด)
+        OneSignal.Slidedown.promptPush();
       });
     </script>
   </head>
