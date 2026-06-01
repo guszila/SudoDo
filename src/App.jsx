@@ -20,6 +20,7 @@ import SocialSecurityPage from './pages/SocialSecurityPage';
 import TasksPage from './pages/TasksPage';
 import Logo from './components/Logo';
 import SplashScreen from './components/SplashScreen';
+import ProductTour from './components/ProductTour';
 
 import TaskCard from './components/TaskCard';
 import { saveTask } from './services/taskService';
