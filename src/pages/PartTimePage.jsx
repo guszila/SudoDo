@@ -60,6 +60,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
   const [isEditWidgetMode, setIsEditWidgetMode] = useState(false);
   const [showWidgetSelector, setShowWidgetSelector] = useState(false);
   
+  const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  
   const [incomeGoal, setIncomeGoal] = useState(() => {
     const saved = localStorage.getItem('income_goal');
     return saved ? JSON.parse(saved) : { goalAmount: 5000, goalMonth: new Date().toISOString().slice(0, 7), isRecurring: true };
@@ -152,25 +154,22 @@ export default function PartTimePage({ user, lang = 'en' }) {
   }, [tasks]);
 
   const stats = useMemo(() => {
-    let earned = 0;
-    let pending = 0;
+    let earned = monthlyGross.earned[selectedMonth] || 0;
+    let pending = monthlyGross.pending[selectedMonth] || 0;
     let ssoDeducted = 0;
     let expenseTotal = 0;
     
-    Object.values(monthlyGross.earned).forEach(v => earned += v);
-    Object.values(monthlyGross.pending).forEach(v => pending += v);
-    
     tasks.forEach(t => {
       if (!t.isExpense) return;
+      const d = new Date(t.start);
+      if (isNaN(d.getTime())) return;
+      const expMonthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (expMonthKey !== selectedMonth) return;
       
       let amt = 0;
       if (t.isPercentage) {
-        const d = new Date(t.start);
-        const monthKey = !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : null;
-        const monthEarned = monthKey ? (monthlyGross.earned[monthKey] || 0) : 0;
-        const monthPending = monthKey ? (monthlyGross.pending[monthKey] || 0) : 0;
         const percentage = Number(t.amount) || 0;
-        amt = (monthEarned + monthPending) * (percentage / 100);
+        amt = (earned + pending) * (percentage / 100);
       } else {
         amt = Number(t.amount) || 0;
       }
@@ -179,27 +178,22 @@ export default function PartTimePage({ user, lang = 'en' }) {
     });
 
     if (settings.socialSecurity) {
-      const allMonths = new Set([...Object.keys(monthlyGross.earned), ...Object.keys(monthlyGross.pending)]);
-      allMonths.forEach(monthKey => {
-        const mEarned = monthlyGross.earned[monthKey] || 0;
-        const mPending = monthlyGross.pending[monthKey] || 0;
-        const mGross = mEarned + mPending;
-        if (mGross > 0) {
-           const { deduction } = calcSSO(mGross);
-           ssoDeducted += deduction;
-        }
-      });
+      const mGross = earned + pending;
+      if (mGross > 0) {
+         const { deduction } = calcSSO(mGross);
+         ssoDeducted = deduction;
+      }
     }
 
     return { 
-      earned: earned, 
-      pending: pending, 
+      earned, 
+      pending, 
       total: earned + pending,
-      ssoDeducted: ssoDeducted,
-      expenseTotal: expenseTotal,
+      ssoDeducted,
+      expenseTotal,
       netTotal: earned + pending - ssoDeducted - expenseTotal
     };
-  }, [tasks, monthlyGross, settings.socialSecurity]);
+  }, [tasks, monthlyGross, settings.socialSecurity, selectedMonth]);
 
   const extraStats = useMemo(() => {
     let shiftCount = 0;
@@ -231,7 +225,15 @@ export default function PartTimePage({ user, lang = 'en' }) {
     return { shiftCount, totalHours: Math.round(totalHours), chartData };
   }, [tasks, monthlyGross]);
 
-  const expensesList = useMemo(() => tasks.filter(t => t.isExpense), [tasks]);
+  const expensesList = useMemo(() => {
+    return tasks.filter(t => {
+      if (!t.isExpense) return false;
+      const d = new Date(t.start);
+      if (isNaN(d.getTime())) return false;
+      const expMonthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return expMonthKey === selectedMonth;
+    });
+  }, [tasks, selectedMonth]);
 
   const removeWidget = (id) => {
     setEnabledWidgets(prev => prev.filter(w => w !== id));
@@ -594,7 +596,15 @@ export default function PartTimePage({ user, lang = 'en' }) {
       </div>
 
       <div className="flex justify-between items-center mb-4 px-2 mt-2">
-        <h2 className="font-bold text-lg text-main">ภาพรวมรายได้</h2>
+        <div className="flex flex-col gap-1">
+          <h2 className="font-bold text-lg text-main leading-none">ภาพรวมรายได้</h2>
+          <input 
+            type="month" 
+            value={selectedMonth}
+            onChange={(e) => setSelectedMonth(e.target.value)}
+            className="text-sm font-bold text-primary-500 bg-transparent outline-none cursor-pointer p-0"
+          />
+        </div>
         <button 
           onClick={() => setIsEditWidgetMode(!isEditWidgetMode)} 
           className={`text-sm px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 ${isEditWidgetMode ? 'bg-primary-500 text-white shadow-md' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20'}`}
