@@ -356,7 +356,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
       className="min-h-screen font-sans pb-32 md:pb-8 overflow-x-hidden"
     >
       {/* Sticky Header */}
-      <header className="sticky top-0 z-40 liquid-glass border-b-0 border-x-0 rounded-none rounded-b-3xl p-4 md:p-6 mb-6 flex justify-between items-center animate-slide-up">
+      <header className="sticky top-0 z-40 liquid-glass border-b-0 border-x-0 rounded-none rounded-b-3xl p-4 md:p-6 mb-6 pt-safe flex justify-between items-center animate-slide-up">
         <div className="flex items-center">
           <Logo variant={theme === 'dark' ? 'dark' : 'full'} size="md" className="w-32 md:w-40" />
         </div>
