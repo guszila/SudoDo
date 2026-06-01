@@ -13,6 +13,7 @@ export default function ProfilePage({ user }) {
   
   const [displayName, setDisplayName] = useState('');
   const [newPassword, setNewPassword] = useState('');
+  const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem(`avatar_${user?.uid}`) || '');
   
   const [loading, setLoading] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
@@ -32,8 +33,32 @@ export default function ProfilePage({ user }) {
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
+      setAvatarUrl(localStorage.getItem(`avatar_${user.uid}`) || '');
     }
   }, [user]);
+
+  const handleAvatarChange = (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    if (file.size > 2 * 1024 * 1024) {
+      setErrorMsg('รูปภาพต้องมีขนาดไม่เกิน 2MB ครับ');
+      return;
+    }
+    const reader = new FileReader();
+    reader.onload = (ev) => {
+      const dataUrl = ev.target.result;
+      localStorage.setItem(`avatar_${user.uid}`, dataUrl);
+      setAvatarUrl(dataUrl);
+      setSuccessMsg('เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว!');
+      setTimeout(() => setSuccessMsg(''), 3000);
+    };
+    reader.readAsDataURL(file);
+  };
+
+  const handleRemoveAvatar = () => {
+    localStorage.removeItem(`avatar_${user.uid}`);
+    setAvatarUrl('');
+  };
 
   if (!user) return null;
 
@@ -195,8 +220,25 @@ export default function ProfilePage({ user }) {
         <div className="liquid-glass-card p-6 md:p-8 mb-8 relative">
           <div className="flex flex-col md:flex-row items-center gap-6 mb-8 pb-8" style={{ borderBottom: '1px solid var(--glass-border-strong)' }}>
             
-            <div className="w-28 h-28 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg flex-shrink-0" style={{ border: '4px solid var(--glass-border)' }}>
-              {getInitials()}
+            <div className="relative group w-28 h-28 flex-shrink-0">
+              <div className="w-28 h-28 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg overflow-hidden" style={{ border: '4px solid var(--glass-border)' }}>
+                {avatarUrl
+                  ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                  : getInitials()
+                }
+              </div>
+              <label htmlFor="avatar-upload" className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-full opacity-0 group-hover:opacity-100 active:opacity-100 cursor-pointer transition-opacity">
+                <Camera size={28} className="text-white drop-shadow" />
+              </label>
+              <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={handleAvatarChange} />
+              {avatarUrl && (
+                <button
+                  type="button"
+                  onClick={handleRemoveAvatar}
+                  className="absolute -bottom-1 -right-1 w-7 h-7 rounded-full bg-red-500 text-white flex items-center justify-center shadow-md hover:bg-red-600 transition-colors text-xs font-bold border-2 border-white dark:border-gray-900"
+                  title="ลบรูป"
+                >✕</button>
+              )}
             </div>
 
             <div className="text-center md:text-left flex-1">

@@ -285,6 +285,7 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
   };
 
   const avatarInitial = user?.displayName ? user.displayName.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'U');
+  const avatarUrl = user?.uid ? (localStorage.getItem(`avatar_${user.uid}`) || '') : '';
 
   return (
     <motion.div 
@@ -299,8 +300,11 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
           onClick={() => navigate('/profile')}
           className="flex items-center mx-4 mb-6 p-4 bg-[rgba(255,255,255,0.6)] dark:bg-[rgba(255,255,255,0.08)] backdrop-blur-[20px] border-[0.5px] border-white/40 dark:border-[rgba(255,255,255,0.12)] rounded-[20px] cursor-pointer active:scale-[0.98] transition-transform shadow-sm"
         >
-          <div className="w-14 h-14 rounded-full bg-[var(--theme-avatar-bg)] dark:bg-[rgba(175,169,236,0.3)] text-[#2D2665] dark:text-[#AFA9EC] flex items-center justify-center text-2xl font-bold shrink-0 shadow-inner">
-            {avatarInitial}
+          <div className="w-14 h-14 rounded-full bg-[var(--theme-avatar-bg)] dark:bg-[rgba(175,169,236,0.3)] text-[#2D2665] dark:text-[#AFA9EC] flex items-center justify-center text-2xl font-bold shrink-0 shadow-inner overflow-hidden">
+            {avatarUrl
+              ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+              : avatarInitial
+            }
           </div>
           <div className="flex-1 min-w-0 px-4">
             <h2 className="text-[18px] font-bold text-[#1a1a2e] dark:text-white truncate">{user?.displayName || 'User'}</h2>

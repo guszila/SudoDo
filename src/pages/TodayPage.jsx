@@ -255,6 +255,7 @@ export default function TodayPage({ user }) {
   }
 
   const avatarInitial = user?.displayName ? user.displayName.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'U');
+  const avatarUrl = user?.uid ? (localStorage.getItem(`avatar_${user.uid}`) || '') : '';
 
   return (
     <motion.div 
@@ -354,8 +355,11 @@ export default function TodayPage({ user }) {
               )}
             </div>
           </div>
-          <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center text-primary-600 dark:text-primary-400 font-bold text-xl shadow-inner border border-primary-500/20 flex-shrink-0">
-            {avatarInitial}
+          <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center text-primary-600 dark:text-primary-400 font-bold text-xl shadow-inner border border-primary-500/20 flex-shrink-0 overflow-hidden">
+            {avatarUrl
+              ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+              : avatarInitial
+            }
           </div>
         </header>
 
