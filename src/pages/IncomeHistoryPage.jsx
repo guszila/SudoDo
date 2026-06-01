@@ -293,8 +293,8 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
                 onClick={() => setSelectedMonth(mStr)}
                 className={`snap-start whitespace-nowrap px-5 py-2.5 rounded-full text-sm transition-all flex-shrink-0 border ${
                   isActive 
-                  ? 'bg-[rgba(127,119,221,0.25)] border-[rgba(127,119,221,0.5)] text-[var(--theme-accent-dark)] font-[500]' 
-                  : 'bg-[rgba(255,255,255,0.3)] border-[rgba(255,255,255,0.4)] text-[rgba(26,26,46,0.6)] font-bold hover:bg-white/50'
+                  ? 'bg-primary-500/20 border-primary-500/50 text-primary-600 dark:text-primary-300 font-bold' 
+                  : 'bg-white/30 dark:bg-black/30 border-white/40 dark:border-white/10 text-main/60 font-bold hover:bg-white/50 dark:hover:bg-white/10'
                 }`}
               >
                 {formatThMonthYear(mStr)}
@@ -304,42 +304,42 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
         </div>
 
         {/* Monthly Summary Card */}
-        <div className="bg-[var(--theme-accent-light)] dark:bg-primary-900/60 rounded-[24px] shadow-[0_8px_32px_rgba(124,99,255,0.12)] p-6 relative overflow-hidden">
-          <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 blur-3xl rounded-full -translate-y-1/2 translate-x-1/4"></div>
+        <div className="bg-primary-50 dark:bg-primary-900/40 rounded-[24px] shadow-[0_8px_32px_rgba(124,99,255,0.12)] p-6 relative overflow-hidden border border-primary-500/10">
+          <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 dark:bg-primary-500/20 blur-3xl rounded-full -translate-y-1/2 translate-x-1/4"></div>
           
-          <p className="text-[var(--theme-nav-active)] font-bold text-sm mb-1">{formatFullThMonthYear(selectedMonth)} · รวม</p>
-          <h2 className="text-[var(--theme-accent-dark)] text-[32px] font-black mb-2 tracking-tight">
+          <p className="text-primary-600 dark:text-primary-300 font-bold text-sm mb-1 relative z-10">{formatFullThMonthYear(selectedMonth)} · รวม</p>
+          <h2 className="text-primary-700 dark:text-primary-100 text-[32px] font-black mb-2 tracking-tight relative z-10">
             ฿{summary.netIncome.toLocaleString()}
           </h2>
           
           {settings.socialSecurity && settings.showInIncome && summary.ssoDeduction > 0 ? (
-            <div className="flex items-center gap-2 mb-6">
-              <span className="text-sm font-bold text-red-500">
+            <div className="flex items-center gap-2 mb-6 relative z-10">
+              <span className="text-sm font-bold text-red-500 dark:text-red-400">
                 -฿{summary.ssoDeduction.toLocaleString()}
               </span>
-              <span className="text-xs text-[var(--theme-nav-active)] font-medium opacity-80">(หักประกันสังคม 5%)</span>
+              <span className="text-xs text-primary-600/80 dark:text-primary-300/80 font-medium">(หักประกันสังคม 5%)</span>
             </div>
           ) : (
-            <div className="mb-6"></div>
+            <div className="mb-6 relative z-10"></div>
           )}
           
-          <div className="grid grid-cols-2 gap-3">
-            <div className="bg-[rgba(255,255,255,0.7)] rounded-[16px] p-4 border border-[rgba(255,255,255,0.5)]">
-              <p className="text-[var(--theme-nav-active)] text-[12px] font-bold mb-1">กะทำงาน</p>
-              <p className="text-[var(--theme-accent-dark)] text-[18px] font-[500]">{summary.shiftCount} กะ</p>
+          <div className="grid grid-cols-2 gap-3 relative z-10">
+            <div className="bg-white/70 dark:bg-black/30 rounded-[16px] p-4 border border-white/50 dark:border-white/5">
+              <p className="text-primary-600 dark:text-primary-400 text-[12px] font-bold mb-1">กะทำงาน</p>
+              <p className="text-primary-700 dark:text-primary-100 text-[18px] font-[500]">{summary.shiftCount} กะ</p>
             </div>
-            <div className="bg-[rgba(255,255,255,0.7)] rounded-[16px] p-4 border border-[rgba(255,255,255,0.5)]">
-              <p className="text-[var(--theme-nav-active)] text-[12px] font-bold mb-1">ชั่วโมงรวม</p>
-              <p className="text-[var(--theme-accent-dark)] text-[18px] font-[500]">{summary.totalHours.toFixed(1).replace('.0', '')} ชม.</p>
+            <div className="bg-white/70 dark:bg-black/30 rounded-[16px] p-4 border border-white/50 dark:border-white/5">
+              <p className="text-primary-600 dark:text-primary-400 text-[12px] font-bold mb-1">ชั่วโมงรวม</p>
+              <p className="text-primary-700 dark:text-primary-100 text-[18px] font-[500]">{summary.totalHours.toFixed(1).replace('.0', '')} ชม.</p>
             </div>
           </div>
         </div>
 
         {/* Daily Bar Chart */}
         {chartData.length === 0 ? (
-          <div className="h-[160px] w-full mt-2 mb-4 flex flex-col items-center justify-center bg-[rgba(255,255,255,0.25)] rounded-[16px] border border-[rgba(255,255,255,0.4)]">
-            <CalendarOff className="w-8 h-8 text-[var(--theme-nav-active)]/40 mb-2" />
-            <p className="text-[var(--theme-nav-active)]/60 text-sm font-bold">ไม่มีข้อมูลเดือนนี้</p>
+          <div className="h-[160px] w-full mt-2 mb-4 flex flex-col items-center justify-center bg-white/25 dark:bg-black/20 rounded-[16px] border border-white/40 dark:border-white/10">
+            <CalendarOff className="w-8 h-8 text-primary-500/40 mb-2" />
+            <p className="text-primary-600/60 dark:text-primary-300/60 text-sm font-bold">ไม่มีข้อมูลเดือนนี้</p>
           </div>
         ) : (
           <div className="h-[160px] w-full mt-2 mb-4">

@@ -225,8 +225,8 @@ body {
 }
 
 .rbc-header {
-  border-bottom: 1px solid var(--glass-border-strong);
-  @apply py-3 font-semibold text-main;
+  border-bottom: 1px solid rgba(128, 128, 128, 0.08);
+  @apply py-3 font-medium text-main text-xs uppercase tracking-wider opacity-70;
   border-left: none !important;
 }
 
@@ -236,19 +236,34 @@ body {
 }
 
 .rbc-day-bg {
-  border-right: 1px solid var(--glass-border-strong);
-  border-bottom: 1px solid var(--glass-border-strong);
+  border-right: 1px solid rgba(128, 128, 128, 0.04);
+  border-bottom: 1px solid rgba(128, 128, 128, 0.04);
   @apply transition-colors duration-200;
+}
+
+/* Weekend styling */
+.rbc-month-row .rbc-day-bg:first-child {
+  background-color: color-mix(in srgb, var(--color-primary-500) 8%, transparent);
+}
+.rbc-month-row .rbc-day-bg:last-child {
+  background-color: color-mix(in srgb, var(--color-primary-500) 4%, transparent);
+}
+.rbc-header:first-child {
+  color: var(--color-primary-500);
+  @apply font-bold opacity-90;
+}
+.rbc-header:last-child {
+  color: var(--color-primary-500);
+  @apply font-bold opacity-70;
 }
 
 /* Today glow ring */
 .rbc-day-bg.rbc-today {
-  @apply bg-transparent;
-  box-shadow: inset 0 0 0 2px var(--color-primary-500), inset 0 0 20px rgba(108, 99, 255, 0.1);
+  @apply bg-primary-500/5;
 }
 
 .rbc-month-row + .rbc-month-row {
-  border-top: 1px solid var(--glass-border-strong);
+  border-top: 1px solid rgba(128, 128, 128, 0.04);
 }
 .rbc-time-header.rbc-overflowing {
   @apply border-r-0;
@@ -263,12 +278,14 @@ body {
   border-top: 1px solid var(--glass-border-strong);
 }
 .rbc-time-content > * + * > * {
-  border-left: 1px solid var(--glass-border-strong);
+  border-left: 1px solid rgba(128, 128, 128, 0.15);
 }
 .rbc-today {
-  background-color: var(--glass-bg);
-  box-shadow: inset 0 0 0 2px var(--theme-accent-border);
+  @apply bg-transparent;
 }
 .rbc-off-range-bg {
-  @apply bg-black/5;
+  background: transparent !important;
+}
+.rbc-off-range {
+  opacity: 0.25;
 }

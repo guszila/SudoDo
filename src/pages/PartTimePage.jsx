@@ -752,7 +752,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div>
                   <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.jobTitle}</label>
-                  <input type="text" list="job-titles" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="{t.jobTitlePlaceholder}" />
+                  <input type="text" list="job-titles" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder={t.jobTitlePlaceholder} />
                   <datalist id="job-titles">
                     {uniqueTitles.map((title, idx) => (
                       <option key={idx} value={title} />

@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
 
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
-import { format, parse, startOfWeek, getDay, isBefore, startOfDay, endOfDay, differenceInDays } from 'date-fns';
+import { format, parse, startOfWeek, getDay, isBefore, startOfDay, endOfDay, differenceInDays, isSameDay } from 'date-fns';
 import { enUS, th } from 'date-fns/locale';
-import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Languages, LogOut, Home, Settings, ListTodo, User, Moon, Sun, DollarSign, ChevronLeft, ChevronRight } from 'lucide-react';
+import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Languages, LogOut, Home, Settings, ListTodo, User, Moon, Sun, DollarSign, ChevronLeft, ChevronRight, X } from 'lucide-react';
 import { onAuthStateChanged, signOut } from 'firebase/auth';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -21,7 +21,9 @@ import TasksPage from './pages/TasksPage';
 import Logo from './components/Logo';
 import SplashScreen from './components/SplashScreen';
 
+import TaskCard from './components/TaskCard';
 import { saveTask } from './services/taskService';
+import { getThaiHoliday } from './utils/holidays';
 import { TASK_STATUS, TASK_PRIORITY } from './constants';
 import { translations } from './i18n';
 import { auth } from './firebase';
@@ -90,15 +92,19 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
   const [selectedTask, setSelectedTask] = useState(null);
   const [currentView, setCurrentView] = useState('month');
   const [currentDate, setCurrentDate] = useState(new Date());
+  const [selectedDateFilter, setSelectedDateFilter] = useState(null);
   
   const navigate = useNavigate();
   const location = useLocation();
 
   const t = translations[lang];
 
-  const handleSelectSlot = ({ start, end }) => {
-    setSelectedTask({ start, end });
-    setIsModalOpen(true);
+  const handleSelectSlot = ({ start }) => {
+    setSelectedDateFilter(start);
+    // Smooth scroll to the bottom if on mobile
+    setTimeout(() => {
+      window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
+    }, 100);
   };
 
   const handleSelectEvent = (event) => {
@@ -115,6 +121,12 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
   const handleDeleteTask = async (taskId) => {
     setIsModalOpen(false);
     await saveTask('DELETE', { id: taskId }, user.uid);
+  };
+
+  const handleToggleStatus = async (task) => {
+    const isDone = task.status === TASK_STATUS.DONE;
+    const newStatus = isDone ? TASK_STATUS.TODO : TASK_STATUS.DONE;
+    await handleSaveTask({ ...task, status: newStatus });
   };
 
   const handleLogout = async () => {
@@ -216,9 +228,27 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
       return isOverdue && startOfDay(t.end).getTime() === startOfDay(date).getTime();
     });
 
+    const holidayName = getThaiHoliday(date);
+    const dayOfWeek = date.getDay();
+    
+    let textClass = '';
+    let textColorStyle = {};
+    if (holidayName) {
+      textClass = 'text-red-500 font-bold';
+    } else if (dayOfWeek === 0) {
+      textClass = 'font-bold opacity-90'; // Sunday
+      textColorStyle = { color: 'var(--color-primary-500)' };
+    } else if (dayOfWeek === 6) {
+      textClass = 'font-bold opacity-70'; // Saturday
+      textColorStyle = { color: 'var(--color-primary-500)' };
+    }
+
     return (
-      <button onClick={onDrillDown} className="w-full text-center relative flex justify-center pb-1 font-medium hover:bg-white/10 rounded-t-lg transition-colors pt-1">
-        <span>{label}</span>
+      <button onClick={() => handleSelectSlot({ start: date })} className="w-full text-center relative flex flex-col items-center justify-center pb-1 font-medium hover:bg-white/10 rounded-t-lg transition-colors pt-2 h-full min-h-[30px]">
+        <span className={textClass} style={textColorStyle}>{label}</span>
+        {holidayName && (
+          <div className="w-1 h-1 bg-red-500 rounded-full mt-0.5 opacity-80" title={holidayName}></div>
+        )}
         {hasOverdue && <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />}
       </button>
     );
@@ -279,7 +309,8 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
               style={{
                 width: '32px', height: '32px', borderRadius: '50%',
                 background: 'rgba(255,255,255,0.35)',
-                border: '0.5px solid rgba(255,255,255,0.4)'
+                border: '0.5px solid rgba(255,255,255,0.4)',
+                padding: 0
               }}
               className="flex items-center justify-center hover:bg-white/50 dark:hover:bg-white/10 transition-colors active:scale-90"
             >
@@ -290,7 +321,8 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
               style={{
                 width: '32px', height: '32px', borderRadius: '50%',
                 background: 'rgba(255,255,255,0.35)',
-                border: '0.5px solid rgba(255,255,255,0.4)'
+                border: '0.5px solid rgba(255,255,255,0.4)',
+                padding: 0
               }}
               className="flex items-center justify-center hover:bg-white/50 dark:hover:bg-white/10 transition-colors active:scale-90"
             >
@@ -387,8 +419,69 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
             onView={setCurrentView}
             date={currentDate}
             onNavigate={setCurrentDate}
+            onDrillDown={() => {}}
             popup
           />
+
+          {selectedDateFilter && (
+            <div className="mt-6 mb-24 animate-slide-up">
+              <div className="flex justify-between items-center mb-4 liquid-glass-card p-4 rounded-2xl border border-primary-500/20">
+                <h3 className="text-lg font-bold text-main flex items-center gap-2">
+                  <CalendarIcon size={20} className="text-primary-500" />
+                  {format(selectedDateFilter, 'd MMMM yyyy', { locale: lang === 'th' ? th : enUS })}
+                </h3>
+                <button 
+                  onClick={() => setSelectedDateFilter(null)} 
+                  className="w-8 h-8 flex items-center justify-center bg-black/5 dark:bg-white/10 rounded-full hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
+                >
+                  <X size={16} />
+                </button>
+              </div>
+              
+              <div className="space-y-3">
+                {(() => {
+                  const holiday = getThaiHoliday(selectedDateFilter);
+                  const filteredTasks = tasks.filter(t => isSameDay(new Date(t.start), selectedDateFilter));
+                  const hasContent = holiday || filteredTasks.length > 0;
+
+                  if (!hasContent) {
+                    return (
+                      <div className="text-center py-8 liquid-glass-card rounded-[20px] text-main/50 font-medium border border-dashed border-main/20">
+                        ไม่มีกิจกรรมในวันนี้
+                      </div>
+                    );
+                  }
+
+                  return (
+                    <>
+                      {holiday && (
+                        <div className="liquid-glass-card p-4 flex items-center gap-4 rounded-[20px] border-red-500/30 bg-red-500/5 shadow-[0_0_15px_rgba(239,68,68,0.1)] animate-slide-up">
+                          <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-red-500 bg-red-500/10">
+                            <span className="text-lg">🇹🇭</span>
+                          </div>
+                          <div className="flex-1">
+                            <p className="text-xs text-red-500 font-bold mb-0.5">วันหยุดประเทศไทย</p>
+                            <h3 className="font-bold text-lg text-main">{holiday}</h3>
+                          </div>
+                        </div>
+                      )}
+                      
+                      {filteredTasks.map(task => (
+                        <TaskCard 
+                          key={task.id}
+                          task={task}
+                          onEdit={handleSelectEvent}
+                          onDelete={handleDeleteTask}
+                          onToggleStatus={handleToggleStatus}
+                          onLongPress={() => {}}
+                        />
+                      ))}
+                    </>
+                  );
+                })()}
+              </div>
+            </div>
+          )}
         </main>
       </div>
     </motion.div>
@@ -409,14 +502,17 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
         </Routes>
       </AnimatePresence>
 
-      {/* Mobile Floating Action Button */}
+      {/* Floating Action Button */}
       {location.pathname === '/' && (
         <button 
-          onClick={() => { setSelectedTask(null); setIsModalOpen(true); }}
-          className="md:hidden fixed bottom-24 right-6 w-14 h-14 bg-primary-500 text-white rounded-full flex items-center justify-center shadow-[0_8px_32px_0_rgba(108,99,255,0.4)] border z-50 active:scale-90 transition-transform"
-          style={{ borderColor: 'var(--glass-border)' }}
+          onClick={() => { 
+            setSelectedTask(selectedDateFilter ? { start: selectedDateFilter, end: selectedDateFilter } : null); 
+            setIsModalOpen(true); 
+          }}
+          className="fixed bottom-24 md:bottom-10 right-6 md:right-10 w-14 h-14 bg-primary-500 text-white rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(var(--color-primary-500-rgb),0.5)] border border-primary-400/30 z-50 hover:scale-105 active:scale-95 transition-all group"
         >
-          <Plus size={28} />
+          <span className="absolute inset-0 rounded-full bg-primary-500 opacity-20 group-hover:animate-ping"></span>
+          <Plus size={28} className="relative z-10" />
         </button>
       )}
 
