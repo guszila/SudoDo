@@ -275,7 +275,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
     >
       {/* Top Bar */}
       <div className="p-4 flex items-center gap-4 sticky top-0 liquid-glass border-b border-main/5 z-20">
-        <button onClick={() => navigate('/part-time')} className="p-2 -ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+        <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
           <ArrowLeft size={24} className="text-main/80" />
         </button>
         <h1 className="text-xl font-bold text-main">สรุปรายได้</h1>

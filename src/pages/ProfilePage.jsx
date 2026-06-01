@@ -182,7 +182,7 @@ export default function ProfilePage({ user }) {
         {/* Header */}
         <div className="flex items-center gap-4 mb-8">
           <button 
-            onClick={() => navigate('/')}
+            onClick={() => navigate(-1)}
             className="liquid-glass-button p-3 flex items-center justify-center text-main"
             style={{ ':hover': { backgroundColor: 'var(--glass-bg-strong)' } }}
           >

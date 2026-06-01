@@ -265,7 +265,7 @@ export default function TodayPage({ user }) {
       <div className="max-w-4xl mx-auto">
         
         <div className="flex items-center mb-4 gap-4">
-          <button onClick={() => navigate('/')} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main">
+          <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main">
             <ArrowLeft size={24} />
           </button>
         </div>

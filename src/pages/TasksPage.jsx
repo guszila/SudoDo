@@ -179,7 +179,7 @@ export default function TasksPage({ user, lang = 'en' }) {
     >
       <div className="flex items-center justify-between mb-6 px-2">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate('/')} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main">
+          <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main">
             <ArrowLeft size={24} />
           </button>
           <h1 className="text-2xl font-bold text-main flex items-center gap-2 m-0">

@@ -584,7 +584,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       className="min-h-screen font-sans pb-32 md:pb-8 p-4 md:p-8 max-w-4xl mx-auto"
     >
       <div className="flex items-center mb-8 gap-4 px-2">
-        <button onClick={() => navigate('/')} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main shrink-0">
+        <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main shrink-0">
           <ArrowLeft size={24} />
         </button>
         <h1 className="text-2xl font-bold text-main flex items-center gap-2 m-0">
