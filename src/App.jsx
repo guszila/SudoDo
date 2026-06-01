@@ -28,9 +28,9 @@ import { TASK_STATUS, TASK_PRIORITY } from './constants';
 import { translations } from './i18n';
 import { auth } from './firebase';
 import { TasksProvider, useTasks } from './contexts/TasksContext';
-import { ToastProvider } from './contexts/ToastContext';
-import { SettingsProvider } from './contexts/SettingsContext';
-import { ThemeProvider } from './contexts/ThemeContext';
+import { ToastProvider, useToast } from './contexts/ToastContext';
+import { SettingsProvider, useSettings } from './contexts/SettingsContext';
+import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -87,15 +87,19 @@ const StatusIcon = ({ status, className = "" }) => {
 };
 
 function MainApp({ user, lang, setLang, theme, toggleTheme }) {
-  const { tasks, isLoading } = useTasks();
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [selectedTask, setSelectedTask] = useState(null);
-  const [currentView, setCurrentView] = useState('month');
-  const [currentDate, setCurrentDate] = useState(new Date());
-  const [selectedDateFilter, setSelectedDateFilter] = useState(null);
-  
+  const { currentTheme } = useTheme();
   const navigate = useNavigate();
   const location = useLocation();
+  const { tasks, isLoading } = useTasks();
+  
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [selectedTask, setSelectedTask] = useState(null);
+  const [selectedDateFilter, setSelectedDateFilter] = useState(null);
+  const [currentView, setCurrentView] = useState('month'); 
+  
+  const [showTour, setShowTour] = useState(() => {
+    return localStorage.getItem('tourCompleted') !== 'true';
+  });
 
   const t = translations[lang];
 
@@ -365,7 +369,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
 
           <button 
             onClick={() => { setSelectedTask(null); setIsModalOpen(true); }}
-            className="hidden md:flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-[20px] transition-all shadow-[0_4px_16px_0_rgba(108,99,255,0.3)] active:scale-95 border"
+            className="tour-add-btn hidden md:flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-[20px] transition-all shadow-[0_4px_16px_0_rgba(108,99,255,0.3)] active:scale-95 border"
             style={{ borderColor: 'var(--glass-border)' }}
           >
             <Plus size={20} /> {t.addTask}
@@ -501,6 +505,46 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
           <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
         </Routes>
       </AnimatePresence>
+      
+      {showTour && (
+        <ProductTour 
+          lang={lang}
+          onComplete={() => {
+            localStorage.setItem('tourCompleted', 'true');
+            setShowTour(false);
+          }}
+          steps={[
+            {
+              target: '.tour-nav-bar',
+              title: lang === 'en' ? 'Welcome to SudoDo!' : 'ยินดีต้อนรับสู่ SudoDo!',
+              content: lang === 'en' ? 'Navigate between your Calendar, Tasks, Income dashboard, and Settings right from here.' : 'จัดการงานและรายได้ของคุณได้ง่ายๆ สลับดูรายการงาน หรือตารางรายได้ ได้จากเมนูด้านล่างนี้เลย',
+              icon: '👋',
+              borderRadius: 28
+            },
+            {
+              target: '.tour-add-btn',
+              title: lang === 'en' ? 'Add Tasks & Shifts' : 'เพิ่มงานและกะ',
+              content: lang === 'en' ? 'Tap this button to create a new task or log a part-time shift.' : 'แตะที่ปุ่มนี้เพื่อเพิ่ม "สิ่งที่ต้องทำ" ใหม่ หรือบันทึก "กะการทำงาน" ของคุณ',
+              icon: '✨',
+              borderRadius: 50
+            },
+            {
+              target: '.tour-part-time-btn',
+              title: lang === 'en' ? 'Income Dashboard' : 'สรุปรายได้ (Part-Time)',
+              content: lang === 'en' ? 'Check your total income and customize your financial widgets here.' : 'หน้านี้จะสรุปรายได้ของคุณทั้งหมด และคุณยังสามารถเลือกปรับแต่ง Widget ที่อยากดูได้เองด้วย',
+              icon: '💰',
+              borderRadius: 16
+            },
+            {
+              target: '.tour-settings-btn',
+              title: lang === 'en' ? 'Make it Yours' : 'ปรับแต่งตามใจชอบ',
+              content: lang === 'en' ? 'Change themes, enable dark mode, and set your preferences in Settings.' : 'เปลี่ยนธีมสีน่ารักๆ เปิดโหมดมืด หรือตั้งค่าการแจ้งเตือนได้ที่นี่ เริ่มต้นใช้งานกันเลย!',
+              icon: '🎨',
+              borderRadius: 16
+            }
+          ]}
+        />
+      )}
 
       {/* Floating Action Button */}
       {location.pathname === '/' && (
@@ -509,15 +553,15 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
             setSelectedTask(selectedDateFilter ? { start: selectedDateFilter, end: selectedDateFilter } : null); 
             setIsModalOpen(true); 
           }}
-          className="fixed bottom-24 md:bottom-10 right-6 md:right-10 w-14 h-14 bg-primary-500 text-white rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(var(--color-primary-500-rgb),0.5)] border border-primary-400/30 z-50 hover:scale-105 active:scale-95 transition-all group"
+          className="tour-add-btn fixed bottom-24 md:bottom-10 right-6 md:right-10 w-14 h-14 bg-[var(--theme-accent)] text-[var(--theme-accent-light)] rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.15)] z-50 hover:scale-105 active:scale-95 transition-all group"
         >
-          <span className="absolute inset-0 rounded-full bg-primary-500 opacity-20 group-hover:animate-ping"></span>
+          <span className="absolute inset-0 rounded-full bg-[var(--theme-accent)] opacity-20 group-hover:animate-ping"></span>
           <Plus size={28} className="relative z-10" />
         </button>
       )}
 
       {/* Mobile Bottom Navigation */}
-      <nav className="md:hidden fixed bottom-0 left-0 right-0 liquid-glass border-x-0 border-b-0 rounded-t-[28px] rounded-b-none p-2 pb-safe flex justify-around items-center z-40 h-[calc(72px+env(safe-area-inset-bottom))]">
+      <nav className="tour-nav-bar md:hidden fixed bottom-0 left-0 right-0 liquid-glass border-x-0 border-b-0 rounded-t-[28px] rounded-b-none p-2 pb-safe flex justify-around items-center z-40 h-[calc(72px+env(safe-area-inset-bottom))]">
         <button 
           onClick={() => { navigate('/'); setCurrentView('month'); }}
           className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/' && currentView === 'month' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
@@ -541,14 +585,14 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
         </button>
         <button 
           onClick={() => navigate('/part-time')}
-          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/part-time' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
+          className={`tour-part-time-btn flex flex-col items-center justify-center w-full h-full ${location.pathname === '/part-time' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <DollarSign size={24} />
           <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/part-time' && 'opacity-60'}`}>{lang === 'en' ? 'Income' : 'รายได้'}</span>
         </button>
         <button 
           onClick={() => navigate('/settings')}
-          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/settings' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
+          className={`tour-settings-btn flex flex-col items-center justify-center w-full h-full ${location.pathname === '/settings' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
         >
           <Settings size={24} />
           <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/settings' && 'opacity-60'}`}>{lang === 'en' ? 'Settings' : 'ตั้งค่า'}</span>

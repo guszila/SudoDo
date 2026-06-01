@@ -216,7 +216,7 @@ export default function TasksPage({ user, lang = 'en' }) {
             </button>
             <button 
               onClick={() => { setEditingTask(null); setIsModalOpen(true); }}
-              className="p-2 md:px-4 md:py-2 bg-primary-500 text-white rounded-full flex items-center gap-2 hover:bg-primary-600 transition-colors shadow-md active:scale-95"
+              className="tour-add-btn p-2 md:px-4 md:py-2 bg-primary-500 text-white rounded-full flex items-center gap-2 hover:bg-primary-600 transition-colors shadow-md active:scale-95"
             >
               <Plus size={20} /> <span className="hidden md:inline font-bold">{tCommon.addTask}</span>
             </button>
@@ -226,7 +226,7 @@ export default function TasksPage({ user, lang = 'en' }) {
 
       <div className="flex flex-col md:flex-row gap-4 mb-6">
         {/* Type Tabs */}
-        <div className="flex p-1.5 rounded-2xl w-full md:w-auto" style={{ background: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.4)' }}>
+        <div className="tour-tabs flex p-1.5 rounded-2xl w-full md:w-auto" style={{ background: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.4)' }}>
           <button 
             onClick={() => setActiveTab('general')}
             className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'general' ? 'bg-[var(--theme-accent)] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
