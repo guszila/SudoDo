@@ -164,20 +164,34 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           </div>
 
           {!formData.isPartTime && (
-            <div className="grid grid-cols-2 gap-4">
+            <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.status}</label>
-                <select 
-                  name="status" 
-                  value={formData.status} 
-                  onChange={handleChange}
-                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main appearance-none"
+                <div 
+                  className="flex rounded-[16px] overflow-hidden p-1"
                   style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
                 >
-                  <option value={TASK_STATUS.TODO}>{statusT['To-Do']}</option>
-                  <option value={TASK_STATUS.IN_PROGRESS}>{statusT['In Progress']}</option>
-                  <option value={TASK_STATUS.DONE}>{statusT['Done']}</option>
-                </select>
+                  {[
+                    { id: TASK_STATUS.TODO, label: statusT['To-Do'], color: 'bg-blue-500' },
+                    { id: TASK_STATUS.IN_PROGRESS, label: statusT['In Progress'], color: 'bg-amber-500' },
+                    { id: TASK_STATUS.DONE, label: statusT['Done'], color: 'bg-green-500' }
+                  ].map(s => (
+                    <button
+                      key={s.id}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, status: s.id }))}
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs sm:text-sm font-bold rounded-[12px] transition-all ${
+                        formData.status === s.id 
+                          ? 'shadow-sm text-main' 
+                          : 'text-main/60 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5'
+                      }`}
+                      style={{ backgroundColor: formData.status === s.id ? 'var(--glass-bg-strong)' : 'transparent' }}
+                    >
+                      <div className={`w-2 h-2 rounded-full ${s.color}`}></div>
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
               </div>
               
               <div>
@@ -195,10 +209,10 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                       key={p.id}
                       type="button"
                       onClick={() => setFormData(prev => ({ ...prev, priority: p.id }))}
-                      className={`flex-1 flex items-center justify-center gap-1.5 py-2 text-sm font-medium rounded-[12px] transition-all ${
+                      className={`flex-1 flex items-center justify-center gap-1.5 py-3 text-xs sm:text-sm font-bold rounded-[12px] transition-all ${
                         formData.priority === p.id 
                           ? 'shadow-sm text-main' 
-                          : 'text-main/70 opacity-70 hover:opacity-100'
+                          : 'text-main/60 hover:opacity-100 hover:bg-black/5 dark:hover:bg-white/5'
                       }`}
                       style={{ backgroundColor: formData.priority === p.id ? 'var(--glass-bg-strong)' : 'transparent' }}
                     >
@@ -237,7 +251,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                   value={formData.hourlyRate} 
                   onChange={handleChange}
                   required min="0" 
-                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" 
+                  className="w-full px-4 py-3 rounded-[16px] font-bold focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" 
                   style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }} 
                 />
                 <select 
@@ -256,32 +270,28 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
 
           <div className="space-y-4">
             {!formData.isPartTime && (
-              <label 
-                htmlFor="isAllDay" 
-                className="flex items-center gap-3 mb-2 min-h-[44px] w-full cursor-pointer px-4 rounded-[16px] transition-colors"
+              <div 
+                className="flex items-center justify-between mb-2 min-h-[52px] w-full px-5 rounded-[16px] transition-colors cursor-pointer"
                 style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                onClick={() => setFormData(prev => ({ ...prev, isAllDay: !prev.isAllDay }))}
               >
-                <input
-                  type="checkbox"
-                  id="isAllDay"
-                  checked={formData.isAllDay}
-                  onChange={(e) => setFormData(prev => ({ ...prev, isAllDay: e.target.checked }))}
-                  className="w-5 h-5 rounded text-primary-500 focus:ring-primary-500"
-                />
                 <span className="text-sm font-bold text-main">{t.allDay}</span>
-              </label>
+                <div className={`w-12 h-6 rounded-full transition-colors relative ${formData.isAllDay ? 'bg-primary-500' : 'bg-black/20 dark:bg-white/20'}`}>
+                  <div className={`w-5 h-5 bg-white rounded-full absolute top-0.5 transition-transform duration-300 shadow-sm ${formData.isAllDay ? 'translate-x-[26px]' : 'translate-x-0.5'}`} />
+                </div>
+              </div>
             )}
             
             <div>
               <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.startTime}</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <input 
                   onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
                   type="date" 
                   value={formData.start.split('T')[0]} 
                   onChange={(e) => setFormData(prev => ({ ...prev, start: `${e.target.value}T${prev.start.split('T')[1] || '00:00'}` }))}
                   required
-                  className="w-full px-2 py-3 text-sm rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
+                  className="w-full px-4 py-3.5 text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-wider"
                   style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
                 />
                 {!formData.isAllDay && (
@@ -291,7 +301,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                     value={formData.start.split('T')[1] || '00:00'} 
                     onChange={(e) => setFormData(prev => ({ ...prev, start: `${prev.start.split('T')[0] || new Date().toISOString().slice(0, 10)}T${e.target.value}` }))}
                     required
-                    className="w-full px-2 py-3 text-sm rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
+                    className="w-full px-4 py-3.5 text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-wider text-center"
                     style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
                   />
                 )}
@@ -299,14 +309,14 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             </div>
             <div>
               <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.endTime}</label>
-              <div className="grid grid-cols-2 gap-2">
+              <div className="grid grid-cols-2 gap-3">
                 <input 
                   onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
                   type="date" 
                   value={formData.end.split('T')[0]} 
                   onChange={(e) => setFormData(prev => ({ ...prev, end: `${e.target.value}T${prev.end.split('T')[1] || '00:00'}` }))}
                   required
-                  className="w-full px-2 py-3 text-sm rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
+                  className="w-full px-4 py-3.5 text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-wider"
                   style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
                 />
                 {!formData.isAllDay && (
@@ -316,7 +326,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                     value={formData.end.split('T')[1] || '00:00'} 
                     onChange={(e) => setFormData(prev => ({ ...prev, end: `${prev.end.split('T')[0] || new Date().toISOString().slice(0, 10)}T${e.target.value}` }))}
                     required
-                    className="w-full px-2 py-3 text-sm rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main"
+                    className="w-full px-4 py-3.5 text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-wider text-center"
                     style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
                   />
                 )}
