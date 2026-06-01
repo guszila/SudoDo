@@ -82,7 +82,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
     amount: '',
     date: new Date().toISOString().slice(0, 10),
     month: new Date().toISOString().slice(0, 7),
-    isPercentage: true,
+    month: new Date().toISOString().slice(0, 7),
+    isPercentage: false,
   });
 
   const daysOfWeek = [
@@ -458,10 +459,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
     e.preventDefault();
     setIsMutating(true);
     
-    let expenseDateStr = expenseFormData.date;
-    if (expenseFormData.isPercentage) {
-      expenseDateStr = `${expenseFormData.month}-01`;
-    }
+    let expenseDateStr = `${expenseFormData.month}-01`;
     const startDateTime = new Date(`${expenseDateStr}T00:00:00`).toISOString();
     
     const expenseTask = {
@@ -474,7 +472,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       isPartTime: true,
       isExpense: true,
       amount: expenseFormData.amount,
-      isPercentage: expenseFormData.isPercentage
+      isPercentage: false
     };
     
     if (expenseFormData.id) {
@@ -483,7 +481,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       await saveTask('ADD', expenseTask, user.uid);
     }
     setShowAddExpenseForm(false);
-    setExpenseFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10), month: new Date().toISOString().slice(0, 7), isPercentage: true });
+    setExpenseFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10), month: new Date().toISOString().slice(0, 7), isPercentage: false });
     setIsMutating(false);
   };
 
@@ -496,7 +494,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       amount: exp.amount,
       date: isNaN(startD.getTime()) ? new Date().toISOString().slice(0, 10) : startD.toISOString().slice(0, 10),
       month: isNaN(startD.getTime()) ? new Date().toISOString().slice(0, 7) : startD.toISOString().slice(0, 7),
-      isPercentage: exp.isPercentage
+      isPercentage: false
     });
     setShowAddExpenseForm(true);
   };
@@ -689,7 +687,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
             <button 
               onClick={() => { 
                 if (!showAddExpenseForm) {
-                  setExpenseFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10), month: new Date().toISOString().slice(0, 7), isPercentage: true });
+                  setExpenseFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10), month: new Date().toISOString().slice(0, 7), isPercentage: false });
                 }
                 setShowAddExpenseForm(!showAddExpenseForm); 
                 setShowAddForm(false); 
@@ -720,28 +718,16 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.amount}</label>
-                  <div className="flex gap-2">
-                    <input type="number" step="any" value={expenseFormData.amount} onChange={e => setExpenseFormData({...expenseFormData, amount: e.target.value})} required min="0" className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
-                    <select 
-                      value={expenseFormData.isPercentage ? 'percent' : 'flat'} 
-                      onChange={e => setExpenseFormData({...expenseFormData, isPercentage: e.target.value === 'percent'})}
-                      className="px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main font-bold"
-                      style={{ backgroundColor: 'var(--glass-bg-input)' }}
-                    >
-                      <option value="percent">%</option>
-                      <option value="flat">฿</option>
-                    </select>
+                  <div className="relative">
+                    <input type="number" step="any" value={expenseFormData.amount} onChange={e => setExpenseFormData({...expenseFormData, amount: e.target.value})} required min="0" className="w-full pl-4 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold opacity-50">฿</span>
                   </div>
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
-                    {expenseFormData.isPercentage ? 'ประจำเดือน' : t.fromDate}
+                    ประจำเดือน
                   </label>
-                  {expenseFormData.isPercentage ? (
-                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="month" value={expenseFormData.month} onChange={e => setExpenseFormData({...expenseFormData, month: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
-                  ) : (
-                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={expenseFormData.date} onChange={e => setExpenseFormData({...expenseFormData, date: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
-                  )}
+                  <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="month" value={expenseFormData.month} onChange={e => setExpenseFormData({...expenseFormData, month: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
                 </div>
               </div>
               
