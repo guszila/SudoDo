@@ -12,12 +12,15 @@ export function ThemeProvider({ children }) {
   const { settings, updateSettings, isLoading } = useSettings();
   
   // Local state to ensure immediate UI updates before Firebase saves
-  const [currentThemeId, setCurrentThemeId] = useState(DEFAULT_THEME);
+  const [currentThemeId, setCurrentThemeId] = useState(() => {
+    return localStorage.getItem('color_theme') || DEFAULT_THEME;
+  });
 
   // Sync local state when settings loads or changes from elsewhere
   useEffect(() => {
     if (!isLoading && settings?.theme) {
       setCurrentThemeId(settings.theme);
+      localStorage.setItem('color_theme', settings.theme);
     }
   }, [settings?.theme, isLoading]);
 
@@ -52,6 +55,7 @@ export function ThemeProvider({ children }) {
 
   const setTheme = (id) => {
     setCurrentThemeId(id);
+    localStorage.setItem('color_theme', id);
     const updates = { theme: id };
     
     // Auto-enable dark mode for Midnight, disable if switching away from Midnight

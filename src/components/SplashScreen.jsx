@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import Logo from './Logo';
 import { version } from '../../package.json';
+import { THEMES, DEFAULT_THEME } from '../constants/themes';
 
 export default function SplashScreen({ onDone }) {
   useEffect(() => {
@@ -10,8 +11,22 @@ export default function SplashScreen({ onDone }) {
     return () => clearTimeout(timer);
   }, [onDone]);
 
+  // Read theme from localStorage to apply it immediately without waiting for context
+  const colorThemeId = localStorage.getItem('color_theme') || DEFAULT_THEME;
+  const currentTheme = THEMES[colorThemeId] || THEMES[DEFAULT_THEME];
+  
+  // Determine if it should be dark mode
+  const isDark = currentTheme.forceDark || localStorage.getItem('theme') === 'dark';
+  const backgroundGradient = isDark ? currentTheme.darkGradient : currentTheme.gradient;
+  const accentColor = isDark ? currentTheme.accentDark : currentTheme.accent;
+  
+  // Custom theme colors for inline styles
+  const accentLightHex = currentTheme.accentLight.startsWith('#') 
+    ? currentTheme.accentLight 
+    : accentColor; // Fallback for midnight's rgba
+
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden" style={{ background: 'var(--theme-gradient, linear-gradient(135deg, #e8d5f5 0%, #d4e8ff 50%, #fde8f0 100%))', animation: 'splashFadeOut 0.3s ease-out 2.2s both' }}>
+    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden" style={{ background: backgroundGradient, animation: 'splashFadeOut 0.3s ease-out 2.2s both' }}>
       <style>{`
         @keyframes logoScale {
           0% { transform: scale(0.5); opacity: 0; }
@@ -48,9 +63,9 @@ export default function SplashScreen({ onDone }) {
       `}</style>
 
       {/* Decorative blurred circles */}
-      <div className="absolute top-[15%] left-[10%] w-64 h-64 rounded-full bg-white blur-[60px]" style={{ animation: 'circlePulse 4s ease-in-out infinite' }} />
-      <div className="absolute top-[40%] right-[10%] w-80 h-80 rounded-full bg-white blur-[80px]" style={{ animation: 'circlePulse 5s ease-in-out infinite 1s' }} />
-      <div className="absolute bottom-[10%] left-[20%] w-72 h-72 rounded-full bg-white blur-[70px]" style={{ animation: 'circlePulse 4.5s ease-in-out infinite 2s' }} />
+      <div className="absolute top-[15%] left-[10%] w-64 h-64 rounded-full bg-white blur-[60px]" style={{ animation: 'circlePulse 4s ease-in-out infinite', opacity: isDark ? 0.05 : undefined }} />
+      <div className="absolute top-[40%] right-[10%] w-80 h-80 rounded-full bg-white blur-[80px]" style={{ animation: 'circlePulse 5s ease-in-out infinite 1s', opacity: isDark ? 0.05 : undefined }} />
+      <div className="absolute bottom-[10%] left-[20%] w-72 h-72 rounded-full bg-white blur-[70px]" style={{ animation: 'circlePulse 4.5s ease-in-out infinite 2s', opacity: isDark ? 0.05 : undefined }} />
 
       {/* Main Content */}
       <div className="relative z-10 flex flex-col items-center">
@@ -78,7 +93,7 @@ export default function SplashScreen({ onDone }) {
             SudoDo
           </h1>
           <p className="text-[12px] font-bold uppercase tracking-[0.18em]" style={{ 
-            color: 'rgba(83,74,183,0.7)',
+            color: isDark ? 'rgba(255,255,255,0.7)' : 'rgba(83,74,183,0.7)',
             animation: 'subFade 0.4s ease-out 1.1s both'
           }}>
             Task Manager
@@ -88,14 +103,17 @@ export default function SplashScreen({ onDone }) {
         {/* Loading Indicator */}
         <div className="flex flex-col items-center gap-4" style={{ animation: 'subFade 0.4s ease-out 1.3s both' }}>
           {/* Ring Spinner */}
-          <div className="w-[36px] h-[36px] rounded-full border-4 border-[rgba(127,119,221,0.2)] border-t-[var(--theme-accent)]" style={{ animation: 'spin 0.9s linear infinite' }} />
+          <div className="w-[36px] h-[36px] rounded-full border-4" style={{ 
+            borderColor: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(127,119,221,0.2)',
+            borderTopColor: accentColor,
+            animation: 'spin 0.9s linear infinite' 
+          }} />
           
           <div className="flex items-center gap-2">
-            <p className="text-[12px] font-medium text-[var(--theme-accent)]/80 mr-1">กำลังโหลด...</p>
-            <div className="flex gap-1">
-              <div className="w-[6px] h-[6px] rounded-full bg-[var(--theme-accent)]" style={{ animation: 'dotPop 1.4s ease-in-out infinite' }} />
-              <div className="w-[6px] h-[6px] rounded-full bg-[var(--theme-accent)]" style={{ animation: 'dotPop 1.4s ease-in-out infinite 0.2s' }} />
-              <div className="w-[6px] h-[6px] rounded-full bg-[var(--theme-accent)]" style={{ animation: 'dotPop 1.4s ease-in-out infinite 0.4s' }} />
+            <div className="flex gap-1 mt-1">
+              <div className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: accentColor, animation: 'dotPop 1.4s ease-in-out infinite' }} />
+              <div className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: accentColor, animation: 'dotPop 1.4s ease-in-out infinite 0.2s' }} />
+              <div className="w-[6px] h-[6px] rounded-full" style={{ backgroundColor: accentColor, animation: 'dotPop 1.4s ease-in-out infinite 0.4s' }} />
             </div>
           </div>
         </div>
@@ -104,7 +122,7 @@ export default function SplashScreen({ onDone }) {
 
       {/* Version */}
       <div className="absolute bottom-8 left-0 right-0 text-center" style={{ animation: 'subFade 0.4s ease-out 1.5s both' }}>
-        <p className="text-[11px] font-medium" style={{ color: 'rgba(83,74,183,0.4)' }}>v{version}</p>
+        <p className="text-[11px] font-medium" style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(83,74,183,0.4)' }}>v{version}</p>
       </div>
 
     </div>
