@@ -106,6 +106,7 @@ export default function TodayPage({ user }) {
               } else {
                 hours = (t.end - t.start) / (1000 * 60 * 60);
               }
+              hours = Math.max(0, hours - (Number(t.breakHours) || 0));
               if (t.rateType === RATE_TYPE.DAILY) earnings = Number(t.hourlyRate) || 0;
               else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
               
@@ -121,6 +122,7 @@ export default function TodayPage({ user }) {
                 earnings = -(Number(t.amount) || 0);
             } else {
                 let hours = (t.end - t.start) / (1000 * 60 * 60);
+                hours = Math.max(0, hours - (Number(t.breakHours) || 0));
                 if (t.rateType === RATE_TYPE.DAILY) earnings = Number(t.hourlyRate) || 0;
                 else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
             }

@@ -110,6 +110,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
              } else {
                hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
              }
+             hours = Math.max(0, hours - (Number(t.breakHours) || 0));
              if (t.rateType === RATE_TYPE.DAILY) earnings = Number(t.hourlyRate) || 0;
              else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
              
@@ -180,6 +181,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
              } else {
                let h = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
                if (t.actualStart && t.actualEnd) h = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
+               h = Math.max(0, h - (Number(t.breakHours) || 0));
                if (t.rateType === RATE_TYPE.DAILY) mIncome += Number(t.hourlyRate) || 0;
                else if (h > 0) mIncome += h * (Number(t.hourlyRate) || 0);
              }
@@ -422,6 +424,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
                   } else {
                     hours = (new Date(task.end) - new Date(task.start)) / (1000 * 60 * 60);
                   }
+                  hours = Math.max(0, hours - (Number(task.breakHours) || 0));
                   if (task.rateType === RATE_TYPE.DAILY) {
                     earnings = Number(task.hourlyRate) || 0;
                   } else {

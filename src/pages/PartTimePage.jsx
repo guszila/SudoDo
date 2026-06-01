@@ -50,6 +50,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
     note: '',
     hourlyRate: DEFAULT_TASK_VALUES.HOURLY_RATE,
     rateType: RATE_TYPE.HOURLY,
+    breakHours: 0,
     startDate: new Date().toISOString().slice(0, 10),
     endDate: new Date().toISOString().slice(0, 10),
     startTime: DEFAULT_TASK_VALUES.START_TIME,
@@ -141,12 +142,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
         } else {
           hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
         }
+        hours = Math.max(0, hours - (Number(t.breakHours) || 0));
         if (t.rateType === RATE_TYPE.DAILY) taskEarned = rate;
         else if (hours > 0) taskEarned = hours * rate;
         
         earned[monthKey] = (earned[monthKey] || 0) + taskEarned;
       } else {
         hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
+        hours = Math.max(0, hours - (Number(t.breakHours) || 0));
         if (t.rateType === RATE_TYPE.DAILY) taskEarned = rate;
         else if (hours > 0) taskEarned = hours * rate;
         
@@ -212,6 +215,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       } else {
         hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
       }
+      hours = Math.max(0, hours - (Number(t.breakHours) || 0));
       if (hours > 0) totalHours += hours;
     });
     
@@ -555,6 +559,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
           isPartTime: true,
           hourlyRate: formData.hourlyRate,
           rateType: formData.rateType,
+          breakHours: formData.rateType === RATE_TYPE.HOURLY ? (Number(formData.breakHours) || 0) : 0,
           actualStart: null,
           actualEnd: null
         });
@@ -898,6 +903,25 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 <label className="block text-sm font-medium text-main mb-1.5 opacity-80">หมายเหตุ (เช่น ทำกะแทนใคร)</label>
                 <input type="text" value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="ตัวอย่าง: ทำแทนคุณ A" />
               </div>
+
+              {formData.rateType === RATE_TYPE.HOURLY && (
+                <div>
+                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาพักเบรก (ชั่วโมง)</label>
+                  <div className="relative">
+                    <input
+                      type="number"
+                      value={formData.breakHours}
+                      onChange={e => setFormData({...formData, breakHours: e.target.value})}
+                      min="0"
+                      step="0.5"
+                      className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-main"
+                      style={{ backgroundColor: 'var(--glass-bg-input)' }}
+                      placeholder="0"
+                    />
+                    <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold opacity-40">ชม. (ไม่ได้รับเงิน)</span>
+                  </div>
+                </div>
+              )}
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid grid-cols-2 gap-3">

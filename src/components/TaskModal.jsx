@@ -32,6 +32,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         isPartTime: task.isPartTime || false,
         hourlyRate: task.hourlyRate || DEFAULT_TASK_VALUES.HOURLY_RATE,
         rateType: task.rateType || 'hourly',
+        breakHours: task.breakHours ?? 0,
         isAllDay: task.isAllDay || false
       });
     } else {
@@ -45,6 +46,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         isPartTime: false,
         hourlyRate: DEFAULT_TASK_VALUES.HOURLY_RATE,
         rateType: 'hourly',
+        breakHours: 0,
         isAllDay: false
       });
     }
@@ -264,6 +266,26 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                   <option value="hourly">/ ชั่วโมง</option>
                   <option value="daily">/ วัน</option>
                 </select>
+              </div>
+            </div>
+          )}
+
+          {formData.isPartTime && formData.rateType !== 'daily' && (
+            <div>
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เวลาพักเบรก (ชั่วโมง)</label>
+              <div className="relative">
+                <input
+                  type="number"
+                  name="breakHours"
+                  value={formData.breakHours}
+                  onChange={handleChange}
+                  min="0"
+                  step="0.5"
+                  className="w-full px-4 py-3 rounded-[16px] font-bold focus:outline-none focus:ring-2 focus:ring-amber-500 text-main"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                  placeholder="0"
+                />
+                <span className="absolute right-4 top-1/2 -translate-y-1/2 text-xs font-bold opacity-40">ชม. (ไม่ได้รับเงิน)</span>
               </div>
             </div>
           )}
