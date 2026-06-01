@@ -45,6 +45,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
   const [showAddExpenseForm, setShowAddExpenseForm] = useState(false);
   const [formData, setFormData] = useState({
     title: '',
+    note: '',
     hourlyRate: DEFAULT_TASK_VALUES.HOURLY_RATE,
     rateType: RATE_TYPE.HOURLY,
     startDate: new Date().toISOString().slice(0, 10),
@@ -425,7 +426,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         
         shiftsToAdd.push({
           title: formData.title,
-          description: '',
+          description: formData.note || '',
           start: startDateTime,
           end: endDateObj.toISOString(),
           status: TASK_STATUS.TODO,
@@ -772,6 +773,11 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 </div>
               </div>
 
+              <div>
+                <label className="block text-sm font-medium text-main mb-1.5 opacity-80">หมายเหตุ (เช่น ทำกะแทนใคร)</label>
+                <input type="text" value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="ตัวอย่าง: ทำแทนคุณ A" />
+              </div>
+
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid grid-cols-2 gap-3">
                   <div>
@@ -944,6 +950,12 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 <div className="text-sm text-main opacity-80 space-y-1.5 bg-white/30 dark:bg-black/20 p-3 rounded-xl border border-white/40 dark:border-white/5 w-fit">
                   <p className="flex items-center gap-2"><span className="w-4">📅</span> {fDate(task.start)}</p>
                   <p className="flex items-center gap-2"><span className="w-4">⏱️</span> ตาราง: {fTime(task.start)} - {fTime(task.end)}</p>
+                  {task.description && (
+                    <p className="flex items-start gap-2 text-primary-600 dark:text-primary-400 font-medium mt-1">
+                      <span className="w-4 mt-0.5">📝</span>
+                      <span className="flex-1">หมายเหตุ: {task.description}</span>
+                    </p>
+                  )}
                 </div>
               </div>
 

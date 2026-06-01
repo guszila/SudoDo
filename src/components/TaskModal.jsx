@@ -227,7 +227,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           
           <div>
             <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
-              {formData.isPartTime ? 'หมายเหตุ (ไม่บังคับ)' : t.description}
+              {formData.isPartTime ? 'หมายเหตุ (เช่น ทำกะแทนใคร)' : t.description}
             </label>
             <textarea 
               name="description" 

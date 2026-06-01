@@ -126,6 +126,12 @@ export default function TaskCard({
             </span>
           )}
           
+          {task.description && (
+            <span className="bg-main/10 dark:bg-white/10 px-2 py-0.5 rounded-md flex items-center gap-1 font-medium max-w-xs truncate" title={task.description}>
+              📝 {task.description}
+            </span>
+          )}
+          
           {isOverdue && <span className="text-red-500 font-bold bg-red-500/10 px-2 py-0.5 rounded-md">เลยกำหนด</span>}
         </div>
       </div>
