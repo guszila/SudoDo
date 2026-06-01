@@ -56,6 +56,20 @@ export function SettingsProvider({ children, user }) {
     if (user) {
       try {
         await updateUserSettings(user.uid, newSettings);
+        
+        // Sync notification settings to OneSignal Tags
+        if (window.OneSignalDeferred) {
+          window.OneSignalDeferred.push(function(OneSignal) {
+            const tags = {};
+            if (newSettings.notifyTasks !== undefined) tags.notifyTasks = newSettings.notifyTasks ? "true" : "false";
+            if (newSettings.notifyShifts !== undefined) tags.notifyShifts = newSettings.notifyShifts ? "true" : "false";
+            if (newSettings.notifyStreak !== undefined) tags.notifyStreak = newSettings.notifyStreak ? "true" : "false";
+            
+            if (Object.keys(tags).length > 0) {
+              OneSignal.User.addTags(tags);
+            }
+          });
+        }
       } catch (error) {
         console.error("Failed to save settings:", error);
         setSettings(previousSettings);
