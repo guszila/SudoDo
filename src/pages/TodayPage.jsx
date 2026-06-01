@@ -1,9 +1,9 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-import { motion } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { format, isBefore, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2 } from 'lucide-react';
+import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2, Calendar, Bell } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -20,6 +20,9 @@ export default function TodayPage({ user }) {
   const [isLoadingStreak, setIsLoadingStreak] = useState(true);
   const [chartType, setChartType] = useState('bar'); // 'bar' or 'line'
   const [isChartExpanded, setIsChartExpanded] = useState(false);
+  const [showModalChart, setShowModalChart] = useState(false);
+  const [isTickerActive, setIsTickerActive] = useState(false);
+  const [modalSize, setModalSize] = useState({ width: 600, height: 400 });
   const navigate = useNavigate();
   
   const [now] = useState(new Date());
@@ -54,7 +57,7 @@ export default function TodayPage({ user }) {
     initData();
   }, [user]);
 
-  const { todayTasks, highPriorityCount, todayIncome, todayNetIncome, todaySSODeduction, chartData, weeklyStreak, totalToday, doneToday, pendingToday } = useMemo(() => {
+  const { todayTasks, highPriorityCount, todayIncome, todayNetIncome, todaySSODeduction, chartData, fullChartData, weeklyStreak, totalToday, doneToday, pendingToday } = useMemo(() => {
     let income = 0;
     const tTasks = [];
     const oTasks = [];
@@ -192,6 +195,40 @@ export default function TodayPage({ user }) {
     };
   }, [tasks, streakData, now, settings.socialSecurity, settings.showInIncome]);
 
+  const pendingTasksList = useMemo(() => {
+    return todayTasks.filter(t => t.status !== TASK_STATUS.DONE);
+  }, [todayTasks]);
+
+  useEffect(() => {
+    if (pendingToday > 0 && pendingTasksList.length > 0) {
+      const timer1 = setTimeout(() => setIsTickerActive(true), 2000);
+      const timer2 = setTimeout(() => setIsTickerActive(false), 10000); // 8s for the marquee
+      return () => { clearTimeout(timer1); clearTimeout(timer2); };
+    }
+  }, [pendingToday, pendingTasksList.length]);
+
+  useEffect(() => {
+    if (isChartExpanded) {
+      const updateSize = () => {
+        setModalSize({
+          width: Math.min(window.innerWidth - 64, 900),
+          height: Math.max(window.innerHeight * 0.6, 300)
+        });
+      };
+      updateSize();
+      window.addEventListener('resize', updateSize);
+      
+      const timer = setTimeout(() => setShowModalChart(true), 150);
+      
+      return () => {
+        window.removeEventListener('resize', updateSize);
+        clearTimeout(timer);
+      };
+    } else {
+      setShowModalChart(false);
+    }
+  }, [isChartExpanded]);
+
   const getGreeting = () => {
     const hour = now.getHours();
     if (hour >= 5 && hour < 12) return 'สวัสดีตอนเช้า';
@@ -233,14 +270,89 @@ export default function TodayPage({ user }) {
           </button>
         </div>
 
-        <header className="flex justify-between items-center mb-8 mt-2 animate-slide-up">
-          <div>
+        <header className="flex justify-between items-start mb-8 mt-2 animate-slide-up">
+          <div className="flex-1 pr-4">
             <p className="text-main/60 font-medium text-sm mb-1">{format(now, 'EEEE d MMM yyyy', { locale: th })}</p>
-            <h1 className="text-2xl md:text-3xl font-bold text-main flex items-center gap-2">
+            <h1 className="text-2xl md:text-3xl font-bold text-main flex items-center gap-2 mb-3">
               {getGreeting()} {user?.displayName?.split(' ')[0] || ''} <span className="animate-wave origin-bottom-right inline-block">👋</span>
             </h1>
+            
+            <div className="flex flex-wrap items-center gap-2">
+              <motion.div 
+                layout
+                onClick={() => setIsTickerActive(!isTickerActive)}
+                className="px-3 py-1.5 bg-primary-500/10 text-primary-700 dark:text-primary-300 rounded-full text-[11px] md:text-xs font-bold border border-primary-500/20 flex items-center gap-1.5 overflow-hidden cursor-pointer"
+                style={{ maxWidth: '85vw' }}
+              >
+                <Bell size={14} className="text-primary-500 flex-shrink-0" />
+                <AnimatePresence mode="wait">
+                  {!isTickerActive ? (
+                    <motion.div 
+                      key="summary"
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: 'auto' }}
+                      exit={{ opacity: 0, width: 0 }}
+                      className="whitespace-nowrap"
+                    >
+                      {pendingToday > 0 
+                        ? `วันนี้มี ${pendingToday} กิจกรรมที่ต้องทำ` 
+                        : 'วันนี้ไม่มีกิจกรรมที่ต้องทำ 🎉'
+                      }
+                    </motion.div>
+                  ) : (
+                    <motion.div 
+                      key="ticker"
+                      initial={{ opacity: 0, width: 0 }}
+                      animate={{ opacity: 1, width: 280 }}
+                      exit={{ opacity: 0, width: 0 }}
+                      className="whitespace-nowrap relative overflow-hidden flex items-center"
+                    >
+                      <style>{`
+                        @keyframes slide-ticker {
+                          0% { transform: translateX(280px); }
+                          100% { transform: translateX(-100%); }
+                        }
+                      `}</style>
+                      <div 
+                        style={{ display: 'flex', animation: 'slide-ticker 8s linear forwards' }} 
+                        className="items-center whitespace-nowrap"
+                      >
+                        {pendingTasksList.map((t, idx) => {
+                          const isWork = t.isPartTime;
+                          const timeStr = `${format(t.start, 'd MMM HH:mm', { locale: th })} - ${format(t.end, 'HH:mm')}`;
+                          return (
+                            <div 
+                              key={t.id || idx} 
+                              className={`inline-flex items-center gap-1.5 px-3 py-1 mx-1 rounded-full text-[11px] font-bold transition-all ${
+                                isWork 
+                                  ? 'bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30' 
+                                  : 'bg-black/5 dark:bg-white/10 text-main border border-main/10'
+                              }`}
+                            >
+                               {isWork ? (
+                                 <DollarSign size={12} className="text-green-600 dark:text-green-400" />
+                               ) : (
+                                 <div className={`w-1.5 h-1.5 rounded-full ${t.priority === TASK_PRIORITY.HIGH ? 'bg-red-500 animate-pulse' : 'bg-primary-500/70'}`} />
+                               )}
+                               <span>{t.title}</span>
+                               <span className="opacity-60 font-medium ml-0.5">{timeStr}</span>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </motion.div>
+                  )}
+                </AnimatePresence>
+              </motion.div>
+              {highPriorityCount > 0 && (
+                <div className="px-3 py-1.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-full text-[11px] md:text-xs font-bold border border-red-500/20 flex items-center gap-1.5">
+                   <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
+                   ด่วน {highPriorityCount} งาน
+                </div>
+              )}
+            </div>
           </div>
-          <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center text-primary-600 dark:text-primary-400 font-bold text-xl shadow-inner border border-primary-500/20">
+          <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center text-primary-600 dark:text-primary-400 font-bold text-xl shadow-inner border border-primary-500/20 flex-shrink-0">
             {avatarInitial}
           </div>
         </header>
@@ -373,7 +485,7 @@ export default function TodayPage({ user }) {
                     cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.4 }}
                     contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
                     itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
-                    formatter={(value) => [`฿${value.toLocaleString()}`, 'รายได้']}
+                    formatter={(value) => [`฿${(value || 0).toLocaleString()}`, 'รายได้']}
                     labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
                   />
                   <Bar dataKey="income" radius={[6, 6, 6, 6]}>
@@ -390,7 +502,7 @@ export default function TodayPage({ user }) {
                   <Tooltip 
                     contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
                     itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
-                    formatter={(value) => [`฿${value.toLocaleString()}`, 'รายได้']}
+                    formatter={(value) => [`฿${(value || 0).toLocaleString()}`, 'รายได้']}
                     labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
                   />
                   <Line type="monotone" dataKey="income" stroke="var(--color-primary-500)" strokeWidth={3} dot={{ r: 4, fill: 'var(--color-primary-500)', strokeWidth: 2, stroke: 'white' }} activeDot={{ r: 6 }} />
@@ -462,9 +574,9 @@ export default function TodayPage({ user }) {
 
       {/* Expanded Chart Modal */}
       {isChartExpanded && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsChartExpanded(false)}>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-white/30 dark:bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => setIsChartExpanded(false)}>
           <div 
-            className="bg-white dark:bg-slate-900 w-full max-w-5xl h-[80vh] rounded-[32px] p-6 md:p-8 flex flex-col shadow-2xl relative border border-black/5 dark:border-white/10"
+            className="liquid-glass-card w-full max-w-5xl h-[80vh] p-6 md:p-8 flex flex-col relative"
             onClick={e => e.stopPropagation()}
           >
             <button 
@@ -482,55 +594,62 @@ export default function TodayPage({ user }) {
             <div className="flex bg-black/5 dark:bg-white/10 rounded-full p-1 w-max mb-6">
               <button 
                 onClick={() => setChartType('bar')} 
-                className={`px-4 py-2 text-sm font-bold rounded-full transition-all ${chartType === 'bar' ? 'bg-white dark:bg-slate-800 text-primary-500 shadow-sm' : 'text-main/60'}`}
+                className={`px-4 py-2 text-sm font-bold rounded-full transition-all ${chartType === 'bar' ? 'bg-[var(--glass-bg-strong)] text-primary-500 shadow-sm border border-[var(--glass-border)]' : 'text-main/60'}`}
               >
                 บาร์
               </button>
               <button 
                 onClick={() => setChartType('line')} 
-                className={`px-4 py-2 text-sm font-bold rounded-full transition-all ${chartType === 'line' ? 'bg-white dark:bg-slate-800 text-primary-500 shadow-sm' : 'text-main/60'}`}
+                className={`px-4 py-2 text-sm font-bold rounded-full transition-all ${chartType === 'line' ? 'bg-[var(--glass-bg-strong)] text-primary-500 shadow-sm border border-[var(--glass-border)]' : 'text-main/60'}`}
               >
                 เส้น
               </button>
             </div>
 
-            <div className="flex-1 min-h-0 relative">
-              <div className="absolute inset-0">
-                <ResponsiveContainer width="100%" height="100%">
-                  {chartType === 'bar' ? (
-                    <BarChart data={fullChartData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
-                      <Tooltip 
-                        cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.4 }}
-                        contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                        itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
-                        formatter={(value) => [`฿${value.toLocaleString()}`, 'รายได้']}
-                        labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
-                      />
-                      <Bar dataKey="income" radius={[8, 8, 8, 8]}>
-                        {fullChartData.map((entry, index) => (
-                          <Cell key={`cell-${index}`} fill={index === fullChartData.length - 1 ? 'var(--color-primary-500)' : 'var(--color-primary-300)'} />
-                        ))}
-                      </Bar>
-                    </BarChart>
-                  ) : (
-                    <LineChart data={fullChartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-                      <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
-                      <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} />
-                      <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
-                      <Tooltip 
-                        contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
-                        itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
-                        formatter={(value) => [`฿${value.toLocaleString()}`, 'รายได้']}
-                        labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
-                      />
-                      <Line type="monotone" dataKey="income" stroke="var(--color-primary-500)" strokeWidth={4} dot={{ r: 5, fill: 'var(--color-primary-500)', strokeWidth: 2, stroke: 'white' }} activeDot={{ r: 8 }} />
-                    </LineChart>
-                  )}
-                </ResponsiveContainer>
-              </div>
+            <div className="flex-1 flex justify-center items-center w-full relative overflow-x-auto overflow-y-hidden min-h-[300px]">
+              {!showModalChart ? (
+                <div className="flex flex-col items-center justify-center text-main/50 gap-3">
+                  <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                  <span className="text-sm font-bold">กำลังโหลดกราฟ...</span>
+                </div>
+              ) : (
+                <div style={{ width: '100%', height: '100%' }}>
+                  <ResponsiveContainer width="100%" height="100%">
+                    {chartType === 'bar' ? (
+                      <BarChart data={fullChartData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} interval={0} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
+                        <Tooltip 
+                          cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.4 }}
+                          contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                          itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
+                          formatter={(value) => [`฿${(value || 0).toLocaleString()}`, 'รายได้']}
+                          labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
+                        />
+                        <Bar dataKey="income" radius={[8, 8, 8, 8]}>
+                          {fullChartData.map((entry, index) => (
+                            <Cell key={`cell-${index}`} fill={index === fullChartData.length - 1 ? 'var(--color-primary-500)' : 'var(--color-primary-300)'} />
+                          ))}
+                        </Bar>
+                      </BarChart>
+                    ) : (
+                      <LineChart data={fullChartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
+                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} interval={0} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
+                        <Tooltip 
+                          contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                          itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
+                          formatter={(value) => [`฿${(value || 0).toLocaleString()}`, 'รายได้']}
+                          labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
+                        />
+                        <Line type="monotone" dataKey="income" stroke="var(--color-primary-500)" strokeWidth={4} dot={{ r: 5, fill: 'var(--color-primary-500)', strokeWidth: 2, stroke: 'white' }} activeDot={{ r: 8 }} />
+                      </LineChart>
+                    )}
+                  </ResponsiveContainer>
+                </div>
+              )}
             </div>
           </div>
         </div>

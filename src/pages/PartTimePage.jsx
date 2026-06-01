@@ -670,7 +670,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
           </button>
           <button 
             onClick={() => navigate('/income/history')}
-            className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all text-sm whitespace-nowrap bg-white/20 text-main hover:bg-white/40`}
+            className="flex-1 md:flex-none flex justify-center items-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all text-sm whitespace-nowrap bg-primary-500 text-white shadow-md hover:bg-primary-600 active:scale-95"
           >
             <History size={16} /> {t.history}
           </button>
@@ -690,7 +690,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
             </button>
             <button 
               onClick={() => { setShowAddForm(!showAddForm); setShowAddExpenseForm(false); }}
-              className="flex-1 md:flex-none justify-center items-center gap-2 flex px-4 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-full transition-all shadow-md active:scale-95 text-sm"
+              className={`flex-1 md:flex-none justify-center items-center gap-2 flex px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-sm ${showAddForm ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-white/20 text-green-600 dark:text-green-400 hover:bg-green-500/10'}`}
             >
               <Plus size={16} /> {showAddForm ? t.close : t.addShift}
             </button>

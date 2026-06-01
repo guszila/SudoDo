@@ -349,7 +349,11 @@ export default function TasksPage({ user, lang = 'en' }) {
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
         onSave={handleEditSave}
-        onDelete={(id) => handleDelete(id, { stopPropagation: () => {} })}
+        onDelete={() => {
+          setIsModalOpen(false);
+          // Small delay to allow modal exit animation before opening the confirm dialog
+          setTimeout(() => setDeleteConfirmTask(editingTask), 100);
+        }}
         task={editingTask}
         lang={lang}
       />

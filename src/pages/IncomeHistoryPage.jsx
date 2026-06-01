@@ -278,7 +278,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
         <button onClick={() => navigate('/part-time')} className="p-2 -ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
           <ArrowLeft size={24} className="text-main/80" />
         </button>
-        <h1 className="text-xl font-bold text-main">ประวัติรายได้</h1>
+        <h1 className="text-xl font-bold text-main">สรุปรายได้</h1>
       </div>
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
