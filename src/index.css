@@ -1,4 +1,5 @@
 @import "tailwindcss";
+@custom-variant dark (&:where(.dark, .dark *));
 @import "react-big-calendar/lib/css/react-big-calendar.css";
 
 @font-face {
@@ -39,16 +40,16 @@
 
 @theme {
   --font-sans: "Kanit", "Inter", system-ui, sans-serif;
-  --color-primary-50: #faf5ff;
-  --color-primary-100: #e0e0ff;
-  --color-primary-200: #c7c2ff;
-  --color-primary-300: #a7a0ff;
-  --color-primary-400: #887dff;
-  --color-primary-500: #6c63ff;
-  --color-primary-600: #574bfa;
-  --color-primary-700: #4236e8;
-  --color-primary-800: #3026c4;
-  --color-primary-900: #231b9e;
+  --color-primary-50: var(--theme-accent-light);
+  --color-primary-100: var(--theme-accent-light);
+  --color-primary-200: var(--theme-accent-light);
+  --color-primary-300: var(--theme-accent-border);
+  --color-primary-400: var(--theme-accent);
+  --color-primary-500: var(--theme-accent);
+  --color-primary-600: var(--theme-accent-dark);
+  --color-primary-700: var(--theme-accent-dark);
+  --color-primary-800: var(--theme-accent-dark);
+  --color-primary-900: var(--theme-accent-dark);
   
   --color-status-todo: #4facfe;
   --color-status-progress: #f6a623;
@@ -65,8 +66,9 @@
 }
 
 :root {
+  --theme-gradient: var(--theme-gradient-light, linear-gradient(135deg, #e8d5f5 0%, #d4e8ff 50%, #fde8f0 100%));
+  --bg-gradient: var(--theme-gradient);
   --color-text-main: #1a1a2e;
-  --bg-gradient: linear-gradient(135deg, #e8d5f5, #d4e8ff, #fde8f0, #e8d5f5);
   --glass-bg: rgba(255, 255, 255, 0.15);
   --glass-bg-strong: rgba(255, 255, 255, 0.4);
   --glass-bg-input: rgba(255, 255, 255, 0.2);
@@ -77,8 +79,9 @@
 }
 
 .dark {
+  --theme-gradient: var(--theme-gradient-dark, linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%));
   --color-text-main: #f0f0ff;
-  --bg-gradient: linear-gradient(135deg, #09090e, #1a153a, #1f152e, #09090e);
+  --bg-gradient: var(--theme-gradient);
   --glass-bg: rgba(20, 20, 30, 0.5);
   --glass-bg-strong: rgba(30, 30, 50, 0.7);
   --glass-bg-input: rgba(30, 30, 45, 0.5);
@@ -144,7 +147,7 @@ body {
   overflow-x: hidden;
   color: var(--color-text-main);
   min-height: 100vh;
-  transition: color 0.3s ease;
+  transition: color 0.3s ease, background 0.3s ease;
 }
 
 /* --- Animations --- */
@@ -264,7 +267,7 @@ body {
 }
 .rbc-today {
   background-color: var(--glass-bg);
-  box-shadow: inset 0 0 0 2px rgba(127,119,221,0.8);
+  box-shadow: inset 0 0 0 2px var(--theme-accent-border);
 }
 .rbc-off-range-bg {
   @apply bg-black/5;

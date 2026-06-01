@@ -293,7 +293,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
                 onClick={() => setSelectedMonth(mStr)}
                 className={`snap-start whitespace-nowrap px-5 py-2.5 rounded-full text-sm transition-all flex-shrink-0 border ${
                   isActive 
-                  ? 'bg-[rgba(127,119,221,0.25)] border-[rgba(127,119,221,0.5)] text-[#3C3489] font-[500]' 
+                  ? 'bg-[rgba(127,119,221,0.25)] border-[rgba(127,119,221,0.5)] text-[var(--theme-accent-dark)] font-[500]' 
                   : 'bg-[rgba(255,255,255,0.3)] border-[rgba(255,255,255,0.4)] text-[rgba(26,26,46,0.6)] font-bold hover:bg-white/50'
                 }`}
               >
@@ -304,11 +304,11 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
         </div>
 
         {/* Monthly Summary Card */}
-        <div className="bg-[#EEEDFE] dark:bg-primary-900/60 rounded-[24px] shadow-[0_8px_32px_rgba(124,99,255,0.12)] p-6 relative overflow-hidden">
+        <div className="bg-[var(--theme-accent-light)] dark:bg-primary-900/60 rounded-[24px] shadow-[0_8px_32px_rgba(124,99,255,0.12)] p-6 relative overflow-hidden">
           <div className="absolute top-0 right-0 w-32 h-32 bg-white/40 blur-3xl rounded-full -translate-y-1/2 translate-x-1/4"></div>
           
-          <p className="text-[#534AB7] font-bold text-sm mb-1">{formatFullThMonthYear(selectedMonth)} · รวม</p>
-          <h2 className="text-[#3C3489] text-[32px] font-black mb-2 tracking-tight">
+          <p className="text-[var(--theme-nav-active)] font-bold text-sm mb-1">{formatFullThMonthYear(selectedMonth)} · รวม</p>
+          <h2 className="text-[var(--theme-accent-dark)] text-[32px] font-black mb-2 tracking-tight">
             ฿{summary.netIncome.toLocaleString()}
           </h2>
           
@@ -317,7 +317,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
               <span className="text-sm font-bold text-red-500">
                 -฿{summary.ssoDeduction.toLocaleString()}
               </span>
-              <span className="text-xs text-[#534AB7] font-medium opacity-80">(หักประกันสังคม 5%)</span>
+              <span className="text-xs text-[var(--theme-nav-active)] font-medium opacity-80">(หักประกันสังคม 5%)</span>
             </div>
           ) : (
             <div className="mb-6"></div>
@@ -325,12 +325,12 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
           
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-[rgba(255,255,255,0.7)] rounded-[16px] p-4 border border-[rgba(255,255,255,0.5)]">
-              <p className="text-[#534AB7] text-[12px] font-bold mb-1">กะทำงาน</p>
-              <p className="text-[#3C3489] text-[18px] font-[500]">{summary.shiftCount} กะ</p>
+              <p className="text-[var(--theme-nav-active)] text-[12px] font-bold mb-1">กะทำงาน</p>
+              <p className="text-[var(--theme-accent-dark)] text-[18px] font-[500]">{summary.shiftCount} กะ</p>
             </div>
             <div className="bg-[rgba(255,255,255,0.7)] rounded-[16px] p-4 border border-[rgba(255,255,255,0.5)]">
-              <p className="text-[#534AB7] text-[12px] font-bold mb-1">ชั่วโมงรวม</p>
-              <p className="text-[#3C3489] text-[18px] font-[500]">{summary.totalHours.toFixed(1).replace('.0', '')} ชม.</p>
+              <p className="text-[var(--theme-nav-active)] text-[12px] font-bold mb-1">ชั่วโมงรวม</p>
+              <p className="text-[var(--theme-accent-dark)] text-[18px] font-[500]">{summary.totalHours.toFixed(1).replace('.0', '')} ชม.</p>
             </div>
           </div>
         </div>
@@ -338,8 +338,8 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
         {/* Daily Bar Chart */}
         {chartData.length === 0 ? (
           <div className="h-[160px] w-full mt-2 mb-4 flex flex-col items-center justify-center bg-[rgba(255,255,255,0.25)] rounded-[16px] border border-[rgba(255,255,255,0.4)]">
-            <CalendarOff className="w-8 h-8 text-[#534AB7]/40 mb-2" />
-            <p className="text-[#534AB7]/60 text-sm font-bold">ไม่มีข้อมูลเดือนนี้</p>
+            <CalendarOff className="w-8 h-8 text-[var(--theme-nav-active)]/40 mb-2" />
+            <p className="text-[var(--theme-nav-active)]/60 text-sm font-bold">ไม่มีข้อมูลเดือนนี้</p>
           </div>
         ) : (
           <div className="h-[160px] w-full mt-2 mb-4">
@@ -357,7 +357,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
                   {chartData.map((entry, index) => (
                     <Cell 
                       key={`cell-${index}`} 
-                      fill={entry.fullDay === summary.latestDay || (chartData.length === 1) ? '#7F77DD' : '#AFA9EC'} 
+                      fill={entry.fullDay === summary.latestDay || (chartData.length === 1) ? 'var(--theme-accent)' : '#AFA9EC'} 
                     />
                   ))}
                 </Bar>

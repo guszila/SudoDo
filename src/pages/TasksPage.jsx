@@ -229,13 +229,13 @@ export default function TasksPage({ user, lang = 'en' }) {
         <div className="flex p-1.5 rounded-2xl w-full md:w-auto" style={{ background: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.4)' }}>
           <button 
             onClick={() => setActiveTab('general')}
-            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'general' ? 'bg-[#6c63ff] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'general' ? 'bg-[var(--theme-accent)] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
           >
             <CalendarDays size={16} /> {t.generalTasks}
           </button>
           <button 
             onClick={() => setActiveTab('partTime')}
-            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'partTime' ? 'bg-[#6c63ff] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
+            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'partTime' ? 'bg-[var(--theme-accent)] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
           >
             <DollarSign size={16} /> {t.shifts}
           </button>
@@ -245,13 +245,13 @@ export default function TasksPage({ user, lang = 'en' }) {
         <div className="flex p-1.5 rounded-2xl w-full md:w-auto ml-auto" style={{ background: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.4)' }}>
           <button 
             onClick={() => setActiveStatus('pending')}
-            className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeStatus === 'pending' ? 'bg-[#6c63ff] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
+            className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeStatus === 'pending' ? 'bg-[var(--theme-accent)] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
           >
             {t.pending}
           </button>
           <button 
             onClick={() => setActiveStatus('done')}
-            className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeStatus === 'done' ? 'bg-[#6c63ff] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
+            className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeStatus === 'done' ? 'bg-[var(--theme-accent)] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
           >
             {t.done}
           </button>

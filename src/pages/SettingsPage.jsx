@@ -3,11 +3,13 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, ChevronRight, Moon, Sun, Languages, Calendar,
+  Palette,
   Bell, Clock, Flame, Globe, Download,
   ShieldCheck, RefreshCw, Database, Info, Star,
   Trash2, LogOut, Check
 } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
+import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
 import { saveTask, fetchTasks } from '../services/taskService';
 import ConfirmDialog from '../components/ConfirmDialog';
@@ -17,7 +19,7 @@ import { auth } from '../firebase';
 import { signOut } from 'firebase/auth';
 
 const SectionLabel = ({ children }) => (
-  <div className="text-[11px] font-[500] text-[#4B439F] dark:text-[#AFA9EC] tracking-[0.08em] px-4 mb-1.5 uppercase">
+  <div className="text-[11px] font-[500] text-[var(--theme-section-label)] dark:text-[#AFA9EC] tracking-[0.08em] px-4 mb-1.5 uppercase">
     {children}
   </div>
 );
@@ -84,6 +86,7 @@ const ActionSheet = ({ isOpen, onClose, title, children }) => {
 
 export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }) {
   const navigate = useNavigate();
+  const { currentTheme, setTheme, themes } = useTheme();
   const { settings, updateSettings } = useSettings();
   const { tasks } = useTasks();
   const { showToast } = useToast();
@@ -103,6 +106,8 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
 
   const t = {
     display: lang === 'en' ? 'Display' : 'การแสดงผล',
+    themeColor: lang === 'en' ? 'Color Theme' : 'ธีมสี',
+    themeColorSub: lang === 'en' ? 'Select app color theme' : 'เลือกสีที่ชอบ',
     theme: lang === 'en' ? 'Dark Mode' : 'Dark Mode',
     themeSub: lang === 'en' ? 'Switch to dark theme' : 'ปรับหน้าจอให้มืดลง',
     language: lang === 'en' ? 'Language' : 'ภาษา',
@@ -263,7 +268,7 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
           onClick={() => navigate('/profile')}
           className="flex items-center mx-4 mb-6 p-4 bg-[rgba(255,255,255,0.6)] dark:bg-[rgba(255,255,255,0.08)] backdrop-blur-[20px] border-[0.5px] border-white/40 dark:border-[rgba(255,255,255,0.12)] rounded-[20px] cursor-pointer active:scale-[0.98] transition-transform shadow-sm"
         >
-          <div className="w-14 h-14 rounded-full bg-[#CECBF6] dark:bg-[rgba(175,169,236,0.3)] text-[#2D2665] dark:text-[#AFA9EC] flex items-center justify-center text-2xl font-bold shrink-0 shadow-inner">
+          <div className="w-14 h-14 rounded-full bg-[var(--theme-avatar-bg)] dark:bg-[rgba(175,169,236,0.3)] text-[#2D2665] dark:text-[#AFA9EC] flex items-center justify-center text-2xl font-bold shrink-0 shadow-inner">
             {avatarInitial}
           </div>
           <div className="flex-1 min-w-0 px-4">
@@ -277,18 +282,24 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
         <SectionLabel>{t.display}</SectionLabel>
         <GlassCard>
           <Row 
-            icon={theme === 'dark' ? Moon : Sun} iconBgClass="bg-[rgba(127,119,221,0.2)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            icon={Palette} iconBgClass="bg-[var(--theme-accent-light)]" iconColorClass="text-[var(--theme-accent)]"
+            title={t.themeColor} subtitle={currentTheme.name}
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            onClick={() => setActiveSheet('themePicker')}
+          />
+          <Row 
+            icon={theme === 'dark' ? Moon : Sun} iconBgClass="bg-[rgba(127,119,221,0.2)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
             title={t.theme} subtitle={t.themeSub}
             rightElement={<Toggle checked={theme === 'dark'} onChange={(val) => handleToggle('darkMode', val)} />}
           />
           <Row 
-            icon={Languages} iconBgClass="bg-[rgba(127,119,221,0.2)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            icon={Languages} iconBgClass="bg-[rgba(127,119,221,0.2)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
             title={t.language} subtitle={lang === 'th' ? 'ไทย' : 'English'}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => setActiveSheet('language')}
           />
           <Row 
-            icon={Calendar} iconBgClass="bg-[rgba(127,119,221,0.2)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            icon={Calendar} iconBgClass="bg-[rgba(127,119,221,0.2)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
             title={t.weekStartTitle} subtitle={settings?.weekStart === 'จันทร์' ? t.monday : (settings?.weekStart === 'อาทิตย์' ? t.sunday : (lang === 'en' ? 'Sunday' : 'อาทิตย์'))}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => setActiveSheet('weekStart')}
@@ -325,7 +336,7 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
             title={t.syncGoogle} subtitle={t.notConnected}
             rightElement={
               <>
-                <div className="bg-[#534AB7] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{t.new}</div>
+                <div className="bg-[var(--theme-nav-active)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{t.new}</div>
                 <ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />
               </>
             }
@@ -346,19 +357,19 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
         <SectionLabel>{t.data}</SectionLabel>
         <GlassCard>
           <Row 
-            icon={ShieldCheck} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            icon={ShieldCheck} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
             title={t.socialSecurity} subtitle={t.ssoSub}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => navigate('/social-security')}
           />
           <Row 
-            icon={RefreshCw} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            icon={RefreshCw} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
             title={t.resetIncome} subtitle={t.resetIncomeSub}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => setActiveSheet('resetIncome')}
           />
           <Row 
-            icon={Database} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            icon={Database} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
             title={t.storage} 
             subtitle={isCountingStorage ? (
               <div className="h-3 w-32 bg-main/10 animate-pulse rounded mt-1"></div>
@@ -373,11 +384,11 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
         <SectionLabel>{t.about}</SectionLabel>
         <GlassCard>
           <Row 
-            icon={Info} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            icon={Info} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
             title={t.version} subtitle={pkg.version || '1.0.0'}
           />
           <Row 
-            icon={Star} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[#4B439F] dark:text-[#AFA9EC]"
+            icon={Star} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
             title={t.reviewApp} subtitle={t.reviewAppSub}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => window.open('https://appstore.com', '_blank')}
@@ -405,6 +416,37 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
 
       </div>
 
+      
+      {/* Theme Picker Sheet */}
+      <ActionSheet isOpen={activeSheet === 'themePicker'} onClose={() => setActiveSheet(null)} title={t.themeColor}>
+        <div className="grid grid-cols-2 gap-3 pb-4 max-h-[60vh] overflow-y-auto">
+          {Object.values(themes).map(th => {
+            const isActive = currentTheme.id === th.id;
+            return (
+              <button 
+                key={th.id} 
+                onClick={() => setTheme(th.id)}
+                className={`flex flex-col items-center p-3 rounded-2xl border-2 transition-all ${isActive ? 'border-[var(--theme-accent)] bg-black/5 dark:bg-white/5' : 'border-transparent bg-black/5 dark:bg-white/5 hover:border-[var(--theme-accent-border)]'}`}
+              >
+                <div 
+                  className="w-full h-12 rounded-xl mb-3 shadow-sm border border-white/20"
+                  style={{ background: th.gradient }}
+                />
+                <div className="flex items-center gap-2">
+                  <span className={`font-bold text-sm ${isActive ? 'text-[var(--theme-accent)]' : 'text-[#1a1a2e] dark:text-white'}`}>{th.name}</span>
+                  {isActive && <Check size={16} className="text-[var(--theme-accent)]" />}
+                </div>
+                {th.forceDark && (
+                  <span className="text-[10px] mt-1 text-gray-500">
+                    {lang === 'en' ? 'Auto Dark Mode' : 'ใช้ร่วมกับ Dark Mode อัตโนมัติ'}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </ActionSheet>
+
       {/* Language Sheet */}
       <ActionSheet isOpen={activeSheet === 'language'} onClose={() => setActiveSheet(null)} title={t.selectLang}>
         <div className="space-y-2">
@@ -414,7 +456,7 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
               className="w-full p-4 rounded-[16px] bg-black/5 dark:bg-white/5 flex items-center justify-between active:bg-black/10 transition-colors"
             >
               <span className="font-bold text-[#1a1a2e] dark:text-white">{l === 'th' ? t.thai : t.english}</span>
-              {lang === l && <Check size={20} className="text-[#4B439F] dark:text-[#AFA9EC]" />}
+              {lang === l && <Check size={20} className="text-[var(--theme-section-label)] dark:text-[#AFA9EC]" />}
             </button>
           ))}
         </div>
@@ -429,7 +471,7 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
               className="w-full p-4 rounded-[16px] bg-black/5 dark:bg-white/5 flex items-center justify-between active:bg-black/10 transition-colors"
             >
               <span className="font-bold text-[#1a1a2e] dark:text-white">{day === 'อาทิตย์' ? t.sunday : t.monday}</span>
-              {settings?.weekStart === day && <Check size={20} className="text-[#4B439F] dark:text-[#AFA9EC]" />}
+              {settings?.weekStart === day && <Check size={20} className="text-[var(--theme-section-label)] dark:text-[#AFA9EC]" />}
             </button>
           ))}
         </div>

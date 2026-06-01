@@ -19,6 +19,7 @@ import TodayPage from './pages/TodayPage';
 import SocialSecurityPage from './pages/SocialSecurityPage';
 import TasksPage from './pages/TasksPage';
 import Logo from './components/Logo';
+import SplashScreen from './components/SplashScreen';
 
 import { saveTask } from './services/taskService';
 import { TASK_STATUS, TASK_PRIORITY } from './constants';
@@ -27,6 +28,7 @@ import { auth } from './firebase';
 import { TasksProvider, useTasks } from './contexts/TasksContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { SettingsProvider } from './contexts/SettingsContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 
 class ErrorBoundary extends React.Component {
   constructor(props) {
@@ -255,9 +257,9 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
               padding: '5px 12px',
               borderRadius: '20px',
               background: 'rgba(127,119,221,0.15)',
-              border: '0.5px solid rgba(127,119,221,0.4)',
+              border: '0.5px solid var(--theme-accent-border)',
               fontSize: '12px',
-              color: '#534AB7',
+              color: 'var(--theme-nav-active)',
               fontWeight: 500,
               opacity: isCurrent ? 0.4 : 1,
               cursor: isCurrent ? 'default' : 'pointer'
@@ -267,7 +269,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
             {lang === 'th' ? 'วันนี้' : 'Today'}
           </button>
 
-          <div style={{ fontSize: '15px', fontWeight: 500, color: '#3C3489', textAlign: 'center' }} className="flex-1 px-2 truncate">
+          <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--theme-accent-dark)', textAlign: 'center' }} className="flex-1 px-2 truncate">
             {view === 'month' ? `${format(date, 'MMMM', { locale: lang === 'th' ? th : enUS })} ${date.getFullYear()}` : label}
           </div>
 
@@ -281,7 +283,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
               }}
               className="flex items-center justify-center hover:bg-white/50 dark:hover:bg-white/10 transition-colors active:scale-90"
             >
-              <ChevronLeft size={14} color="#534AB7" />
+              <ChevronLeft size={14} color="var(--theme-nav-active)" />
             </button>
             <button 
               onClick={goToNext}
@@ -292,7 +294,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
               }}
               className="flex items-center justify-center hover:bg-white/50 dark:hover:bg-white/10 transition-colors active:scale-90"
             >
-              <ChevronRight size={14} color="#534AB7" />
+              <ChevronRight size={14} color="var(--theme-nav-active)" />
             </button>
           </div>
         </div>
@@ -469,9 +471,12 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
   );
 }
 
+const hasShownSplash = sessionStorage.getItem('splashShown') === 'true';
+
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
+  const [showSplash, setShowSplash] = useState(!hasShownSplash);
 
   // Language state
   const [lang, setLang] = useState(() => {
@@ -521,17 +526,24 @@ export default function App() {
     return <Login lang={lang} />;
   }
 
-  return (
+  return showSplash ? (
+    <SplashScreen onDone={() => {
+      sessionStorage.setItem('splashShown', 'true');
+      setShowSplash(false);
+    }} />
+  ) : (
     <ToastProvider>
       <TasksProvider user={user}>
         <SettingsProvider user={user}>
-          <MainApp 
-            user={user} 
-            lang={lang} 
-            setLang={setLang} 
-            theme={theme} 
-            toggleTheme={toggleTheme} 
-          />
+          <ThemeProvider>
+            <MainApp 
+              user={user} 
+              lang={lang} 
+              setLang={setLang} 
+              theme={theme} 
+              toggleTheme={toggleTheme} 
+            />
+          </ThemeProvider>
         </SettingsProvider>
       </TasksProvider>
     </ToastProvider>
