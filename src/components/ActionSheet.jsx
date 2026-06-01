@@ -35,14 +35,14 @@ export default function ActionSheet({
                     option.onClick();
                     onClose();
                   }}
-                  className={`flex items-center gap-3 p-4 w-full rounded-2xl transition-all font-bold text-left active:scale-95 ${
+                  className={`flex items-center justify-center gap-3 p-4 w-full rounded-2xl transition-all font-bold active:scale-95 ${
                     option.isDanger 
                       ? 'text-red-500 bg-red-500/10 hover:bg-red-500/20' 
                       : 'text-main hover:bg-black/5 dark:hover:bg-white/5'
                   }`}
                 >
                   {option.icon && <span>{option.icon}</span>}
-                  <span className="flex-1 text-center sm:text-left">{option.label}</span>
+                  <span>{option.label}</span>
                 </button>
               ))}
               
