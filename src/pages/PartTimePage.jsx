@@ -550,7 +550,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         }
         
         const shiftHours = (endDateObj - new Date(startDateTime)) / (1000 * 60 * 60);
-        const canBreak = shiftHours >= 7;
+        const canBreak = true;
 
         shiftsToAdd.push({
           title: formData.title,
@@ -562,7 +562,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
           isPartTime: true,
           hourlyRate: formData.hourlyRate,
           rateType: formData.rateType,
-          breakHours: (formData.rateType === RATE_TYPE.HOURLY && canBreak) ? (Number(formData.breakHours) || 0) : 0,
+          breakHours: (formData.rateType === RATE_TYPE.HOURLY) ? (Number(formData.breakHours) || 0) : 0,
           actualStart: null,
           actualEnd: null
         });
@@ -912,7 +912,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 let endDt = new Date(`${formData.startDate}T${formData.endTime}:00`);
                 if (formData.endTime < formData.startTime) endDt.setDate(endDt.getDate() + 1);
                 const grossHrs = (endDt - startDt) / (1000 * 60 * 60);
-                const canTakeBreak = grossHrs >= 7;
+                const canTakeBreak = true;
                 const breakHrs = canTakeBreak ? (Number(formData.breakHours) || 0) : 0;
                 const netHrs = Math.max(0, grossHrs - breakHrs);
                 const estPay = netHrs * (Number(formData.hourlyRate) || 0);
@@ -921,9 +921,9 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     <div className="flex items-center gap-2 mb-1.5">
                       <label className="text-sm font-medium text-main opacity-80">เวลาพักเบรก</label>
                       {grossHrs > 0 && (
-                        canTakeBreak
-                          ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">✓ ทำงาน {grossHrs.toFixed(1)} ชม. มีสิทธิ์พัก</span>
-                          : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-main/10 text-main/40 border border-main/10">ต้องทำงาน 7 ชม.ขึ้นไปจึงจะพักได้</span>
+                        grossHrs > 0
+                          ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">✓ ทำงาน {grossHrs.toFixed(1)} ชม.</span>
+                          : null
                       )}
                     </div>
                     <div className="flex items-center gap-3 flex-wrap">

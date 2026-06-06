@@ -274,15 +274,15 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             const shiftHrs = formData.start && formData.end
               ? (new Date(formData.end) - new Date(formData.start)) / (1000 * 60 * 60)
               : 0;
-            const canTakeBreak = shiftHrs >= 7;
+            const canTakeBreak = true;
             return (
               <div>
                 <div className="flex items-center gap-2 mb-1.5">
                   <label className="text-sm font-medium text-main opacity-80">เวลาพักเบรก</label>
                   {shiftHrs > 0 && (
-                    canTakeBreak
-                      ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">✓ มีสิทธิ์พัก</span>
-                      : <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-main/10 text-main/40 border border-main/10">ต้องทำงาน 7 ชม.ขึ้นไป</span>
+                    shiftHrs > 0
+                      ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">✓ ทำงาน {shiftHrs.toFixed(1)} ชม.</span>
+                      : null
                   )}
                 </div>
                 <div className="flex items-center gap-3">
