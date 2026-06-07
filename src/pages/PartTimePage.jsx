@@ -7,9 +7,9 @@ import { DollarSign, Clock, CheckCircle2, Plus, ArrowLeft, Trash2, CalendarDays,
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
-import TaskModal from '../components/TaskModal';
-import ActionSheet from '../components/ActionSheet';
-import ConfirmDialog from '../components/ConfirmDialog';
+import TaskModal from '../components/tasks/TaskModal';
+import ActionSheet from '../components/common/ActionSheet';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSettings } from '../contexts/SettingsContext';

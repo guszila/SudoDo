@@ -1,16 +1,23 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import { format, parse, startOfWeek, getDay, isBefore, startOfDay, endOfDay, differenceInDays, isSameDay } from 'date-fns';
 import { enUS, th } from 'date-fns/locale';
-import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Languages, LogOut, Home, Settings, ListTodo, User, Moon, Sun, DollarSign, ChevronLeft, ChevronRight, X } from 'lucide-react';
-import { onAuthStateChanged, signOut } from 'firebase/auth';
+import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Home, Settings, ListTodo, User, DollarSign, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { onAuthStateChanged } from 'firebase/auth';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
-import TaskModal from './components/TaskModal';
-import StatsBar from './components/StatsBar';
-import Login from './components/Login';
+import TaskModal from './components/tasks/TaskModal';
+import StatsBar from './components/tasks/StatsBar';
+import TaskCard from './components/tasks/TaskCard';
+import Login from './components/auth/Login';
+import SplashScreen from './components/auth/SplashScreen';
+import Logo from './components/layout/Logo';
+import BottomNav from './components/layout/BottomNav';
+import ProductTour from './components/onboarding/ProductTour';
+import ErrorBoundary from './components/common/ErrorBoundary';
+
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import PartTimePage from './pages/PartTimePage';
@@ -18,52 +25,19 @@ import IncomeHistoryPage from './pages/IncomeHistoryPage';
 import TodayPage from './pages/TodayPage';
 import SocialSecurityPage from './pages/SocialSecurityPage';
 import TasksPage from './pages/TasksPage';
-import Logo from './components/Logo';
-import SplashScreen from './components/SplashScreen';
-import ProductTour from './components/ProductTour';
 
-import TaskCard from './components/TaskCard';
 import { saveTask } from './services/taskService';
 import { getThaiHoliday } from './utils/holidays';
 import { TASK_STATUS, TASK_PRIORITY } from './constants';
 import { translations } from './i18n';
 import { auth } from './firebase';
 import { TasksProvider, useTasks } from './contexts/TasksContext';
-import { ToastProvider, useToast } from './contexts/ToastContext';
-import { SettingsProvider, useSettings } from './contexts/SettingsContext';
+import { ToastProvider } from './contexts/ToastContext';
+import { SettingsProvider } from './contexts/SettingsContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 
-class ErrorBoundary extends React.Component {
-  constructor(props) {
-    super(props);
-    this.state = { hasError: false, error: null, errorInfo: null };
-  }
 
-  static getDerivedStateFromError(error) {
-    return { hasError: true };
-  }
 
-  componentDidCatch(error, errorInfo) {
-    this.setState({ error, errorInfo });
-    console.error("ErrorBoundary caught an error", error, errorInfo);
-  }
-
-  render() {
-    if (this.state.hasError) {
-      return (
-        <div style={{ padding: '20px', background: 'red', color: 'white', overflow: 'auto', zIndex: 9999, position: 'relative' }}>
-          <h2>Something went wrong.</h2>
-          <details style={{ whiteSpace: 'pre-wrap' }}>
-            {this.state.error && this.state.error.toString()}
-            <br />
-            {this.state.errorInfo && this.state.errorInfo.componentStack}
-          </details>
-        </div>
-      );
-    }
-    return this.props.children; 
-  }
-}
 
 
 const locales = {
@@ -563,44 +537,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
       )}
 
       {/* Mobile Bottom Navigation */}
-      <nav className="tour-nav-bar md:hidden fixed bottom-0 left-0 right-0 liquid-glass border-x-0 border-b-0 rounded-t-[28px] rounded-b-none p-2 pb-safe flex justify-around items-center z-40 h-[calc(72px+env(safe-area-inset-bottom))]">
-        <button 
-          onClick={() => { navigate('/'); setCurrentView('month'); }}
-          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/' && currentView === 'month' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
-        >
-          <CalendarIcon size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${!(location.pathname === '/' && currentView === 'month') && 'opacity-60'}`}>{lang === 'en' ? 'Calendar' : 'ปฏิทิน'}</span>
-        </button>
-        <button 
-          onClick={() => navigate('/tasks')}
-          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/tasks' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
-        >
-          <ListTodo size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/tasks' && 'opacity-60'}`}>{lang === 'en' ? 'Tasks' : 'งานทั้งหมด'}</span>
-        </button>
-        <button 
-          onClick={() => navigate('/today')}
-          className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/today' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
-        >
-          <Home size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/today' && 'opacity-60'}`}>{lang === 'en' ? 'Today' : 'วันนี้'}</span>
-        </button>
-        <button 
-          onClick={() => navigate('/part-time')}
-          className={`tour-part-time-btn flex flex-col items-center justify-center w-full h-full ${location.pathname === '/part-time' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
-        >
-          <DollarSign size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/part-time' && 'opacity-60'}`}>{lang === 'en' ? 'Income' : 'รายได้'}</span>
-        </button>
-        <button 
-          onClick={() => navigate('/settings')}
-          className={`tour-settings-btn flex flex-col items-center justify-center w-full h-full ${location.pathname === '/settings' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
-        >
-          <Settings size={24} />
-          <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/settings' && 'opacity-60'}`}>{lang === 'en' ? 'Settings' : 'ตั้งค่า'}</span>
-        </button>
-      </nav>
-
+      <BottomNav lang={lang} currentView={currentView} setCurrentView={setCurrentView} />
       <TaskModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}

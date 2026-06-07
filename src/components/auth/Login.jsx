@@ -4,9 +4,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
-import Logo from './Logo';
-import { auth } from '../firebase';
-import { translations } from '../i18n';
+import Logo from '../layout/Logo';
+import { auth } from '../../firebase';
+import { translations } from '../../i18n';
 
 export default function Login({ lang }) {
   const [isLogin, setIsLogin] = useState(true);

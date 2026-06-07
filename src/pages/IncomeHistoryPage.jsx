@@ -19,8 +19,8 @@ import { useSettings } from '../contexts/SettingsContext';
 import { TASK_STATUS, RATE_TYPE } from '../constants';
 import { saveTask } from '../services/taskService';
 import { calcSSO } from '../utils/socialSecurity';
-import SwipeableRow from '../components/SwipeableRow';
-import ConfirmDialog from '../components/ConfirmDialog';
+import SwipeableRow from '../components/common/SwipeableRow';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 
 export default function IncomeHistoryPage({ user, lang = 'th' }) {
   const navigate = useNavigate();

@@ -3,7 +3,7 @@ import { motion } from 'framer-motion';
 import { format, isBefore, endOfDay, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { CheckCircle2, CircleDashed, Clock, Edit, Trash2 } from 'lucide-react';
-import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE } from '../constants';
+import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE } from '../../constants';
 
 export default function TaskCard({ 
   task, 

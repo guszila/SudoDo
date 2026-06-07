@@ -6,10 +6,10 @@ import { th } from 'date-fns/locale';
 import { ArrowLeft, CheckCircle2, CircleDashed, Clock, Edit, ListTodo, Plus, Trash2, CalendarDays, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
-import TaskModal from '../components/TaskModal';
-import TaskCard from '../components/TaskCard';
-import ActionSheet from '../components/ActionSheet';
-import ConfirmDialog from '../components/ConfirmDialog';
+import TaskModal from '../components/tasks/TaskModal';
+import TaskCard from '../components/tasks/TaskCard';
+import ActionSheet from '../components/common/ActionSheet';
+import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
 import { saveTask } from '../services/taskService';

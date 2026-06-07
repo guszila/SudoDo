@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { CheckCircle2, Clock, CircleDashed, ListTodo, TrendingUp } from 'lucide-react';
-import { TASK_STATUS } from '../constants';
+import { TASK_STATUS } from '../../constants';
 
 export default function StatsBar({ tasks = [] }) {
   const stats = useMemo(() => {

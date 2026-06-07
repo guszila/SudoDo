@@ -1,7 +1,7 @@
 import { useEffect } from 'react';
-import Logo from './Logo';
-import { version } from '../../package.json';
-import { THEMES, DEFAULT_THEME } from '../constants/themes';
+import Logo from '../layout/Logo';
+import { version } from '../../../package.json';
+import { THEMES, DEFAULT_THEME } from '../../constants/themes';
 
 export default function SplashScreen({ onDone }) {
   useEffect(() => {

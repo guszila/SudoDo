@@ -3,8 +3,8 @@ import React, { useState, useEffect } from 'react';
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X, Trash2, CheckCircle2, Circle } from 'lucide-react';
 
-import { translations } from '../i18n';
-import { TASK_STATUS, TASK_PRIORITY, DEFAULT_TASK_VALUES } from '../constants';
+import { translations } from '../../i18n';
+import { TASK_STATUS, TASK_PRIORITY, DEFAULT_TASK_VALUES } from '../../constants';
 
 export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lang = 'en' }) {
   const t = translations[lang].modal;

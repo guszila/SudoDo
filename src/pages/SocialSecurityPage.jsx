@@ -1,7 +1,7 @@
 import React, { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
-import { ArrowLeft, Calculator, Check, Info } from 'lucide-react';
+import { ArrowLeft, Calculator, Info } from 'lucide-react';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 
@@ -9,29 +9,7 @@ import { useTasks } from '../contexts/TasksContext';
 import { useSettings } from '../contexts/SettingsContext';
 import { calcSSO } from '../utils/socialSecurity';
 import { TASK_STATUS, RATE_TYPE } from '../constants';
-
-const SectionLabel = ({ children }) => (
-  <div className="text-[11px] font-[500] text-[var(--theme-section-label)] dark:text-[#AFA9EC] tracking-[0.08em] px-4 mb-1.5 uppercase">
-    {children}
-  </div>
-);
-
-const GlassCard = ({ children, className = '' }) => (
-  <div className={`bg-[rgba(255,255,255,0.35)] dark:bg-[rgba(255,255,255,0.08)] backdrop-blur-[20px] border-[0.5px] border-[rgba(255,255,255,0.5)] dark:border-[rgba(255,255,255,0.12)] rounded-[16px] mx-4 mb-4 overflow-hidden shadow-sm ${className}`}>
-    {children}
-  </div>
-);
-
-const Toggle = ({ checked, onChange }) => (
-  <div 
-    onClick={(e) => { e.stopPropagation(); onChange(!checked); }}
-    className={`relative w-[44px] h-[26px] rounded-[13px] cursor-pointer transition-colors duration-200 ease-in-out shrink-0 ${checked ? 'bg-[var(--theme-accent)]' : 'bg-black/20 dark:bg-white/20'}`}
-  >
-    <div 
-      className={`absolute top-[3px] left-[3px] w-[20px] h-[20px] bg-white rounded-full shadow-sm transition-transform duration-200 ease-in-out ${checked ? 'translate-x-[18px]' : 'translate-x-0'}`}
-    />
-  </div>
-);
+import { SectionLabel, GlassCard, Toggle } from '../components/common/SettingsUI';
 
 const Row = ({ title, subtitle, rightElement, onClick, isLast }) => (
   <div 
