@@ -1,15 +1,28 @@
 import React, { useState, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
 import { X, Trash2, CheckCircle2, Circle } from 'lucide-react';
 
 import { translations } from '../../i18n';
 import { TASK_STATUS, TASK_PRIORITY, DEFAULT_TASK_VALUES } from '../../constants';
+import { useSettings } from '../../contexts/SettingsContext';
+
+const JOB_COLORS = {
+  blue: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/20' },
+  red: { bg: 'bg-red-500/10', text: 'text-red-600 dark:text-red-400', border: 'border-red-500/20' },
+  green: { bg: 'bg-green-500/10', text: 'text-green-600 dark:text-green-400', border: 'border-green-500/20' },
+  amber: { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20' },
+  purple: { bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-500/20' },
+  pink: { bg: 'bg-pink-500/10', text: 'text-pink-600 dark:text-pink-400', border: 'border-pink-500/20' },
+  primary: { bg: 'bg-primary-500/10', text: 'text-primary-600 dark:text-primary-400', border: 'border-primary-500/20' }
+};
 
 export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lang = 'en' }) {
   const t = translations[lang].modal;
   const statusT = translations[lang].status;
   const dragControls = useDragControls();
+  const { settings } = useSettings();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -78,7 +91,9 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
     });
   };
 
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <motion.div 
@@ -153,16 +168,37 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
               {formData.isPartTime ? 'ชื่องาน / สถานที่' : t.title}
             </label>
-            <input 
-              type="text" 
-              name="title" 
-              value={formData.title} 
-              onChange={handleChange} 
-              required
-              className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow"
-              style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-              placeholder={t.titlePlaceholder}
-            />
+            
+            {formData.isPartTime && (
+              <div className="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar mb-2">
+                {(settings?.jobs || []).map(job => {
+                  const c = JOB_COLORS[job.color] || JOB_COLORS.primary;
+                  return (
+                    <button 
+                      key={job.id} type="button"
+                      onClick={() => setFormData({...formData, title: job.name, hourlyRate: job.rate || formData.hourlyRate, rateType: job.rateType || formData.rateType, deductSSO: job.deductSSO})}
+                      className={`flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 transition-all snap-start shadow-sm ${formData.title === job.name ? `${c.border} ${c.bg} scale-105` : 'border-transparent bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10'}`}
+                    >
+                      <span className="text-3xl mb-1">{job.emoji || '🏢'}</span>
+                      <span className="text-xs font-bold text-main whitespace-nowrap truncate w-full px-1">{job.name}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            )}
+            
+            {(!formData.isPartTime || !((settings?.jobs || []).some(j => j.name === formData.title))) && (
+              <input 
+                type="text" 
+                name="title" 
+                value={formData.title} 
+                onChange={handleChange} 
+                required
+                className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow"
+                style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                placeholder={formData.isPartTime ? "ระบุชื่อบริษัท..." : t.titlePlaceholder}
+              />
+            )}
           </div>
 
           {!formData.isPartTime && (
@@ -270,7 +306,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             </div>
           )}
 
-          {formData.isPartTime && formData.rateType !== 'daily' && (() => {
+          {formData.isPartTime && (() => {
             const shiftHrs = formData.start && formData.end
               ? (new Date(formData.end) - new Date(formData.start)) / (1000 * 60 * 60)
               : 0;
@@ -285,7 +321,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                       : null
                   )}
                 </div>
-                <div className="flex items-center gap-3">
+                <div className="flex items-center gap-3 flex-wrap">
                   <input
                     type="number"
                     name="breakHours"
@@ -299,6 +335,17 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                     placeholder="0"
                   />
                   <span className={`text-sm font-bold transition-opacity ${!canTakeBreak ? 'opacity-30' : 'text-main/50'}`}>ชั่วโมง</span>
+                  {canTakeBreak && shiftHrs > 0 && (() => {
+                    const netHrs = Math.max(0, shiftHrs - (Number(formData.breakHours) || 0));
+                    const estPay = formData.rateType === 'daily' ? (Number(formData.hourlyRate) || 0) : (netHrs * (Number(formData.hourlyRate) || 0));
+                    return (
+                      <div className="ml-auto flex items-center gap-2 px-3 py-2 rounded-xl bg-green-500/10 border border-green-500/20">
+                        <span className="text-xs font-bold text-green-700 dark:text-green-400">ทำงาน {netHrs} ชม.</span>
+                        <span className="text-green-500/30 font-black">·</span>
+                        <span className="text-sm font-black text-green-600 dark:text-green-400">≈ ฿{estPay.toLocaleString()}</span>
+                      </div>
+                    );
+                  })()}
                 </div>
               </div>
             );
@@ -405,6 +452,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           </motion.div>
         </motion.div>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

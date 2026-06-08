@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
@@ -6,7 +6,7 @@ import {
   Palette,
   Bell, Clock, Flame, Globe, Download,
   ShieldCheck, RefreshCw, Database, Info, Star,
-  Trash2, LogOut, Check, PlayCircle, UserX
+  Trash2, LogOut, Check, PlayCircle, UserX, Briefcase, Plus, X
 } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -15,7 +15,7 @@ import { saveTask, fetchTasks } from '../services/taskService';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { SectionLabel, GlassCard, Toggle, SettingsRow as Row } from '../components/common/SettingsUI';
 import { useToast } from '../contexts/ToastContext';
-import pkg from '../../package.json' assert { type: 'json' };
+import pkg from '../../package.json';
 import { auth } from '../firebase';
 import { signOut, deleteUser } from 'firebase/auth';
 
@@ -56,7 +56,12 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
   const [isCountingStorage, setIsCountingStorage] = useState(true);
 
   // Sheets & Dialogs State
-  const [activeSheet, setActiveSheet] = useState(null); // 'language', 'weekStart', 'resetIncome'
+  const [activeSheet, setActiveSheet] = useState(null); // 'language', 'weekStart', 'resetIncome', 'manageJobs', 'editJob'
+  
+  // Job Management State
+  const [editingJob, setEditingJob] = useState(null);
+  const [jobFormData, setJobFormData] = useState({ id: '', name: '', emoji: '', color: 'blue', deductSSO: false });
+  const JOB_BG_COLORS = { blue: 'bg-blue-500', red: 'bg-red-500', green: 'bg-green-500', amber: 'bg-amber-500', purple: 'bg-purple-500', pink: 'bg-pink-500' };
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [isResetting, setIsResetting] = useState(false);
   
@@ -133,6 +138,14 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
     resetError: lang === 'en' ? 'Error resetting income' : 'เกิดข้อผิดพลาดในการรีเซ็ตรายได้',
     deleteSuccess: lang === 'en' ? 'All data deleted successfully' : 'ลบข้อมูลทั้งหมดเรียบร้อยแล้ว',
     deleteError: lang === 'en' ? 'Error deleting data' : 'เกิดข้อผิดพลาดในการลบข้อมูล',
+    manageJobs: lang === 'en' ? 'Manage Jobs' : 'จัดการบริษัท/ที่ทำงาน',
+    manageJobsSub: lang === 'en' ? 'Set up your workplaces' : 'ตั้งค่าข้อมูลบริษัทและประกันสังคม',
+    jobs: lang === 'en' ? 'Jobs' : 'บริษัท',
+    addJob: lang === 'en' ? 'Add Job' : 'เพิ่มบริษัท',
+    jobName: lang === 'en' ? 'Company Name' : 'ชื่อบริษัท',
+    jobEmoji: lang === 'en' ? 'Emoji' : 'อิโมจิ',
+    jobColor: lang === 'en' ? 'Color' : 'สีประจำบริษัท',
+    saveJob: lang === 'en' ? 'Save Job' : 'บันทึก',
   };
 
   useEffect(() => {
@@ -352,6 +365,12 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
         <SectionLabel>{t.data}</SectionLabel>
         <GlassCard>
           <Row 
+            icon={Briefcase} iconBgClass="bg-[rgba(59,130,246,0.15)]" iconColorClass="text-blue-500"
+            title={t.manageJobs} subtitle={t.manageJobsSub}
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            onClick={() => setActiveSheet('manageJobs')}
+          />
+          <Row 
             icon={ShieldCheck} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
             title={t.socialSecurity} subtitle={t.ssoSub}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
@@ -425,6 +444,131 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
         </div>
 
       </div>
+
+      {/* Manage Jobs Sheet */}
+      <ActionSheet isOpen={activeSheet === 'manageJobs'} onClose={() => setActiveSheet(null)} title={t.manageJobs}>
+        <div className="flex flex-col gap-3 max-h-[60vh] overflow-y-auto px-1">
+          {(settings?.jobs || []).map(job => (
+            <div 
+              key={job.id} 
+              onClick={() => {
+                setEditingJob(job);
+                setJobFormData(job);
+                setActiveSheet('editJob');
+              }}
+              className="p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-transparent hover:border-black/10 dark:hover:border-white/10 flex items-center justify-between cursor-pointer transition-colors"
+            >
+              <div className="flex items-center gap-3">
+                <div className={`w-10 h-10 flex items-center justify-center rounded-xl bg-${job.color}-500/20 text-xl border border-${job.color}-500/30`}>
+                  {job.emoji || '🏢'}
+                </div>
+                <div>
+                  <p className="font-bold text-main">{job.name}</p>
+                  <p className="text-xs text-main opacity-60">
+                    {job.deductSSO ? (lang === 'en' ? 'Deducts SSO' : 'หักประกันสังคม') : (lang === 'en' ? 'No SSO' : 'ไม่หักประกันสังคม')}
+                  </p>
+                </div>
+              </div>
+              <ChevronRight size={20} className="text-main opacity-50" />
+            </div>
+          ))}
+          {(settings?.jobs || []).length === 0 && (
+             <div className="text-center py-6 opacity-50 text-sm">
+               {lang === 'en' ? 'No jobs added yet' : 'ยังไม่ได้เพิ่มบริษัท'}
+             </div>
+          )}
+          <button 
+            onClick={() => {
+              setEditingJob(null);
+              setJobFormData({ id: Date.now().toString(), name: '', emoji: '', color: 'blue', deductSSO: false });
+              setActiveSheet('editJob');
+            }}
+            className="w-full mt-2 py-4 bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-500/20 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-primary-500/20 transition-colors"
+          >
+            <Plus size={20} /> {t.addJob}
+          </button>
+        </div>
+      </ActionSheet>
+
+      {/* Edit Job Sheet */}
+      <ActionSheet isOpen={activeSheet === 'editJob'} onClose={() => setActiveSheet('manageJobs')} title={editingJob ? t.manageJobs : t.addJob}>
+        <div className="flex flex-col gap-4 max-h-[70vh] overflow-y-auto px-1">
+          <div>
+            <label className="block text-sm font-bold text-main mb-2 opacity-80">{t.jobEmoji} <span className="font-normal opacity-70 text-xs">(เช่น 🍕 หรือ 🏥)</span></label>
+            <input 
+              type="text" 
+              value={jobFormData.emoji} 
+              onChange={e => setJobFormData({...jobFormData, emoji: e.target.value})} 
+              className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-black/5 dark:bg-white/10 text-2xl" 
+              placeholder="🏢" 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-main mb-2 opacity-80">{t.jobName}</label>
+            <input 
+              type="text" 
+              value={jobFormData.name} 
+              onChange={e => setJobFormData({...jobFormData, name: e.target.value})} 
+              className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-black/5 dark:bg-white/10" 
+              placeholder="ชื่อบริษัท/ร้าน" 
+            />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-main mb-2 opacity-80">{t.jobColor}</label>
+            <div className="flex gap-3 flex-wrap">
+              {['blue', 'red', 'green', 'amber', 'purple', 'pink'].map(color => (
+                <button 
+                  key={color}
+                  onClick={() => setJobFormData({...jobFormData, color})}
+                  className={`w-10 h-10 rounded-full flex items-center justify-center transition-all ${JOB_BG_COLORS[color]} ${jobFormData.color === color ? 'ring-4 ring-offset-2 ring-primary-500 dark:ring-offset-[#1a1a2e] scale-110' : 'hover:scale-105'}`}
+                >
+                  {jobFormData.color === color && <Check size={16} className="text-white" />}
+                </button>
+              ))}
+            </div>
+          </div>
+          <div className="bg-black/5 dark:bg-white/5 p-4 rounded-2xl flex items-center justify-between border border-transparent mt-2">
+            <div>
+              <p className="font-bold text-main">{t.socialSecurity}</p>
+              <p className="text-xs text-main opacity-60">{t.ssoSub}</p>
+            </div>
+            <Toggle checked={jobFormData.deductSSO} onChange={v => setJobFormData({...jobFormData, deductSSO: v})} />
+          </div>
+          
+          <div className="flex gap-3 mt-4">
+            {editingJob && (
+               <button 
+                 onClick={() => {
+                   if (window.confirm(lang === 'en' ? 'Delete this job?' : 'ลบบริษัทนี้ใช่หรือไม่?')) {
+                     const newJobs = (settings?.jobs || []).filter(j => j.id !== editingJob.id);
+                     updateSettings({ jobs: newJobs });
+                     setActiveSheet('manageJobs');
+                   }
+                 }}
+                 className="py-4 px-4 bg-red-500/10 text-red-500 rounded-xl font-bold flex items-center justify-center hover:bg-red-500/20"
+               >
+                 <Trash2 size={20} />
+               </button>
+            )}
+            <button 
+              disabled={!jobFormData.name}
+              onClick={() => {
+                let newJobs = [...(settings?.jobs || [])];
+                if (editingJob) {
+                  newJobs = newJobs.map(j => j.id === editingJob.id ? jobFormData : j);
+                } else {
+                  newJobs.push({ ...jobFormData, id: Date.now().toString() });
+                }
+                updateSettings({ jobs: newJobs });
+                setActiveSheet('manageJobs');
+              }}
+              className="flex-1 py-4 bg-primary-500 text-white rounded-xl font-bold shadow-lg shadow-primary-500/30 disabled:opacity-50"
+            >
+              {t.saveJob}
+            </button>
+          </div>
+        </div>
+      </ActionSheet>
 
       
       {/* Theme Picker Sheet */}

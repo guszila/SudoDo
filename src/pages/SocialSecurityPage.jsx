@@ -1,4 +1,4 @@
-import React, { useMemo } from 'react';
+import { useMemo } from 'react';
 import { motion } from 'framer-motion';
 import { useNavigate } from 'react-router-dom';
 import { ArrowLeft, Calculator, Info } from 'lucide-react';
@@ -28,7 +28,7 @@ const Row = ({ title, subtitle, rightElement, onClick, isLast }) => (
 
 export default function SocialSecurityPage({ lang }) {
   const navigate = useNavigate();
-  const { tasks, isLoading } = useTasks();
+  const { tasks } = useTasks();
   const { settings, updateSettings } = useSettings();
 
   const isEnabled = settings.socialSecurity;
@@ -44,6 +44,7 @@ export default function SocialSecurityPage({ lang }) {
 
   const { currentMonthData, historyData, totalDeducted } = useMemo(() => {
     const monthlyGross = {};
+    const monthlySsGross = {};
     
     // Calculate gross income for all months from part-time tasks
     tasks.forEach(t => {
@@ -52,6 +53,9 @@ export default function SocialSecurityPage({ lang }) {
       // For Social Security history, we only consider completed tasks
       if (!isCompleted) return;
       
+      const job = (settings.jobs || []).find(j => j.name === t.title);
+      const deductsSSO = job ? job.deductSSO : settings.socialSecurity;
+
       const rate = Number(t.hourlyRate) || 0;
       const d = new Date(t.start);
       if (isNaN(d.getTime())) return;
@@ -59,7 +63,7 @@ export default function SocialSecurityPage({ lang }) {
       const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       
       let taskEarned = 0;
-      let hours = 0;
+      let hours;
       if (t.actualStart && t.actualEnd) {
         hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
       } else {
@@ -69,11 +73,15 @@ export default function SocialSecurityPage({ lang }) {
       else if (hours > 0) taskEarned = hours * rate;
       
       monthlyGross[monthKey] = (monthlyGross[monthKey] || 0) + taskEarned;
+      if (deductsSSO) {
+        monthlySsGross[monthKey] = (monthlySsGross[monthKey] || 0) + taskEarned;
+      }
     });
 
     const now = new Date();
     const currentMonthKey = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
     const currentGross = monthlyGross[currentMonthKey] || 0;
+    const currentSsGross = monthlySsGross[currentMonthKey] || 0;
     
     const history = [];
     let sumDeducted = 0;
@@ -81,24 +89,27 @@ export default function SocialSecurityPage({ lang }) {
     Object.keys(monthlyGross)
       .sort((a, b) => b.localeCompare(a)) // Sort desc
       .forEach(monthKey => {
-        const gross = monthlyGross[monthKey];
+        const gross = monthlyGross[monthKey] || 0;
+        const ssGross = monthlySsGross[monthKey] || 0;
         if (gross > 0) { // Skip months with 0 income
-          const { deduction } = calcSSO(gross);
+          const { deduction } = calcSSO(ssGross); // Calculate deduction ONLY on ssGross
           sumDeducted += deduction;
           history.push({
             monthKey,
             gross: Math.round(gross),
+            ssGross: Math.round(ssGross),
             deduction,
             isCurrent: monthKey === currentMonthKey
           });
         }
       });
 
-    const currentSSO = calcSSO(currentGross);
+    const currentSSO = calcSSO(currentSsGross); // Calculate deduction ONLY on currentSsGross
 
     return {
       currentMonthData: {
         gross: Math.round(currentGross),
+        ssGross: Math.round(currentSsGross),
         deduction: currentSSO.deduction,
         net: currentSSO.netIncome,
         monthLabel: format(now, 'MMMM yyyy', { locale: lang === 'th' ? th : undefined })
@@ -142,9 +153,12 @@ export default function SocialSecurityPage({ lang }) {
               <span className="text-sm text-main/70 font-medium mb-1">{lang === 'th' ? 'รายได้รวม' : 'Gross Income'}</span>
               <span className="text-xl font-bold text-main">฿{currentMonthData.gross.toLocaleString()}</span>
             </div>
-            <div className="bg-[rgba(239,68,68,0.1)] p-4 rounded-2xl flex flex-col items-center justify-center border-[0.5px] border-[rgba(240,149,149,0.2)]">
+            <div className="bg-[rgba(239,68,68,0.1)] p-4 rounded-2xl flex flex-col items-center justify-center border-[0.5px] border-[rgba(240,149,149,0.2)] relative group">
               <span className="text-sm text-red-500 font-medium mb-1">{lang === 'th' ? 'หัก 5%' : '5% Deduction'}</span>
               <span className="text-xl font-bold text-red-500">-฿{currentMonthData.deduction.toLocaleString()}</span>
+              {currentMonthData.ssGross < currentMonthData.gross && (
+                <div className="absolute top-1 right-2 text-[10px] text-red-500/70 border border-red-500/20 px-1.5 rounded-full">คิดจากฐาน ฿{currentMonthData.ssGross.toLocaleString()}</div>
+              )}
             </div>
           </div>
           

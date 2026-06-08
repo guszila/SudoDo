@@ -1,9 +1,9 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo } from 'react';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, isBefore, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2, Calendar, Bell } from 'lucide-react';
+import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2, Bell } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -22,7 +22,7 @@ export default function TodayPage({ user }) {
   const [isChartExpanded, setIsChartExpanded] = useState(false);
   const [showModalChart, setShowModalChart] = useState(false);
   const [isTickerActive, setIsTickerActive] = useState(false);
-  const [modalSize, setModalSize] = useState({ width: 600, height: 400 });
+
   const navigate = useNavigate();
   
   const [now] = useState(new Date());
@@ -31,7 +31,7 @@ export default function TodayPage({ user }) {
     if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบงานนี้?')) {
       try {
         await saveTask('DELETE', { id: taskId }, user?.uid);
-      } catch (err) {
+      } catch {
         alert('เกิดข้อผิดพลาดในการลบงาน');
       }
     }
@@ -59,6 +59,7 @@ export default function TodayPage({ user }) {
 
   const { todayTasks, highPriorityCount, todayIncome, todayNetIncome, todaySSODeduction, chartData, fullChartData, weeklyStreak, totalToday, doneToday, pendingToday } = useMemo(() => {
     let income = 0;
+    let ssoIncome = 0;
     const tTasks = [];
     const oTasks = [];
     let highPriority = 0;
@@ -99,7 +100,7 @@ export default function TodayPage({ user }) {
             }
           } else {
             let earnings = 0;
-            let hours = 0;
+            let hours;
             if (isDone || (t.actualStart && t.actualEnd)) {
               if (t.actualStart && t.actualEnd) {
                 hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
@@ -127,6 +128,11 @@ export default function TodayPage({ user }) {
                 else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
             }
             income += earnings;
+            if (!t.isExpense) {
+              const job = (settings.jobs || []).find(j => j.name === t.title);
+              const deductsSSO = (job && job.deductSSO !== undefined) ? job.deductSSO : settings.socialSecurity;
+              if (deductsSSO) ssoIncome += earnings;
+            }
         }
       }
 
@@ -176,10 +182,10 @@ export default function TodayPage({ user }) {
 
     let todayNetIncome = income;
     let todaySSODeduction = 0;
-    if (settings.socialSecurity && settings.showInIncome && income > 0) {
-      const sso = calcSSO(income);
+    if (ssoIncome > 0 && settings.showInIncome) {
+      const sso = calcSSO(ssoIncome);
       todaySSODeduction = sso.deduction;
-      todayNetIncome = sso.netIncome;
+      todayNetIncome = income - todaySSODeduction;
     }
 
     return { 
@@ -211,23 +217,13 @@ export default function TodayPage({ user }) {
 
   useEffect(() => {
     if (isChartExpanded) {
-      const updateSize = () => {
-        setModalSize({
-          width: Math.min(window.innerWidth - 64, 900),
-          height: Math.max(window.innerHeight * 0.6, 300)
-        });
-      };
-      updateSize();
-      window.addEventListener('resize', updateSize);
-      
       const timer = setTimeout(() => setShowModalChart(true), 150);
       
       return () => {
-        window.removeEventListener('resize', updateSize);
         clearTimeout(timer);
       };
     } else {
-      setShowModalChart(false);
+      setTimeout(() => setShowModalChart(false), 0);
     }
   }, [isChartExpanded]);
 
@@ -381,7 +377,7 @@ export default function TodayPage({ user }) {
           <div onClick={() => navigate('/part-time')} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all cursor-pointer group active:scale-95">
             <h3 className="text-sm font-bold text-main/80 mb-2 flex items-center justify-between group-hover:text-primary-500 transition-colors">
               รายได้วันนี้
-              {settings.socialSecurity && settings.showInIncome && todaySSODeduction > 0 && (
+              {todaySSODeduction > 0 && (
                 <span className="text-[10px] bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded font-bold border border-red-500/20">
                   -5% ประกัน
                 </span>

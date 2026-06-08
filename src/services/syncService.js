@@ -32,7 +32,7 @@ export const syncTasksToGAS = async (tasks, email) => {
     });
     
     return { status: 'success' };
-  } catch (error) {
+  } catch {
     // Only return null without throwing or logging to keep clean
     return null;
   }

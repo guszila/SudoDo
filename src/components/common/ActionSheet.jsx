@@ -1,4 +1,5 @@
 import React from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ActionSheet({ 
@@ -6,7 +7,9 @@ export default function ActionSheet({
   onClose, 
   options = [] // array of { label, icon, onClick, isDanger }
 }) {
-  return (
+  if (typeof document === 'undefined') return null;
+
+  return createPortal(
     <AnimatePresence>
       {isOpen && (
         <>
@@ -56,6 +59,7 @@ export default function ActionSheet({
           </motion.div>
         </>
       )}
-    </AnimatePresence>
+    </AnimatePresence>,
+    document.body
   );
 }

@@ -80,6 +80,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
     
     // Summary
     let totalIncome = 0;
+    let ssoGross = 0;
     let shiftCount = 0;
     let totalHours = 0;
     
@@ -117,6 +118,10 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
              totalIncome += earnings;
              shiftCount += 1;
              totalHours += hours;
+
+             const job = (settings.jobs || []).find(j => j.name === t.title);
+             const deductsSSO = (job && job.deductSSO !== undefined) ? job.deductSSO : settings.socialSecurity;
+             if (deductsSSO) ssoGross += earnings;
            }
         }
         
@@ -204,10 +209,10 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
     let ssoDeduction = 0;
     let netIncome = totalGross;
 
-    if (settings.socialSecurity && settings.showInIncome && totalGross > 0) {
-      const sso = calcSSO(totalGross);
+    if (ssoGross > 0 && settings.showInIncome) {
+      const sso = calcSSO(ssoGross);
       ssoDeduction = sso.deduction;
-      netIncome = sso.netIncome;
+      netIncome = totalGross - ssoDeduction;
     }
 
     return {
@@ -314,7 +319,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
             ฿{summary.netIncome.toLocaleString()}
           </h2>
           
-          {settings.socialSecurity && settings.showInIncome && summary.ssoDeduction > 0 ? (
+          {summary.ssoDeduction > 0 ? (
             <div className="flex items-center gap-2 mb-6 relative z-10">
               <span className="text-sm font-bold text-red-500 dark:text-red-400">
                 -฿{summary.ssoDeduction.toLocaleString()}

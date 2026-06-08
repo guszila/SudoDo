@@ -1,9 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
+import { createPortal } from 'react-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, isBefore, endOfDay, isSameDay } from 'date-fns';
+import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { ArrowLeft, CheckCircle2, CircleDashed, Clock, Edit, ListTodo, Plus, Trash2, CalendarDays, DollarSign } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Edit, ListTodo, Plus, Trash2, CalendarDays, DollarSign } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import TaskModal from '../components/tasks/TaskModal';
@@ -158,8 +159,6 @@ export default function TasksPage({ user, lang = 'en' }) {
     setIsMutating(false);
   };
 
-  const fDate = (d) => format(d, 'EE d MMM yyyy', { locale: th });
-  const fTime = (d) => format(d, 'HH:mm');
   const now = new Date();
 
   if (isLoading || isMutating) {
@@ -286,26 +285,29 @@ export default function TasksPage({ user, lang = 'en' }) {
         </AnimatePresence>
       </div>
 
-      <AnimatePresence>
-        {isSelectionMode && selectedTaskIds.size > 0 && (
-          <motion.div 
-            initial={{ opacity: 0, y: 100 }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: 100 }}
-            className="fixed bottom-0 left-0 right-0 p-4 bg-white dark:bg-[#1a1a2e] border-t border-main/10 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-30 flex justify-between items-center"
-          >
-            <span className="font-bold text-main">
-              เลือกแล้ว {selectedTaskIds.size} รายการ
-            </span>
-            <button 
-              onClick={() => setBulkDeleteConfirm(true)}
-              className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-xl shadow-lg shadow-red-500/30 transition-colors"
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {isSelectionMode && selectedTaskIds.size > 0 && (
+            <motion.div 
+              initial={{ opacity: 0, y: 150 }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: 150 }}
+              className="fixed bottom-0 left-0 right-0 px-5 pt-5 pb-[calc(1rem+84px+env(safe-area-inset-bottom))] liquid-glass border-t border-main/10 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-30 flex justify-between items-center rounded-t-[32px]"
             >
-              ลบที่เลือก
-            </button>
-          </motion.div>
-        )}
-      </AnimatePresence>
+              <span className="font-bold text-main text-lg">
+                เลือกแล้ว {selectedTaskIds.size} รายการ
+              </span>
+              <button 
+                onClick={() => setBulkDeleteConfirm(true)}
+                className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-[16px] shadow-lg shadow-red-500/30 transition-transform active:scale-95"
+              >
+                ลบที่เลือก
+              </button>
+            </motion.div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       <ActionSheet 
         isOpen={!!actionTask}
@@ -314,13 +316,13 @@ export default function TasksPage({ user, lang = 'en' }) {
           {
             label: 'แก้ไข',
             icon: <Edit size={20} />,
-            onClick: () => { setEditingTask(actionTask); setIsModalOpen(true); }
+            onClick: () => { setEditingTask(actionTask); setActionTask(null); setIsModalOpen(true); }
           },
           {
             label: 'ลบงานนี้',
             icon: <Trash2 size={20} />,
             isDanger: true,
-            onClick: () => setDeleteConfirmTask(actionTask)
+            onClick: () => { setDeleteConfirmTask(actionTask); setActionTask(null); }
           }
         ]}
       />

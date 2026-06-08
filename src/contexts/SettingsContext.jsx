@@ -19,7 +19,8 @@ export function SettingsProvider({ children, user }) {
     weekStart: 'อาทิตย์',
     notifyTasks: true,
     notifyShifts: true,
-    notifyStreak: false
+    notifyStreak: false,
+    jobs: []
   });
   const [isLoading, setIsLoading] = useState(true);
 
@@ -33,7 +34,8 @@ export function SettingsProvider({ children, user }) {
     weekStart: 'อาทิตย์',
     notifyTasks: true,
     notifyShifts: true,
-    notifyStreak: false
+    notifyStreak: false,
+    jobs: []
       });
       setIsLoading(false);
       return;

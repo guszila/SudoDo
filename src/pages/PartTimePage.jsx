@@ -19,6 +19,16 @@ import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE, DEFAULT_TASK_VALUES } from '../c
 import { translations } from '../i18n';
 import confetti from 'canvas-confetti';
 
+const JOB_COLORS = {
+  blue: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/20', borderL: 'border-l-blue-500', button: 'text-blue-500 hover:bg-blue-500/20' },
+  red: { bg: 'bg-red-500/10', text: 'text-red-600 dark:text-red-400', border: 'border-red-500/20', borderL: 'border-l-red-500', button: 'text-red-500 hover:bg-red-500/20' },
+  green: { bg: 'bg-green-500/10', text: 'text-green-600 dark:text-green-400', border: 'border-green-500/20', borderL: 'border-l-green-500', button: 'text-green-500 hover:bg-green-500/20' },
+  amber: { bg: 'bg-amber-500/10', text: 'text-amber-600 dark:text-amber-400', border: 'border-amber-500/20', borderL: 'border-l-amber-500', button: 'text-amber-500 hover:bg-amber-500/20' },
+  purple: { bg: 'bg-purple-500/10', text: 'text-purple-600 dark:text-purple-400', border: 'border-purple-500/20', borderL: 'border-l-purple-500', button: 'text-purple-500 hover:bg-purple-500/20' },
+  pink: { bg: 'bg-pink-500/10', text: 'text-pink-600 dark:text-pink-400', border: 'border-pink-500/20', borderL: 'border-l-pink-500', button: 'text-pink-500 hover:bg-pink-500/20' },
+  primary: { bg: 'bg-primary-500/10', text: 'text-primary-600 dark:text-primary-400', border: 'border-primary-500/20', borderL: 'border-l-primary-500', button: 'text-primary-500 hover:bg-primary-500/20' }
+};
+
 export default function PartTimePage({ user, lang = 'en' }) {
   const t = translations[lang].partTime;
   const { tasks: allTasks, isLoading: isTasksLoading } = useTasks();
@@ -116,22 +126,47 @@ export default function PartTimePage({ user, lang = 'en' }) {
       }
     });
     
+    // Sort upcoming nearest first
+    upcoming.sort((a, b) => new Date(a.start) - new Date(b.start));
+    
     return { upcomingTasks: upcoming, historyTasks: history };
   }, [tasks]);
+
+  const groupedTasks = useMemo(() => {
+    const groups = {};
+    const sourceTasks = activeTab === 'upcoming' ? upcomingTasks : historyTasks;
+    sourceTasks.forEach(task => {
+      const job = (settings.jobs || []).find(j => j.name === task.title);
+      const title = job ? job.name : (task.title || 'อื่นๆ');
+      if (!groups[title]) groups[title] = { job: job, tasks: [] };
+      groups[title].tasks.push(task);
+    });
+    return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
+  }, [upcomingTasks, historyTasks, activeTab, settings.jobs]);
 
   const monthlyGross = useMemo(() => {
     const earned = {};
     const pending = {};
+    const earnedSSO = {};
+    const pendingSSO = {};
+    const breakdown = {};
     
     tasks.forEach(t => {
       if (t.isExpense) return;
       
+      const job = (settings.jobs || []).find(j => j.name === t.title);
+      const deductsSSO = (job && job.deductSSO !== undefined) ? job.deductSSO : settings.socialSecurity;
+
       const isCompleted = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
       const rate = Number(t.hourlyRate) || 0;
       
       const d = new Date(t.start);
       if (isNaN(d.getTime())) return;
       const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (!breakdown[monthKey]) breakdown[monthKey] = {};
+      
+      const jobTitle = job ? job.name : (t.title || 'อื่นๆ');
+      if (!breakdown[monthKey][jobTitle]) breakdown[monthKey][jobTitle] = { job, total: 0 };
       
       let taskEarned = 0;
       let hours = 0;
@@ -147,6 +182,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         else if (hours > 0) taskEarned = hours * rate;
         
         earned[monthKey] = (earned[monthKey] || 0) + taskEarned;
+        if (deductsSSO) earnedSSO[monthKey] = (earnedSSO[monthKey] || 0) + taskEarned;
       } else {
         hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
         hours = Math.max(0, hours - (Number(t.breakHours) || 0));
@@ -154,15 +190,19 @@ export default function PartTimePage({ user, lang = 'en' }) {
         else if (hours > 0) taskEarned = hours * rate;
         
         pending[monthKey] = (pending[monthKey] || 0) + taskEarned;
+        if (deductsSSO) pendingSSO[monthKey] = (pendingSSO[monthKey] || 0) + taskEarned;
       }
+      breakdown[monthKey][jobTitle].total += taskEarned;
     });
     
-    return { earned, pending };
-  }, [tasks]);
+    return { earned, pending, earnedSSO, pendingSSO, breakdown };
+  }, [tasks, settings.jobs, settings.socialSecurity]);
 
   const stats = useMemo(() => {
     let earned = monthlyGross.earned[selectedMonth] || 0;
     let pending = monthlyGross.pending[selectedMonth] || 0;
+    let earnedSSO = monthlyGross.earnedSSO[selectedMonth] || 0;
+    let pendingSSO = monthlyGross.pendingSSO[selectedMonth] || 0;
     let ssoDeducted = 0;
     let expenseTotal = 0;
     
@@ -184,13 +224,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
       expenseTotal += amt;
     });
 
-    if (settings.socialSecurity) {
-      const mGross = earned + pending;
-      if (mGross > 0) {
-         const { deduction } = calcSSO(mGross);
-         ssoDeducted = deduction;
-      }
+    const ssoGross = earnedSSO + pendingSSO;
+    if (ssoGross > 0 && settings.showInIncome) {
+       const { deduction } = calcSSO(ssoGross);
+       ssoDeducted = deduction;
     }
+
+    const breakdownData = monthlyGross.breakdown[selectedMonth] || {};
+    const jobBreakdown = Object.entries(breakdownData).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.total - a.total);
 
     return { 
       earned, 
@@ -198,7 +239,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
       total: earned + pending,
       ssoDeducted,
       expenseTotal,
-      netTotal: earned + pending - ssoDeducted - expenseTotal
+      netTotal: earned + pending - ssoDeducted - expenseTotal,
+      jobBreakdown
     };
   }, [tasks, monthlyGross, settings.socialSecurity, selectedMonth]);
 
@@ -441,7 +483,27 @@ export default function PartTimePage({ user, lang = 'en' }) {
                <p className="text-sm text-main opacity-70 font-medium">{t.total} (ก่อนหัก)</p>
                <span className="text-2xl font-bold text-primary-500">฿{stats.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
-            {settings.socialSecurity && settings.showInIncome && (
+            
+            {stats.jobBreakdown && stats.jobBreakdown.length > 0 && (
+              <div className="mt-2 mb-3 space-y-1.5 border-t border-main/10 pt-2">
+                <p className="text-[10px] text-main opacity-50 font-bold mb-1 uppercase">แยกตามบริษัท</p>
+                {stats.jobBreakdown.map((b, i) => {
+                  const c = JOB_COLORS[b.job ? b.job.color : 'primary'] || JOB_COLORS.primary;
+                  if (b.total === 0) return null;
+                  return (
+                    <div key={i} className="flex justify-between items-center text-xs">
+                      <div className="flex items-center gap-1.5 opacity-90">
+                        <span>{b.job ? b.job.emoji : '🏢'}</span>
+                        <span className="font-medium text-main">{b.name}</span>
+                      </div>
+                      <span className={`font-bold ${c.text}`}>฿{b.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    </div>
+                  );
+                })}
+              </div>
+            )}
+            
+            {stats.ssoDeducted > 0 && (
                <div className="flex justify-between items-center mb-1 border-t border-main/10 pt-2 mt-2">
                  <p className="text-sm text-red-600 dark:text-red-400 opacity-90 font-medium">{lang === 'th' ? 'หักประกันสังคม (-5%)' : 'SSO Deduction (-5%)'}</p>
                  <span className="text-lg font-bold text-red-600 dark:text-red-400">-฿{stats.ssoDeducted.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -500,20 +562,20 @@ export default function PartTimePage({ user, lang = 'en' }) {
         const progress = Math.min(100, Math.round((currentIncome / incomeGoal.goalAmount) * 100)) || 0;
         const diff = incomeGoal.goalAmount - currentIncome;
         return (
-          <div className="col-span-2 liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-sky-500 relative overflow-hidden">
+          <div className="col-span-2 liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-primary-500 relative overflow-hidden">
             <div className="flex justify-between items-center mb-2 relative z-10">
                <p className="text-sm font-bold text-main flex items-center gap-2"><Target size={16}/> เป้าหมายเดือนนี้</p>
-               <button onClick={(e) => { e.stopPropagation(); setTempGoal(incomeGoal); setShowGoalModal(true); setIsEditWidgetMode(false); }} className="text-sky-500 hover:bg-sky-500/10 p-1.5 rounded-full transition-colors"><Edit size={14}/></button>
+               <button onClick={(e) => { e.stopPropagation(); setTempGoal(incomeGoal); setShowGoalModal(true); setIsEditWidgetMode(false); }} className="text-primary-500 hover:bg-primary-500/10 p-1.5 rounded-full transition-colors"><Edit size={14}/></button>
             </div>
             <p className="text-xs opacity-70 mb-2 relative z-10">฿{currentIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} / ฿{incomeGoal.goalAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
             <div className="w-full bg-main/10 rounded-full h-3 mb-2 overflow-hidden relative z-10">
-               <div className="bg-sky-500 h-3 rounded-full transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+               <div className="bg-primary-500 h-3 rounded-full transition-all duration-1000" style={{ width: `${progress}%` }}></div>
             </div>
             <div className="flex justify-between items-center text-xs relative z-10">
                <span className="font-medium">
                  {diff > 0 ? `เหลืออีก ฿${diff.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ถึงเป้า` : diff === 0 ? `🎉 ทำได้ตามเป้าแล้ว!` : `🔥 เกินเป้า ฿${Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                </span>
-               <span className="font-bold text-sky-500">{progress}%</span>
+               <span className="font-bold text-primary-500">{progress}%</span>
             </div>
           </div>
         );
@@ -876,14 +938,29 @@ export default function PartTimePage({ user, lang = 'en' }) {
               <h3 className="font-bold text-main">เพิ่ม{t.upcoming} (สามารถเพิ่มหลายวันได้)</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.jobTitle}</label>
-                  <input type="text" list="job-titles" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder={t.jobTitlePlaceholder} />
-                  <datalist id="job-titles">
-                    {uniqueTitles.map((title, idx) => (
-                      <option key={idx} value={title} />
-                    ))}
-                  </datalist>
+                <div className="col-span-1 md:col-span-2 mb-2">
+                  <label className="block text-sm font-medium text-main mb-2 opacity-80">{t.jobTitle}</label>
+                  <div className="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar">
+                    {(settings.jobs || []).map(job => {
+                      const c = JOB_COLORS[job.color] || JOB_COLORS.primary;
+                      return (
+                      <button 
+                        key={job.id} type="button"
+                        onClick={() => setFormData({...formData, title: job.name, hourlyRate: job.rate || formData.hourlyRate, rateType: job.rateType || formData.rateType, deductSSO: job.deductSSO})}
+                        className={`flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 transition-all snap-start shadow-sm ${formData.title === job.name ? `${c.border} ${c.bg} scale-105` : 'border-transparent bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10'}`}
+                      >
+                        <span className="text-3xl mb-1">{job.emoji || '🏢'}</span>
+                        <span className="text-xs font-bold text-main whitespace-nowrap truncate w-full px-1">{job.name}</span>
+                      </button>
+                    )})}
+                    <button type="button" onClick={() => navigate('/settings')} className="flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 border-dashed border-main/20 bg-transparent hover:bg-black/5 dark:hover:bg-white/5 transition-all snap-start shadow-sm">
+                      <Plus className="text-main opacity-50 mb-1" size={24} />
+                      <span className="text-xs font-bold text-main opacity-50">จัดการบริษัท</span>
+                    </button>
+                  </div>
+                  {!((settings.jobs || []).some(j => j.name === formData.title)) && (
+                    <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required className="w-full mt-3 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="ระบุชื่อบริษัท..." />
+                  )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.hourlyRate}</label>
@@ -907,7 +984,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 <input type="text" value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="ตัวอย่าง: ทำแทนคุณ A" />
               </div>
 
-              {formData.rateType === RATE_TYPE.HOURLY && (() => {
+              {(() => {
                 const startDt = new Date(`${formData.startDate}T${formData.startTime}:00`);
                 let endDt = new Date(`${formData.startDate}T${formData.endTime}:00`);
                 if (formData.endTime < formData.startTime) endDt.setDate(endDt.getDate() + 1);
@@ -915,7 +992,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 const canTakeBreak = true;
                 const breakHrs = canTakeBreak ? (Number(formData.breakHours) || 0) : 0;
                 const netHrs = Math.max(0, grossHrs - breakHrs);
-                const estPay = netHrs * (Number(formData.hourlyRate) || 0);
+                const estPay = formData.rateType === 'daily' ? (Number(formData.hourlyRate) || 0) : (netHrs * (Number(formData.hourlyRate) || 0));
                 return (
                   <div>
                     <div className="flex items-center gap-2 mb-1.5">
@@ -1010,160 +1087,183 @@ export default function PartTimePage({ user, lang = 'en' }) {
           </div>
         )}
 
-        {activeTasks.map(task => {
-          const isCompleted = task.status === TASK_STATUS.DONE || (task.actualStart && task.actualEnd);
-          
-          if (task.isExpense) {
-            let expenseAmount = 0;
-            if (task.isPercentage) {
-              const d = new Date(task.start);
-              const monthKey = !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : null;
-              const monthEarned = monthKey ? (monthlyGross.earned[monthKey] || 0) : 0;
-              const monthPending = monthKey ? (monthlyGross.pending[monthKey] || 0) : 0;
-              expenseAmount = (monthEarned + monthPending) * (Number(task.amount) / 100);
-            } else {
-              expenseAmount = Number(task.amount) || 0;
-            }
-            
-            return (
-              <motion.div 
-                key={task.id} 
-                onPointerDown={() => handlePointerDown(task)}
-                onPointerUp={handlePointerUp}
-                onPointerLeave={handlePointerUp}
-                onPointerCancel={handlePointerUp}
-                onClick={() => {
-                   if (!timerRef.current) return; 
-                   handleEditExpenseClick(task);
-                }}
-                animate={{ scale: pressingId === task.id ? 0.98 : 1 }}
-                className="liquid-glass-card p-5 flex flex-col md:flex-row gap-5 items-start md:items-center relative group hover:border-red-500/30 transition-colors border-l-4 border-l-red-500 cursor-pointer touch-none"
-              >
-                <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                  <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full transition-all">
-                    <Trash2 size={16} />
-                  </button>
-                </div>
-                
-                <div className="flex-1 w-full">
-                  <div className="flex items-center gap-3 mb-2">
-                    <h3 className="font-bold text-main text-lg m-0">{task.title}</h3>
-                    <span className="px-2 py-1 bg-red-500/10 text-red-600 dark:text-red-400 text-xs rounded-lg font-bold border border-red-500/20">
-                      {t.expenses}
-                    </span>
-                  </div>
-                  <div className="text-sm text-main opacity-80 space-y-1.5 bg-white/30 dark:bg-black/20 p-3 rounded-xl border border-white/40 dark:border-white/5 w-fit">
-                    <p className="flex items-center gap-2"><span className="w-4">📅</span> {task.isPercentage ? `ประจำเดือน ${fMonth(task.start)}` : fDate(task.start)}</p>
-                  </div>
-                </div>
-
-                <div className="flex flex-row md:flex-col items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
-                  <div className="text-right flex-1 md:flex-none p-3 bg-red-500/10 rounded-xl border border-red-500/20">
-                    <p className="text-sm text-red-600 dark:text-red-400 font-bold mb-1 flex items-center justify-end gap-1">
-                      {task.isPercentage ? `${task.amount}% (${t.expenses})` : t.expenses}
-                    </p>
-                    <p className="text-2xl font-bold text-red-600 dark:text-red-400">-฿{expenseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  </div>
-                </div>
-              </motion.div>
-            );
-          }
-
-          let earnings = 0;
-          let hours = 0;
-          if (task.actualStart && task.actualEnd) {
-             hours = (new Date(task.actualEnd) - new Date(task.actualStart)) / (1000 * 60 * 60);
-          } else if (isCompleted) {
-             hours = (task.end - task.start) / (1000 * 60 * 60);
-          } else {
-             // Pending
-             hours = (task.end - task.start) / (1000 * 60 * 60);
-          }
-          
-          if (task.rateType === RATE_TYPE.DAILY) {
-             earnings = Number(task.hourlyRate) || 0;
-          } else {
-             earnings = hours * (Number(task.hourlyRate) || 0);
-          }
-
-          const today = new Date();
-          today.setHours(0, 0, 0, 0);
-          const taskDate = new Date(task.start);
-          taskDate.setHours(0, 0, 0, 0);
-          const isFutureTask = taskDate > today;
-
-          return (
-            <motion.div 
-              key={task.id} 
-              onPointerDown={() => handlePointerDown(task)}
-              onPointerUp={handlePointerUp}
-              onPointerLeave={handlePointerUp}
-              onPointerCancel={handlePointerUp}
-              onClick={(e) => {
-                if (e.target.closest('button')) return;
-                if (timerRef.current) {
-                  setActionTask(task);
-                }
-              }}
-              animate={{ scale: pressingId === task.id ? 0.98 : 1 }}
-              className={`liquid-glass-card p-5 flex flex-col md:flex-row gap-5 items-start md:items-center relative group hover:border-primary-500/30 transition-colors cursor-pointer touch-none ${isCompleted ? 'opacity-70' : ''}`}
-            >
-              <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                <button onClick={(e) => { e.stopPropagation(); setEditingTask(task); setIsModalOpen(true); }} className="p-2 text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-500/20 rounded-full transition-all">
-                  <Edit size={16} />
-                </button>
-                <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full transition-all">
-                  <Trash2 size={16} />
-                </button>
-              </div>
+        {groupedTasks.map(([groupName, groupData]) => (
+          <div key={groupName} className="mb-6">
+            <h4 className="font-bold text-main text-lg mb-3 flex items-center gap-2 opacity-90 pl-1">
+              {groupData.job ? groupData.job.emoji : '🏢'} {groupName}
+            </h4>
+            <div className="space-y-4">
+            {groupData.tasks.map(task => {
+              const isCompleted = task.status === TASK_STATUS.DONE || (task.actualStart && task.actualEnd);
+              const jobColor = groupData.job ? groupData.job.color : 'primary';
               
-              <div className="flex-1 w-full">
-                <div className="flex items-center gap-3 mb-2">
-                  <h3 className="font-bold text-main text-lg m-0">{task.title}</h3>
-                  <span className="px-2 py-1 bg-primary-500/10 text-primary-600 dark:text-primary-400 text-xs rounded-lg font-bold border border-primary-500/20">
-                    ฿{task.hourlyRate}{task.rateType === RATE_TYPE.DAILY ? '/วัน' : '/ชม.'}
-                  </span>
-                </div>
-                <div className="text-sm text-main opacity-80 space-y-1.5 bg-white/30 dark:bg-black/20 p-3 rounded-xl border border-white/40 dark:border-white/5 w-fit">
-                  <p className="flex items-center gap-2"><span className="w-4">📅</span> {fDate(task.start)}</p>
-                  <p className="flex items-center gap-2"><span className="w-4">⏱️</span> ตาราง: {fTime(task.start)} - {fTime(task.end)}</p>
-                  {task.description && (
-                    <p className="flex items-start gap-2 text-primary-600 dark:text-primary-400 font-medium mt-1">
-                      <span className="w-4 mt-0.5">📝</span>
-                      <span className="flex-1">หมายเหตุ: {task.description}</span>
-                    </p>
-                  )}
-                </div>
-              </div>
-
-              <div className="flex flex-row md:flex-col items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
-                {isCompleted ? (
-                  <div className="text-right flex-1 md:flex-none p-3 bg-green-500/10 rounded-xl border border-green-500/20">
-                    <p className="text-sm text-green-600 dark:text-green-400 font-bold mb-1 flex items-center justify-end gap-1"><CheckCircle2 size={16}/> {t.completed}</p>
-                    <p className="text-2xl font-bold text-green-600 dark:text-green-400">+฿{earnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                  </div>
-                ) : (
-                  <div className="flex flex-col gap-2 w-full">
-                    <div className="text-right text-amber-500 mb-1 flex-1 md:flex-none p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                       <p className="text-xs font-bold mb-0.5">{t.expected}</p>
-                       <p className="text-lg font-bold">+฿{earnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                    </div>
-                    <div className="flex gap-2">
-                      <button 
-                        onClick={(e) => { e.stopPropagation(); !isFutureTask && handleMarkDone(task); }} 
-                        disabled={isFutureTask}
-                        className={`flex-1 md:w-36 flex items-center justify-center gap-2 py-2 text-white font-bold rounded-xl transition-all ${isFutureTask ? 'bg-slate-400 cursor-not-allowed opacity-50 dark:opacity-30' : 'bg-green-500 hover:bg-green-600 active:scale-95'}`}
-                      >
-                        {isFutureTask ? <Clock size={16} /> : <CheckCircle2 size={16} />} 
-                        {isFutureTask ? t.notReached : t.markDone}
+              if (task.isExpense) {
+                let expenseAmount = 0;
+                if (task.isPercentage) {
+                  const d = new Date(task.start);
+                  const monthKey = !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : null;
+                  const monthEarned = monthKey ? (monthlyGross.earned[monthKey] || 0) : 0;
+                  const monthPending = monthKey ? (monthlyGross.pending[monthKey] || 0) : 0;
+                  expenseAmount = (monthEarned + monthPending) * (Number(task.amount) / 100);
+                } else {
+                  expenseAmount = Number(task.amount) || 0;
+                }
+                
+                return (
+                  <motion.div 
+                    key={task.id} 
+                    onPointerDown={() => handlePointerDown(task)}
+                    onPointerUp={handlePointerUp}
+                    onPointerLeave={handlePointerUp}
+                    onPointerCancel={handlePointerUp}
+                    onClick={() => {
+                       if (!timerRef.current) return; 
+                       handleEditExpenseClick(task);
+                    }}
+                    animate={{ scale: pressingId === task.id ? 0.98 : 1 }}
+                    className="liquid-glass-card p-5 flex flex-col md:flex-row gap-5 items-start md:items-center relative group hover:border-red-500/30 transition-colors border-l-4 border-l-red-500 cursor-pointer touch-none"
+                  >
+                    <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                      <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full transition-all">
+                        <Trash2 size={16} />
                       </button>
                     </div>
+                    
+                    <div className="flex-1 w-full">
+                      <div className="flex items-center gap-3 mb-2">
+                        <h3 className="font-bold text-main text-lg m-0">{task.title}</h3>
+                        <span className="px-2 py-1 bg-red-500/10 text-red-600 dark:text-red-400 text-xs rounded-lg font-bold border border-red-500/20">
+                          {t.expenses}
+                        </span>
+                      </div>
+                      <div className="text-sm text-main opacity-80 space-y-1.5 bg-white/30 dark:bg-black/20 p-3 rounded-xl border border-white/40 dark:border-white/5 w-fit">
+                        <p className="flex items-center gap-2"><span className="w-4">📅</span> {task.isPercentage ? `ประจำเดือน ${fMonth(task.start)}` : fDate(task.start)}</p>
+                      </div>
+                    </div>
+
+                    <div className="flex flex-row md:flex-col items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
+                      <div className="text-right flex-1 md:flex-none p-3 bg-red-500/10 rounded-xl border border-red-500/20">
+                        <p className="text-sm text-red-600 dark:text-red-400 font-bold mb-1 flex items-center justify-end gap-1">
+                          {task.isPercentage ? `${task.amount}% (${t.expenses})` : t.expenses}
+                        </p>
+                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">-฿{expenseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      </div>
+                    </div>
+                  </motion.div>
+                );
+              }
+
+              let earnings = 0;
+              let hours = 0;
+              if (task.actualStart && task.actualEnd) {
+                 hours = (new Date(task.actualEnd) - new Date(task.actualStart)) / (1000 * 60 * 60);
+              } else if (isCompleted) {
+                 hours = (new Date(task.end) - new Date(task.start)) / (1000 * 60 * 60);
+              } else {
+                 hours = (new Date(task.end) - new Date(task.start)) / (1000 * 60 * 60);
+              }
+              
+              hours = Math.max(0, hours - (Number(task.breakHours) || 0));
+              
+              if (task.rateType === RATE_TYPE.DAILY) {
+                 earnings = Number(task.hourlyRate) || 0;
+              } else {
+                 earnings = hours * (Number(task.hourlyRate) || 0);
+              }
+
+              const today = new Date();
+              today.setHours(0, 0, 0, 0);
+              const taskDate = new Date(task.start);
+              taskDate.setHours(0, 0, 0, 0);
+              const isFutureTask = taskDate > today;
+              
+              const c = JOB_COLORS[jobColor] || JOB_COLORS.primary;
+
+              return (
+                <motion.div 
+                  key={task.id} 
+                  onPointerDown={() => handlePointerDown(task)}
+                  onPointerUp={handlePointerUp}
+                  onPointerLeave={handlePointerUp}
+                  onPointerCancel={handlePointerUp}
+                  onClick={(e) => {
+                    if (e.target.closest('button')) return;
+                    if (timerRef.current) {
+                      setActionTask(task);
+                    }
+                  }}
+                  animate={{ scale: pressingId === task.id ? 0.98 : 1 }}
+                  className={`liquid-glass-card p-5 flex flex-col md:flex-row gap-5 items-start md:items-center relative group transition-colors border-l-4 cursor-pointer touch-none ${c.borderL} ${isCompleted ? 'opacity-70' : ''}`}
+                >
+                  <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                    <button onClick={(e) => { e.stopPropagation(); setEditingTask(task); setIsModalOpen(true); }} className={`p-2 ${c.button} rounded-full transition-all`}>
+                      <Edit size={16} />
+                    </button>
+                    <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full transition-all">
+                      <Trash2 size={16} />
+                    </button>
                   </div>
-                )}
-              </div>
-            </motion.div>
-          );
-        })}
+                  
+                  <div className="flex-1 w-full">
+                    <div className="flex items-center gap-3 mb-2">
+                      <h3 className="font-bold text-main text-lg m-0">{task.title}</h3>
+                      <span className={`px-2 py-1 ${c.bg} ${c.text} text-xs rounded-lg font-bold border ${c.border}`}>
+                        ฿{task.hourlyRate}{task.rateType === RATE_TYPE.DAILY ? '/วัน' : '/ชม.'}
+                      </span>
+                    </div>
+                    <div className="text-sm text-main opacity-80 space-y-1.5 bg-white/30 dark:bg-black/20 p-3 rounded-xl border border-white/40 dark:border-white/5 w-fit">
+                      <p className="flex items-center gap-2"><span className="w-4">📅</span> {fDate(task.start)}</p>
+                      <p className="flex items-center gap-2"><span className="w-4">⏱️</span> ตาราง: {fTime(task.start)} - {fTime(task.end)}</p>
+                      {task.description && (
+                        <p className={`flex items-start gap-2 ${c.text} font-medium mt-1`}>
+                          <span className="w-4 mt-0.5">📝</span>
+                          <span className="flex-1">หมายเหตุ: {task.description}</span>
+                        </p>
+                      )}
+                    </div>
+                  </div>
+
+                  <div className="flex flex-row md:flex-col items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
+                    {isCompleted ? (
+                      <div className="text-right flex-1 md:flex-none p-3 bg-green-500/10 rounded-xl border border-green-500/20">
+                        <div className="flex justify-between items-center mb-1 gap-4">
+                          <span className="text-xs font-bold bg-green-500/20 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-md">
+                            {hours} ชม.
+                          </span>
+                          <p className="text-sm text-green-600 dark:text-green-400 font-bold flex items-center justify-end gap-1"><CheckCircle2 size={16}/> {t.completed}</p>
+                        </div>
+                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">+฿{earnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                      </div>
+                    ) : (
+                      <div className="flex flex-col gap-2 w-full">
+                        <div className="text-right text-amber-500 mb-1 flex-1 md:flex-none p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
+                           <div className="flex justify-between items-center mb-0.5 gap-4">
+                             <span className="text-[10px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-md">
+                               {hours} ชม.
+                             </span>
+                             <p className="text-xs font-bold">{t.expected}</p>
+                           </div>
+                           <p className="text-lg font-bold">+฿{earnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        </div>
+                        <div className="flex gap-2">
+                          <button 
+                            onClick={(e) => { e.stopPropagation(); !isFutureTask && handleMarkDone(task); }} 
+                            disabled={isFutureTask}
+                            className={`flex-1 md:w-36 flex items-center justify-center gap-2 py-2 text-white font-bold rounded-xl transition-all ${isFutureTask ? 'bg-slate-400 cursor-not-allowed opacity-50 dark:opacity-30' : 'bg-green-500 hover:bg-green-600 active:scale-95'}`}
+                          >
+                            {isFutureTask ? <Clock size={16} /> : <CheckCircle2 size={16} />} 
+                            {isFutureTask ? t.notReached : t.markDone}
+                          </button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+                </motion.div>
+              );
+            })}
+            </div>
+          </div>
+        ))}
 
         <ActionSheet 
           isOpen={!!actionTask}
@@ -1241,8 +1341,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
         {showGoalModal && (
           <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
              <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowGoalModal(false)} />
-             <motion.div initial={{scale:0.9, opacity:0}} animate={{scale:1, opacity:1}} exit={{scale:0.9, opacity:0}} className="liquid-glass-card p-6 w-full max-w-md relative z-10 border-2 border-sky-500/30">
-               <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-sky-500"><Target size={24}/> ตั้งเป้าหมายรายได้</h3>
+             <motion.div initial={{scale:0.9, opacity:0}} animate={{scale:1, opacity:1}} exit={{scale:0.9, opacity:0}} className="liquid-glass-card p-6 w-full max-w-md relative z-10 border-2 border-primary-500/30">
+               <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-primary-500"><Target size={24}/> ตั้งเป้าหมายรายได้</h3>
                <div className="space-y-4">
                  <div>
                    <label className="block text-sm font-medium opacity-80 mb-1">เป้าหมายรายได้ (บาท/เดือน)</label>
@@ -1250,18 +1350,18 @@ export default function PartTimePage({ user, lang = 'en' }) {
                      type="number" 
                      value={tempGoal.goalAmount} 
                      onChange={e => setTempGoal({...tempGoal, goalAmount: Number(e.target.value)})}
-                     className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-sky-500 bg-black/5 dark:bg-white/10 font-bold text-xl text-main"
+                     className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 bg-black/5 dark:bg-white/10 font-bold text-xl text-main"
                    />
                  </div>
                  <div className="flex flex-wrap gap-2">
                    {[3000, 5000, 10000, 15000].map(amt => (
-                     <button key={amt} onClick={() => setTempGoal({...tempGoal, goalAmount: amt})} className="px-3 py-1.5 bg-sky-500/10 text-sky-500 rounded-full text-sm font-medium hover:bg-sky-500/20 transition-colors">
+                     <button key={amt} onClick={() => setTempGoal({...tempGoal, goalAmount: amt})} className="px-3 py-1.5 bg-primary-500/10 text-primary-500 rounded-full text-sm font-medium hover:bg-primary-500/20 transition-colors">
                        ฿{amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                      </button>
                    ))}
                  </div>
                  <label className="flex items-center gap-2 mt-4 cursor-pointer">
-                   <input type="checkbox" checked={tempGoal.isRecurring} onChange={e => setTempGoal({...tempGoal, isRecurring: e.target.checked})} className="w-4 h-4 rounded text-sky-500 focus:ring-sky-500" />
+                   <input type="checkbox" checked={tempGoal.isRecurring} onChange={e => setTempGoal({...tempGoal, isRecurring: e.target.checked})} className="w-4 h-4 rounded text-primary-500 focus:ring-primary-500" />
                    <span className="text-sm font-medium">ใช้เป้าหมายนี้ทุกเดือน</span>
                  </label>
                  
@@ -1272,7 +1372,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                        setIncomeGoal(tempGoal);
                        setShowGoalModal(false);
                      }} 
-                     className="flex-1 py-3 bg-sky-500 text-white rounded-xl font-bold shadow-lg shadow-sky-500/30"
+                     className="flex-1 py-3 bg-primary-500 text-white rounded-xl font-bold shadow-lg shadow-primary-500/30"
                    >
                      บันทึก
                    </button>
