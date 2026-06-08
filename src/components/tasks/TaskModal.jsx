@@ -44,6 +44,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         priority: task.priority || TASK_PRIORITY.MEDIUM,
         isPartTime: task.isPartTime || false,
         hourlyRate: task.hourlyRate || DEFAULT_TASK_VALUES.HOURLY_RATE,
+        isHolidayPay: task.isHolidayPay || false,
         rateType: task.rateType || 'hourly',
         breakHours: task.breakHours ?? 0,
         isAllDay: task.isAllDay || false
@@ -58,6 +59,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         priority: TASK_PRIORITY.MEDIUM,
         isPartTime: false,
         hourlyRate: DEFAULT_TASK_VALUES.HOURLY_RATE,
+        isHolidayPay: false,
         rateType: 'hourly',
         breakHours: 0,
         isAllDay: false
@@ -170,13 +172,19 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             </label>
             
             {formData.isPartTime && (
-              <div className="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar mb-2">
+              <div className="flex gap-3 overflow-x-auto py-2 px-1 snap-x hide-scrollbar mb-2 -mx-1">
                 {(settings?.jobs || []).map(job => {
                   const c = JOB_COLORS[job.color] || JOB_COLORS.primary;
                   return (
                     <button 
                       key={job.id} type="button"
-                      onClick={() => setFormData({...formData, title: job.name, hourlyRate: job.rate || formData.hourlyRate, rateType: job.rateType || formData.rateType, deductSSO: job.deductSSO})}
+                      onClick={() => {
+                        if (formData.title === job.name) {
+                          setFormData({...formData, title: '', hourlyRate: DEFAULT_TASK_VALUES.HOURLY_RATE, deductSSO: false});
+                        } else {
+                          setFormData({...formData, title: job.name, hourlyRate: job.rate || formData.hourlyRate, rateType: job.rateType || formData.rateType, deductSSO: job.deductSSO});
+                        }
+                      }}
                       className={`flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 transition-all snap-start shadow-sm ${formData.title === job.name ? `${c.border} ${c.bg} scale-105` : 'border-transparent bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10'}`}
                     >
                       <span className="text-3xl mb-1">{job.emoji || '🏢'}</span>
@@ -296,13 +304,27 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                   name="rateType"
                   value={formData.rateType} 
                   onChange={handleChange}
-                  className="px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main font-bold appearance-none"
+                  className="px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main font-bold appearance-none text-sm"
                   style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
                 >
-                  <option value="hourly">/ ชั่วโมง</option>
-                  <option value="daily">/ วัน</option>
+                  <option value="hourly" className="text-sm font-medium">/ ชั่วโมง</option>
+                  <option value="daily" className="text-sm font-medium">/ วัน</option>
                 </select>
               </div>
+            </div>
+          )}
+
+          {formData.isPartTime && (
+            <div className="flex items-center mt-2">
+              <input 
+                type="checkbox" 
+                id="editIsHolidayPay"
+                name="isHolidayPay"
+                checked={formData.isHolidayPay} 
+                onChange={e => setFormData({...formData, isHolidayPay: e.target.checked})}
+                className="w-5 h-5 rounded text-primary-500 focus:ring-primary-500"
+              />
+              <label htmlFor="editIsHolidayPay" className="ml-2 text-sm font-bold text-main cursor-pointer">ทำในวันหยุด (ค่าแรง x2)</label>
             </div>
           )}
 
@@ -337,7 +359,8 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                   <span className={`text-sm font-bold transition-opacity ${!canTakeBreak ? 'opacity-30' : 'text-main/50'}`}>ชั่วโมง</span>
                   {canTakeBreak && shiftHrs > 0 && (() => {
                     const netHrs = Math.max(0, shiftHrs - (Number(formData.breakHours) || 0));
-                    const estPay = formData.rateType === 'daily' ? (Number(formData.hourlyRate) || 0) : (netHrs * (Number(formData.hourlyRate) || 0));
+                    let estPay = formData.rateType === 'daily' ? (Number(formData.hourlyRate) || 0) : (netHrs * (Number(formData.hourlyRate) || 0));
+                    if (formData.isHolidayPay) estPay *= 2;
                     return (
                       <div className="ml-auto flex items-center gap-2 px-3 py-2 rounded-xl bg-green-500/10 border border-green-500/20">
                         <span className="text-xs font-bold text-green-700 dark:text-green-400">ทำงาน {netHrs} ชม.</span>

@@ -5,7 +5,9 @@ import { motion, AnimatePresence } from 'framer-motion';
 export default function ActionSheet({ 
   isOpen, 
   onClose, 
-  options = [] // array of { label, icon, onClick, isDanger }
+  options = [], // array of { label, icon, onClick, isDanger }
+  children,
+  title
 }) {
   if (typeof document === 'undefined') return null;
 
@@ -29,8 +31,10 @@ export default function ActionSheet({
             className="fixed bottom-0 left-0 right-0 z-50 liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl px-4 pb-8 pt-4 md:max-w-md mx-auto"
           >
             <div className="w-12 h-1.5 bg-black/10 dark:bg-white/20 rounded-full mx-auto mb-6" />
+            {title && <h3 className="text-xl font-bold text-main mb-4 text-center">{title}</h3>}
             
             <div className="flex flex-col gap-2">
+              {children}
               {options.map((option, idx) => (
                 <button
                   key={idx}

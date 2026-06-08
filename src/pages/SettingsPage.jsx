@@ -1,5 +1,11 @@
-import { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { format } from 'date-fns';
+import jsPDF from 'jspdf';
+import html2canvas from 'html2canvas';
+import PdfStatement from '../components/pdf/PdfStatement';
+import { TASK_STATUS, RATE_TYPE } from '../constants';
+import { calcSSO } from '../utils/socialSecurity';
+import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, ChevronRight, Moon, Sun, Languages, Calendar,
@@ -46,6 +52,7 @@ const ActionSheet = ({ isOpen, onClose, title, children }) => {
 
 export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { currentTheme, setTheme, themes } = useTheme();
   const { settings, updateSettings } = useSettings();
   const { tasks } = useTasks();
@@ -56,7 +63,7 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
   const [isCountingStorage, setIsCountingStorage] = useState(true);
 
   // Sheets & Dialogs State
-  const [activeSheet, setActiveSheet] = useState(null); // 'language', 'weekStart', 'resetIncome', 'manageJobs', 'editJob'
+  const [activeSheet, setActiveSheet] = useState(null); // 'language', 'weekStart', 'resetIncome', 'manageJobs', 'editJob', 'themePicker', 'exportPdf'
   
   // Job Management State
   const [editingJob, setEditingJob] = useState(null);
@@ -147,6 +154,100 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
     jobColor: lang === 'en' ? 'Color' : 'สีประจำบริษัท',
     saveJob: lang === 'en' ? 'Save Job' : 'บันทึก',
   };
+
+  const [exportMonth, setExportMonth] = useState(format(new Date(), 'yyyy-MM'));
+  const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const pdfRef = useRef(null);
+
+  const exportData = useMemo(() => {
+    let totalIncome = 0;
+    let ssoGross = 0;
+    let shiftCount = 0;
+    let totalHours = 0;
+    const shiftsInMonth = [];
+
+    (tasks || []).filter(t => t.isPartTime).forEach(t => {
+      const taskDate = new Date(t.start);
+      if (format(taskDate, 'yyyy-MM') === exportMonth) {
+        shiftsInMonth.push(t);
+        const isDone = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
+        let hours = 0;
+        let earnings = 0;
+
+        if (t.isExpense) {
+           earnings = -(Number(t.amount) || 0);
+           if (isDone) totalIncome += earnings;
+        } else if (t.isExtraIncome) {
+           earnings = Number(t.amount) || 0;
+           if (isDone) totalIncome += earnings;
+        } else {
+           if (isDone) {
+             if (t.actualStart && t.actualEnd) {
+               hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
+             } else {
+               hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
+             }
+             if (t.breakHours) hours -= Number(t.breakHours);
+             hours = Math.max(0, hours);
+             
+             let rate = Number(t.hourlyRate || 0);
+             if (t.rateType === RATE_TYPE.DAILY) {
+               earnings = rate;
+             } else {
+               earnings = hours * rate;
+             }
+             if (t.isHolidayPay) earnings *= 2;
+             
+             totalHours += hours;
+             totalIncome += earnings;
+             if (t.deductSSO) ssoGross += earnings;
+           }
+        }
+        if (!t.isExpense && !t.isExtraIncome) shiftCount++;
+      }
+    });
+
+    const ssoDeduct = calcSSO(ssoGross, settings?.ssoPercent);
+    const finalIncome = totalIncome - ssoDeduct;
+
+    return {
+      summary: { totalIncome, ssoGross, shiftCount, totalHours, finalIncome, ssoDeduct },
+      shiftsList: shiftsInMonth
+    };
+  }, [tasks, exportMonth, settings?.ssoPercent]);
+
+  const handleExportPDF = async () => {
+    if (exportData.shiftsList.length === 0) {
+      showToast(lang === 'en' ? 'No data for this month' : 'ไม่มีข้อมูลกะงานในเดือนนี้');
+      return;
+    }
+    setIsExportingPdf(true);
+    try {
+      const input = pdfRef.current;
+      const canvas = await html2canvas(input, { scale: 2, useCORS: true, logging: false });
+      const imgData = canvas.toDataURL('image/png');
+      const pdf = new jsPDF('p', 'mm', 'a4');
+      const pdfWidth = pdf.internal.pageSize.getWidth();
+      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      pdf.save(`Statement_${exportMonth}.pdf`);
+      showToast(lang === 'en' ? 'PDF Exported Successfully' : 'บันทึก PDF สำเร็จ!');
+      setActiveSheet(null);
+    } catch (error) {
+      console.error('PDF Export Error', error);
+      showToast(lang === 'en' ? 'Error generating PDF' : 'เกิดข้อผิดพลาดในการสร้าง PDF');
+    } finally {
+      setIsExportingPdf(false);
+    }
+  };
+
+  useEffect(() => {
+    if (location.state?.openSheet) {
+      setActiveSheet(location.state.openSheet);
+      // Clear the state so it doesn't reopen on reload
+      window.history.replaceState({}, document.title);
+    }
+  }, [location.state]);
 
   useEffect(() => {
     if (!user) return;
@@ -356,7 +457,7 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
             icon={Download} iconBgClass="bg-[rgba(29,158,117,0.2)]" iconColorClass="text-[#34A853] dark:text-[#5DCAA5]"
             title={t.exportPdf}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
-            onClick={() => showToast(t.inDev)}
+            onClick={() => setActiveSheet('exportPdf')}
             isLast
           />
         </GlassCard>
@@ -743,6 +844,52 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
             {isDeletingAccount ? <RefreshCw size={20} className="animate-spin" /> : <UserX size={20} />}
             {isDeletingAccount ? t.deleting : t.deleteAccount}
           </button>
+        </div>
+      </ActionSheet>
+
+      {/* Export PDF Sheet */}
+      <ActionSheet isOpen={activeSheet === 'exportPdf'} onClose={() => setActiveSheet(null)} title={t.exportPdf}>
+        <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto px-1">
+          <p className="text-sm text-center text-main opacity-70 mb-2">
+            {lang === 'en' ? 'Select month to export as PDF statement.' : 'เลือกเดือนที่ต้องการสรุปเป็นเอกสาร PDF'}
+          </p>
+          <div>
+            <label className="block text-sm font-bold text-main mb-2 opacity-80">
+              {lang === 'en' ? 'Month' : 'ประจำเดือน'}
+            </label>
+            <input 
+              type="month" 
+              value={exportMonth} 
+              onChange={e => setExportMonth(e.target.value)} 
+              onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()}
+              className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-black/5 dark:bg-white/10"
+            />
+          </div>
+          <div className="bg-black/5 dark:bg-white/5 p-4 rounded-xl flex justify-between items-center">
+            <span className="text-sm font-medium text-main opacity-80">{lang === 'en' ? 'Found' : 'พบข้อมูล'}</span>
+            <span className="font-bold text-primary-500">{exportData.shiftsList.length} {lang === 'en' ? 'records' : 'รายการ'}</span>
+          </div>
+          <button 
+            onClick={handleExportPDF}
+            disabled={isExportingPdf}
+            className="w-full mt-4 py-4 bg-primary-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-primary-500/30 disabled:opacity-50 transition-all"
+          >
+            {isExportingPdf ? (
+               <><RefreshCw size={20} className="animate-spin" /> {lang === 'en' ? 'Generating...' : 'กำลังสร้าง...'}</>
+            ) : (
+               <><Download size={20} /> {lang === 'en' ? 'Download PDF' : 'ดาวน์โหลดเอกสาร'}</>
+            )}
+          </button>
+        </div>
+        {/* Hidden PDF Component */}
+        <div style={{ position: 'fixed', left: '-10000px', top: 0 }}>
+          <PdfStatement 
+            ref={pdfRef}
+            month={exportMonth}
+            summary={exportData.summary}
+            shiftsList={exportData.shiftsList}
+            user={user}
+          />
         </div>
       </ActionSheet>
     </motion.div>

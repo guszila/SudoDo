@@ -16,11 +16,11 @@ export default function BottomNav({ lang, currentView, setCurrentView }) {
         <span className={`text-[10px] mt-1 font-medium text-main ${!(location.pathname === '/' && currentView === 'month') && 'opacity-60'}`}>{lang === 'en' ? 'Calendar' : 'ปฏิทิน'}</span>
       </button>
       <button 
-        onClick={() => navigate('/tasks')}
-        className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/tasks' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
+        onClick={() => navigate('/part-time')}
+        className={`tour-part-time-btn flex flex-col items-center justify-center w-full h-full ${location.pathname === '/part-time' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
       >
-        <ListTodo size={24} />
-        <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/tasks' && 'opacity-60'}`}>{lang === 'en' ? 'Tasks' : 'งานทั้งหมด'}</span>
+        <DollarSign size={24} />
+        <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/part-time' && 'opacity-60'}`}>{lang === 'en' ? 'Income' : 'รายได้'}</span>
       </button>
       <button 
         onClick={() => navigate('/today')}
@@ -30,11 +30,11 @@ export default function BottomNav({ lang, currentView, setCurrentView }) {
         <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/today' && 'opacity-60'}`}>{lang === 'en' ? 'Today' : 'วันนี้'}</span>
       </button>
       <button 
-        onClick={() => navigate('/part-time')}
-        className={`tour-part-time-btn flex flex-col items-center justify-center w-full h-full ${location.pathname === '/part-time' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
+        onClick={() => navigate('/tasks')}
+        className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/tasks' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
       >
-        <DollarSign size={24} />
-        <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/part-time' && 'opacity-60'}`}>{lang === 'en' ? 'Income' : 'รายได้'}</span>
+        <ListTodo size={24} />
+        <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/tasks' && 'opacity-60'}`}>{lang === 'en' ? 'Tasks' : 'งานทั้งหมด'}</span>
       </button>
       <button 
         onClick={() => navigate('/settings')}

@@ -74,7 +74,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
   const [currentDate, setCurrentDate] = useState(new Date());
   
   const [showTour, setShowTour] = useState(() => {
-    return localStorage.getItem('tourCompleted') !== 'true';
+    return localStorage.getItem('tourCompleted_v1.1') !== 'true';
   });
 
   const t = translations[lang];
@@ -486,7 +486,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
         <ProductTour 
           lang={lang}
           onComplete={() => {
-            localStorage.setItem('tourCompleted', 'true');
+            localStorage.setItem('tourCompleted_v1.1', 'true');
             setShowTour(false);
           }}
           steps={[
@@ -506,15 +506,15 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
             },
             {
               target: '.tour-part-time-btn',
-              title: lang === 'en' ? 'Income Dashboard' : 'สรุปรายได้ (Part-Time)',
-              content: lang === 'en' ? 'Check your total income and customize your financial widgets here.' : 'หน้านี้จะสรุปรายได้ของคุณทั้งหมด และคุณยังสามารถเลือกปรับแต่ง Widget ที่อยากดูได้เองด้วย',
+              title: lang === 'en' ? 'Income Dashboard & Bulk Edit' : 'สรุปรายได้ & จัดการหลายกะ',
+              content: lang === 'en' ? 'Check your income, export to PDF, and try the new Bulk Edit feature here!' : 'หน้านี้จะสรุปรายได้ สามารถ Export เป็น PDF ได้ และตอนนี้รองรับการเลือกแก้กะงานหลายอันพร้อมกัน (Bulk Edit) แล้วนะ!',
               icon: '💰',
               borderRadius: 16
             },
             {
               target: '.tour-settings-btn',
-              title: lang === 'en' ? 'Make it Yours' : 'ปรับแต่งตามใจชอบ',
-              content: lang === 'en' ? 'Change themes, enable dark mode, and set your preferences in Settings.' : 'เปลี่ยนธีมสีน่ารักๆ เปิดโหมดมืด หรือตั้งค่าการแจ้งเตือนได้ที่นี่ เริ่มต้นใช้งานกันเลย!',
+              title: lang === 'en' ? 'Settings & Manage Jobs' : 'ตั้งค่า & จัดการบริษัท',
+              content: lang === 'en' ? 'Change themes, setup your companies/jobs, and configure notifications here!' : 'คุณสามารถเข้ามาจัดการรายชื่อบริษัท (Jobs) ตั้งค่าหักประกันสังคม หรือเปลี่ยนธีมสีได้ที่นี่เลย!',
               icon: '🎨',
               borderRadius: 16
             }

@@ -7,7 +7,7 @@ import {
 } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { 
-  ArrowLeft, CheckCircle2, Clock, Calendar as CalendarIcon, ArrowDown, ArrowUp, CalendarOff
+  ArrowLeft, CheckCircle2, Clock, Calendar as CalendarIcon, ArrowDown, ArrowUp, CalendarOff, ChevronDown, ChevronUp, Banknote
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell 
@@ -22,6 +22,9 @@ import { calcSSO } from '../utils/socialSecurity';
 import SwipeableRow from '../components/common/SwipeableRow';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 
+const COMPANY_COLORS = ['#3B82F6', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6'];
+const COMPANY_BG_CLASSES = ['bg-blue-500', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-violet-500'];
+
 export default function IncomeHistoryPage({ user, lang = 'th' }) {
   const navigate = useNavigate();
   const { tasks: allTasks, isLoading } = useTasks();
@@ -31,6 +34,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
+  const [showBreakdown, setShowBreakdown] = useState(false);
   
   const partTimeTasks = useMemo(() => {
     return allTasks.filter(t => t.isPartTime).sort((a, b) => new Date(b.start) - new Date(a.start));
@@ -73,7 +77,9 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
     chartData, 
     latestDay,
     shiftsList,
-    comparison 
+    comparison,
+    companyChartData,
+    companyStatsMap
   } = useMemo(() => {
     const targetDate = new Date(`${selectedMonth}-01T00:00:00`);
     const daysInMonth = getDaysInMonth(targetDate);
@@ -86,8 +92,10 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
     
     // Lists
     const shiftsInMonth = [];
+    const companyIncomeMap = {};
+    const companyStatsMap = {};
     const dailyIncomeMap = {};
-    for (let i = 1; i <= daysInMonth; i++) dailyIncomeMap[i] = 0;
+    for (let i = 1; i <= daysInMonth; i++) dailyIncomeMap[i] = { income: 0 };
     
     // Map tasks
     partTimeTasks.forEach(t => {
@@ -104,6 +112,14 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
            if (isDone) {
              totalIncome += earnings;
            }
+        } else if (t.isExtraIncome) {
+           earnings = Number(t.amount) || 0;
+           if (isDone) {
+             totalIncome += earnings;
+             const companyName = t.title || 'อื่นๆ';
+             if (!companyIncomeMap[companyName]) companyIncomeMap[companyName] = 0;
+             companyIncomeMap[companyName] += earnings;
+           }
         } else {
            if (isDone) {
              if (t.actualStart && t.actualEnd) {
@@ -114,6 +130,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
              hours = Math.max(0, hours - (Number(t.breakHours) || 0));
              if (t.rateType === RATE_TYPE.DAILY) earnings = Number(t.hourlyRate) || 0;
              else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
+             if (t.isHolidayPay) earnings *= 2;
              
              totalIncome += earnings;
              shiftCount += 1;
@@ -122,14 +139,27 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
              const job = (settings.jobs || []).find(j => j.name === t.title);
              const deductsSSO = (job && job.deductSSO !== undefined) ? job.deductSSO : settings.socialSecurity;
              if (deductsSSO) ssoGross += earnings;
+
+             const companyName = t.title || 'อื่นๆ';
+             if (!companyIncomeMap[companyName]) companyIncomeMap[companyName] = 0;
+             companyIncomeMap[companyName] += earnings;
+
+             if (!companyStatsMap[companyName]) companyStatsMap[companyName] = { shifts: 0, hours: 0 };
+             companyStatsMap[companyName].shifts += 1;
+             companyStatsMap[companyName].hours += hours;
            }
         }
         
         // Add to chart only if done or expense
         if (isDone) {
           const day = taskDate.getDate();
-          if (dailyIncomeMap[day] !== undefined) {
-             dailyIncomeMap[day] += earnings;
+          if (dailyIncomeMap[day]) {
+             dailyIncomeMap[day].income += earnings;
+             if (!t.isExpense) {
+               const cName = t.title || 'อื่นๆ';
+               if (!dailyIncomeMap[day][cName]) dailyIncomeMap[day][cName] = 0;
+               dailyIncomeMap[day][cName] += earnings;
+             }
           }
         }
       }
@@ -143,7 +173,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
     } else {
       // Find last day with income
       for (let i = daysInMonth; i >= 1; i--) {
-        if (dailyIncomeMap[i] !== 0) {
+        if (dailyIncomeMap[i].income !== 0) {
           latestDay = i;
           break;
         }
@@ -154,14 +184,18 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
     // Design spec: "X-axis: day of month (only days with shifts)"
     const chartArr = [];
     for (let i = 1; i <= daysInMonth; i++) {
-      if (dailyIncomeMap[i] !== 0) {
+      if (dailyIncomeMap[i].income !== 0) {
         chartArr.push({
           day: i.toString(),
           fullDay: i,
-          income: dailyIncomeMap[i]
+          ...dailyIncomeMap[i]
         });
       }
     }
+
+    const companyChartData = Object.entries(companyIncomeMap)
+      .map(([name, value]) => ({ name, value }))
+      .sort((a, b) => b.value - a.value);
 
     // Comparison logic
     // We need total income for last month
@@ -187,8 +221,11 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
                let h = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
                if (t.actualStart && t.actualEnd) h = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
                h = Math.max(0, h - (Number(t.breakHours) || 0));
-               if (t.rateType === RATE_TYPE.DAILY) mIncome += Number(t.hourlyRate) || 0;
-               else if (h > 0) mIncome += h * (Number(t.hourlyRate) || 0);
+               let tEarn = 0;
+               if (t.rateType === RATE_TYPE.DAILY) tEarn = Number(t.hourlyRate) || 0;
+               else if (h > 0) tEarn = h * (Number(t.hourlyRate) || 0);
+               if (t.isHolidayPay) tEarn *= 2;
+               mIncome += tEarn;
              }
           }
         }
@@ -217,6 +254,8 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
 
     return {
       summary: { totalGross: Math.round(totalGross), ssoDeduction, netIncome, shiftCount, totalHours },
+      companyChartData,
+      companyStatsMap,
       chartData: chartArr,
       latestDay,
       shiftsList: shiftsInMonth,
@@ -330,14 +369,55 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
             <div className="mb-6 relative z-10"></div>
           )}
           
-          <div className="grid grid-cols-2 gap-3 relative z-10">
-            <div className="bg-white/70 dark:bg-black/30 rounded-[16px] p-4 border border-white/50 dark:border-white/5">
-              <p className="text-primary-600 dark:text-primary-400 text-[12px] font-bold mb-1">กะทำงาน</p>
-              <p className="text-primary-700 dark:text-primary-100 text-[18px] font-[500]">{summary.shiftCount} กะ</p>
+          <div 
+            className="grid grid-cols-2 gap-3 relative z-10 cursor-pointer group"
+            onClick={() => setShowBreakdown(!showBreakdown)}
+          >
+            <div className="bg-white/70 dark:bg-black/30 rounded-[16px] p-4 border border-white/50 dark:border-white/5 flex flex-col transition-all">
+              <div className="flex justify-between items-center mb-1">
+                <p className="text-primary-600 dark:text-primary-400 text-[12px] font-bold">กะทำงาน</p>
+                {companyChartData.length > 1 && (
+                   showBreakdown ? <ChevronUp size={14} className="text-primary-500/50" /> : <ChevronDown size={14} className="text-primary-500/50" />
+                )}
+              </div>
+              <p className="text-primary-700 dark:text-primary-100 text-[18px] font-bold">{summary.shiftCount} กะ</p>
+              {companyChartData.length > 1 && showBreakdown && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }} 
+                  animate={{ height: 'auto', opacity: 1 }}
+                  className="mt-2 space-y-1 border-t border-primary-500/10 pt-2 overflow-hidden"
+                >
+                  {companyChartData.map(c => (
+                    <div key={c.name} className="flex justify-between text-[10px] text-primary-600/80 dark:text-primary-300/80 font-bold">
+                      <span className="truncate pr-1">{c.name}</span>
+                      <span className="shrink-0">{companyStatsMap[c.name]?.shifts || 0}</span>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
             </div>
-            <div className="bg-white/70 dark:bg-black/30 rounded-[16px] p-4 border border-white/50 dark:border-white/5">
-              <p className="text-primary-600 dark:text-primary-400 text-[12px] font-bold mb-1">ชั่วโมงรวม</p>
-              <p className="text-primary-700 dark:text-primary-100 text-[18px] font-[500]">{summary.totalHours.toFixed(1).replace('.0', '')} ชม.</p>
+            <div className="bg-white/70 dark:bg-black/30 rounded-[16px] p-4 border border-white/50 dark:border-white/5 flex flex-col transition-all">
+              <div className="flex justify-between items-center mb-1">
+                <p className="text-primary-600 dark:text-primary-400 text-[12px] font-bold">ชั่วโมงรวม</p>
+                {companyChartData.length > 1 && (
+                   showBreakdown ? <ChevronUp size={14} className="text-primary-500/50" /> : <ChevronDown size={14} className="text-primary-500/50" />
+                )}
+              </div>
+              <p className="text-primary-700 dark:text-primary-100 text-[18px] font-bold">{summary.totalHours.toFixed(1).replace('.0', '')} ชม.</p>
+              {companyChartData.length > 1 && showBreakdown && (
+                <motion.div 
+                  initial={{ height: 0, opacity: 0 }} 
+                  animate={{ height: 'auto', opacity: 1 }}
+                  className="mt-2 space-y-1 border-t border-primary-500/10 pt-2 overflow-hidden"
+                >
+                  {companyChartData.map(c => (
+                    <div key={c.name} className="flex justify-between text-[10px] text-primary-600/80 dark:text-primary-300/80 font-bold">
+                      <span className="truncate pr-1">{c.name}</span>
+                      <span className="shrink-0">{companyStatsMap[c.name]?.hours.toFixed(1).replace('.0', '') || 0}</span>
+                    </div>
+                  ))}
+                </motion.div>
+              )}
             </div>
           </div>
         </div>
@@ -360,16 +440,53 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
                   dy={10} 
                 />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
-                <Bar dataKey="income" radius={[4, 4, 4, 4]} maxBarSize={40}>
-                  {chartData.map((entry, index) => (
-                    <Cell 
-                      key={`cell-${index}`} 
-                      fill={entry.fullDay === summary.latestDay || (chartData.length === 1) ? 'var(--theme-accent)' : '#AFA9EC'} 
+                {companyChartData.length > 1 ? (
+                  companyChartData.map((company, index) => (
+                    <Bar 
+                      key={company.name} 
+                      dataKey={company.name} 
+                      stackId="a" 
+                      fill={COMPANY_COLORS[index % COMPANY_COLORS.length]} 
+                      maxBarSize={40}
+                      radius={index === 0 ? [0, 0, 4, 4] : index === companyChartData.length - 1 ? [4, 4, 0, 0] : [0, 0, 0, 0]} 
                     />
-                  ))}
-                </Bar>
+                  ))
+                ) : (
+                  <Bar dataKey="income" radius={[4, 4, 4, 4]} maxBarSize={40}>
+                    {chartData.map((entry, index) => (
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={entry.fullDay === summary.latestDay || (chartData.length === 1) ? 'var(--theme-accent)' : '#AFA9EC'} 
+                      />
+                    ))}
+                  </Bar>
+                )}
               </BarChart>
             </ResponsiveContainer>
+          </div>
+        )}
+
+        {/* Company Breakdown */}
+        {companyChartData.length > 1 && (
+          <div className="bg-[rgba(255,255,255,0.25)] backdrop-blur-[16px] border border-[rgba(255,255,255,0.35)] rounded-[16px] p-5 mb-6">
+            <h3 className="text-main/80 font-bold text-sm mb-4">สัดส่วนรายได้ตามบริษัท</h3>
+            <div className="space-y-4">
+              {companyChartData.map((company, index) => {
+                const percentage = summary.totalGross > 0 ? (company.value / summary.totalGross) * 100 : 0;
+                const colorClass = COMPANY_BG_CLASSES[index % COMPANY_BG_CLASSES.length];
+                return (
+                  <div key={company.name}>
+                    <div className="flex justify-between text-xs font-bold mb-1.5">
+                      <span className="text-main">{company.name}</span>
+                      <span className="text-main/70">฿{company.value.toLocaleString(undefined, { maximumFractionDigits: 0 })} ({percentage.toFixed(1)}%)</span>
+                    </div>
+                    <div className="w-full bg-main/10 rounded-full h-2.5 overflow-hidden">
+                      <div className={`${colorClass} animate-shimmer h-2.5 rounded-full transition-all duration-1000`} style={{ width: `${percentage}%` }}></div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
           </div>
         )}
 
@@ -423,6 +540,8 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
                 
                 if (task.isExpense) {
                   earnings = -(Number(task.amount) || 0);
+                } else if (task.isExtraIncome) {
+                  earnings = Number(task.amount) || 0;
                 } else {
                   if (task.actualStart && task.actualEnd) {
                     hours = (new Date(task.actualEnd) - new Date(task.actualStart)) / (1000 * 60 * 60);
@@ -432,9 +551,10 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
                   hours = Math.max(0, hours - (Number(task.breakHours) || 0));
                   if (task.rateType === RATE_TYPE.DAILY) {
                     earnings = Number(task.hourlyRate) || 0;
-                  } else {
+                  } else if (hours > 0) {
                     earnings = hours * (Number(task.hourlyRate) || 0);
                   }
+                  if (task.isHolidayPay) earnings *= 2;
                 }
 
                 const taskDate = new Date(task.start);
@@ -449,16 +569,17 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
                     >
                       <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 ${
                         task.isExpense ? 'bg-red-500/10 text-red-500' :
+                        task.isExtraIncome ? 'bg-green-500/10 text-green-500' :
                         isCompleted ? 'bg-green-500/10 text-green-500' : 'bg-primary-500/20 text-primary-500'
                       }`}>
-                        {isCompleted || task.isExpense ? <CheckCircle2 size={20} /> : <Clock size={20} />}
+                        {task.isExtraIncome ? <Banknote size={20} /> : (isCompleted || task.isExpense ? <CheckCircle2 size={20} /> : <Clock size={20} />)}
                       </div>
                       
                       <div className="flex-1 min-w-0">
                         <h4 className="font-bold text-main text-sm truncate">{task.title}</h4>
                         <p className="text-xs text-main/50 mt-1 truncate">
                           {format(taskDate, 'd MMM', { locale: th })}
-                          {!task.isExpense && ` · ${format(taskDate, 'HH:mm')}–${format(new Date(task.end), 'HH:mm')} · ${hours.toFixed(1).replace('.0', '')} ชม.`}
+                          {!task.isExpense && !task.isExtraIncome && ` · ${format(taskDate, 'HH:mm')}–${format(new Date(task.end), 'HH:mm')} · ${hours.toFixed(1).replace('.0', '')} ชม.`}
                         </p>
                       </div>
 

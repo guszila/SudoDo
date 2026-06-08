@@ -63,14 +63,21 @@ export default function SocialSecurityPage({ lang }) {
       const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       
       let taskEarned = 0;
-      let hours;
-      if (t.actualStart && t.actualEnd) {
-        hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
+      if (t.isExtraIncome) {
+        taskEarned = Number(t.amount) || 0;
       } else {
-        hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
+        let hours;
+        if (t.actualStart && t.actualEnd) {
+          hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
+        } else {
+          hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
+        }
+        if (t.breakHours) hours -= Number(t.breakHours);
+        hours = Math.max(0, hours);
+        if (t.rateType === RATE_TYPE.DAILY) taskEarned = rate;
+        else if (hours > 0) taskEarned = hours * rate;
+        if (t.isHolidayPay) taskEarned *= 2;
       }
-      if (t.rateType === RATE_TYPE.DAILY) taskEarned = rate;
-      else if (hours > 0) taskEarned = hours * rate;
       
       monthlyGross[monthKey] = (monthlyGross[monthKey] || 0) + taskEarned;
       if (deductsSSO) {

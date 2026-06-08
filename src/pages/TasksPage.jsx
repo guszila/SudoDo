@@ -213,12 +213,6 @@ export default function TasksPage({ user, lang = 'en' }) {
               <span className="hidden md:inline">เลือก</span>
               <CheckCircle2 size={20} className="md:hidden" />
             </button>
-            <button 
-              onClick={() => { setEditingTask(null); setIsModalOpen(true); }}
-              className="tour-add-btn p-2 md:px-4 md:py-2 bg-primary-500 text-white rounded-full flex items-center gap-2 hover:bg-primary-600 transition-colors shadow-md active:scale-95"
-            >
-              <Plus size={20} /> <span className="hidden md:inline font-bold">{tCommon.addTask}</span>
-            </button>
           </div>
         )}
       </div>

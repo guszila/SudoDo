@@ -98,6 +98,12 @@ export default function TodayPage({ user }) {
                if (monthlyIncome[key] !== undefined) monthlyIncome[key].income += amt;
                if (fullMonthlyIncome[key] !== undefined) fullMonthlyIncome[key].income += amt;
             }
+          } else if (t.isExtraIncome) {
+            if (isDone || (t.actualStart && t.actualEnd)) {
+               const amt = Number(t.amount) || 0;
+               if (monthlyIncome[key] !== undefined) monthlyIncome[key].income += amt;
+               if (fullMonthlyIncome[key] !== undefined) fullMonthlyIncome[key].income += amt;
+            }
           } else {
             let earnings = 0;
             let hours;
@@ -110,6 +116,7 @@ export default function TodayPage({ user }) {
               hours = Math.max(0, hours - (Number(t.breakHours) || 0));
               if (t.rateType === RATE_TYPE.DAILY) earnings = Number(t.hourlyRate) || 0;
               else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
+              if (t.isHolidayPay) earnings *= 2;
               
               if (monthlyIncome[key] !== undefined) monthlyIncome[key].income += earnings;
               if (fullMonthlyIncome[key] !== undefined) fullMonthlyIncome[key].income += earnings;
@@ -121,14 +128,17 @@ export default function TodayPage({ user }) {
             let earnings = 0;
             if (t.isExpense) {
                 earnings = -(Number(t.amount) || 0);
+            } else if (t.isExtraIncome) {
+                earnings = Number(t.amount) || 0;
             } else {
                 let hours = (t.end - t.start) / (1000 * 60 * 60);
                 hours = Math.max(0, hours - (Number(t.breakHours) || 0));
                 if (t.rateType === RATE_TYPE.DAILY) earnings = Number(t.hourlyRate) || 0;
                 else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
+                if (t.isHolidayPay) earnings *= 2;
             }
             income += earnings;
-            if (!t.isExpense) {
+            if (!t.isExpense && !t.isExtraIncome) {
               const job = (settings.jobs || []).find(j => j.name === t.title);
               const deductsSSO = (job && job.deductSSO !== undefined) ? job.deductSSO : settings.socialSecurity;
               if (deductsSSO) ssoIncome += earnings;
@@ -182,7 +192,7 @@ export default function TodayPage({ user }) {
 
     let todayNetIncome = income;
     let todaySSODeduction = 0;
-    if (ssoIncome > 0 && settings.showInIncome) {
+    if (ssoIncome > 0) {
       const sso = calcSSO(ssoIncome);
       todaySSODeduction = sso.deduction;
       todayNetIncome = income - todaySSODeduction;

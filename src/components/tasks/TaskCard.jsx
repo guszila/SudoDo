@@ -121,8 +121,9 @@ export default function TaskCard({
           )}
 
           {task.isPartTime && (
-            <span className="px-2 py-0.5 bg-primary-500/10 text-primary-600 dark:text-primary-400 rounded-md font-bold">
+            <span className="px-2 py-0.5 bg-primary-500/10 text-primary-600 dark:text-primary-400 rounded-md font-bold flex items-center gap-1">
               ฿{task.hourlyRate}{task.rateType === RATE_TYPE.DAILY ? '/วัน' : '/ชม.'}
+              {task.isHolidayPay && <span className="bg-yellow-500/20 text-yellow-600 dark:text-yellow-400 px-1 rounded text-[10px]">x2</span>}
             </span>
           )}
           

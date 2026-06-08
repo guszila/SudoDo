@@ -1,9 +1,9 @@
 import React, { useState, useMemo, useRef } from 'react';
 
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
-import { format } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { DollarSign, Clock, CheckCircle2, Plus, ArrowLeft, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, PieChart, GripHorizontal, Flame } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle2, Check, Plus, ArrowLeft, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, PieChart, GripHorizontal, Flame, ChevronRight, Banknote, Receipt } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -52,14 +52,29 @@ export default function PartTimePage({ user, lang = 'en' }) {
   const timerRef = useRef(null);
   const [pressingId, setPressingId] = useState(null);
 
+  // Bulk Edit States
+  const [isBulkEditMode, setIsBulkEditMode] = useState(false);
+  const [selectedShifts, setSelectedShifts] = useState([]);
+  const [showBulkEditForm, setShowBulkEditForm] = useState(false);
+  const [bulkEditFormData, setBulkEditFormData] = useState({
+    jobName: '',
+    startTime: '',
+    endTime: '',
+    breakHours: ''
+  });
+  const previousShiftsState = useRef(null);
+
   const [achievementToShow, setAchievementToShow] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
-  const [showAddExpenseForm, setShowAddExpenseForm] = useState(false);
+  const [showAddExtraForm, setShowAddExtraForm] = useState(false);
+  const [showExtraActionSheet, setShowExtraActionSheet] = useState(false);
+  const [extraFormType, setExtraFormType] = useState('expense'); // 'income' | 'expense'
   const [formData, setFormData] = useState({
     title: '',
     note: '',
     hourlyRate: DEFAULT_TASK_VALUES.HOURLY_RATE,
     rateType: RATE_TYPE.HOURLY,
+    isHolidayPay: false,
     breakHours: 0,
     startDate: new Date().toISOString().slice(0, 10),
     endDate: new Date().toISOString().slice(0, 10),
@@ -75,6 +90,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
   const [showWidgetSelector, setShowWidgetSelector] = useState(false);
   
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
+  const [viewMode, setViewMode] = useState('list'); // 'list' | 'calendar'
+  const [selectedDate, setSelectedDate] = useState(null);
   
   const [incomeGoal, setIncomeGoal] = useState(() => {
     const saved = localStorage.getItem('income_goal');
@@ -91,11 +108,10 @@ export default function PartTimePage({ user, lang = 'en' }) {
     localStorage.setItem('income_goal', JSON.stringify(incomeGoal));
   }, [incomeGoal]);
 
-  const [expenseFormData, setExpenseFormData] = useState({
+  const [extraFormData, setExtraFormData] = useState({
     title: '',
     amount: '',
     date: new Date().toISOString().slice(0, 10),
-    month: new Date().toISOString().slice(0, 7),
     month: new Date().toISOString().slice(0, 7),
     isPercentage: false,
   });
@@ -111,6 +127,82 @@ export default function PartTimePage({ user, lang = 'en' }) {
   ];
 
 
+
+  const handleBulkEditSave = async () => {
+    if (selectedShifts.length === 0) return;
+    
+    const oldShifts = tasks.filter(t => selectedShifts.includes(t.id));
+    previousShiftsState.current = oldShifts;
+
+    const updates = [];
+    for (const task of oldShifts) {
+      let newTask = { ...task };
+      if (bulkEditFormData.jobName) {
+        const job = settings.jobs?.find(j => j.name === bulkEditFormData.jobName);
+        if (job) {
+          newTask.title = job.name;
+          newTask.hourlyRate = job.rate || newTask.hourlyRate;
+          newTask.rateType = job.rateType || newTask.rateType;
+          newTask.deductSSO = job.deductSSO;
+        }
+      }
+      if (bulkEditFormData.startTime) {
+        newTask.startTime = bulkEditFormData.startTime;
+        const d = new Date(newTask.start);
+        const [h, m] = bulkEditFormData.startTime.split(':');
+        d.setHours(h, m, 0, 0);
+        newTask.start = d.toISOString();
+      }
+      if (bulkEditFormData.endTime) {
+        newTask.endTime = bulkEditFormData.endTime;
+        const d = new Date(newTask.end);
+        const [h, m] = bulkEditFormData.endTime.split(':');
+        d.setHours(h, m, 0, 0);
+        newTask.end = d.toISOString();
+      }
+      if (bulkEditFormData.breakHours !== '') {
+        newTask.breakHours = bulkEditFormData.breakHours;
+      }
+      
+      updates.push(newTask);
+    }
+    
+    try {
+      for (const t of updates) {
+        await saveTask('EDIT', t, user?.uid);
+      }
+      setShowBulkEditForm(false);
+      setIsBulkEditMode(false);
+      setSelectedShifts([]);
+      
+      showToast(`อัปเดตกะงาน ${updates.length} รายการแล้ว`, {
+        duration: 5000,
+        onUndo: async () => {
+          for (const t of previousShiftsState.current) {
+             await saveTask('EDIT', t, user?.uid);
+          }
+          showToast('ยกเลิกการเปลี่ยนแปลงแล้ว');
+        }
+      });
+    } catch (e) {
+      console.error(e);
+      showToast('เกิดข้อผิดพลาดในการอัปเดตกะงาน');
+    }
+  };
+
+  const calendarDays = useMemo(() => {
+    if (viewMode !== 'calendar') return [];
+    try {
+      const targetDate = parseISO(`${selectedMonth}-01T00:00:00`);
+      const monthStart = startOfMonth(targetDate);
+      const monthEnd = endOfMonth(monthStart);
+      const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
+      const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+      return eachDayOfInterval({ start: startDate, end: endDate });
+    } catch(e) {
+      return [];
+    }
+  }, [selectedMonth, viewMode]);
 
   // Derived state
   const { upcomingTasks, historyTasks } = useMemo(() => {
@@ -134,8 +226,20 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
   const groupedTasks = useMemo(() => {
     const groups = {};
-    const sourceTasks = activeTab === 'upcoming' ? upcomingTasks : historyTasks;
-    sourceTasks.forEach(task => {
+    const sourceTasks = viewMode === 'calendar' ? [...upcomingTasks, ...historyTasks] : (activeTab === 'upcoming' ? upcomingTasks : historyTasks);
+    
+    let filteredTasks = sourceTasks;
+    if (viewMode === 'calendar' && selectedDate) {
+      filteredTasks = sourceTasks.filter(t => {
+        try {
+          return format(new Date(t.start), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
+        } catch(e) { return false; }
+      });
+    } else if (viewMode === 'calendar' && !selectedDate) {
+      filteredTasks = [];
+    }
+
+    filteredTasks.forEach(task => {
       const job = (settings.jobs || []).find(j => j.name === task.title);
       const title = job ? job.name : (task.title || 'อื่นๆ');
       if (!groups[title]) groups[title] = { job: job, tasks: [] };
@@ -166,12 +270,17 @@ export default function PartTimePage({ user, lang = 'en' }) {
       if (!breakdown[monthKey]) breakdown[monthKey] = {};
       
       const jobTitle = job ? job.name : (t.title || 'อื่นๆ');
-      if (!breakdown[monthKey][jobTitle]) breakdown[monthKey][jobTitle] = { job, total: 0 };
+      if (!breakdown[monthKey][jobTitle]) breakdown[monthKey][jobTitle] = { job, total: 0, deductsSSO };
       
       let taskEarned = 0;
       let hours = 0;
       
-      if (isCompleted) {
+      if (t.isExtraIncome) {
+        taskEarned = Number(t.amount) || 0;
+        earned[monthKey] = (earned[monthKey] || 0) + taskEarned;
+        // We assume extra income typically doesn't deduct SSO, but if it does based on company setting, we handle it.
+        if (deductsSSO) earnedSSO[monthKey] = (earnedSSO[monthKey] || 0) + taskEarned;
+      } else if (isCompleted) {
         if (t.actualStart && t.actualEnd) {
           hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
         } else {
@@ -180,6 +289,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         hours = Math.max(0, hours - (Number(t.breakHours) || 0));
         if (t.rateType === RATE_TYPE.DAILY) taskEarned = rate;
         else if (hours > 0) taskEarned = hours * rate;
+        if (t.isHolidayPay) taskEarned *= 2;
         
         earned[monthKey] = (earned[monthKey] || 0) + taskEarned;
         if (deductsSSO) earnedSSO[monthKey] = (earnedSSO[monthKey] || 0) + taskEarned;
@@ -188,6 +298,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         hours = Math.max(0, hours - (Number(t.breakHours) || 0));
         if (t.rateType === RATE_TYPE.DAILY) taskEarned = rate;
         else if (hours > 0) taskEarned = hours * rate;
+        if (t.isHolidayPay) taskEarned *= 2;
         
         pending[monthKey] = (pending[monthKey] || 0) + taskEarned;
         if (deductsSSO) pendingSSO[monthKey] = (pendingSSO[monthKey] || 0) + taskEarned;
@@ -225,7 +336,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
     });
 
     const ssoGross = earnedSSO + pendingSSO;
-    if (ssoGross > 0 && settings.showInIncome) {
+    if (ssoGross > 0) {
        const { deduction } = calcSSO(ssoGross);
        ssoDeducted = deduction;
     }
@@ -249,7 +360,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
     let totalHours = 0;
     
     tasks.forEach(t => {
-      if (t.isExpense) return;
+      if (t.isExpense || t.isExtraIncome) return;
       shiftCount++;
       let hours = 0;
       if (t.actualStart && t.actualEnd) {
@@ -277,7 +388,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
     const completedWorkDates = new Set();
     tasks.forEach(t => {
       const isDone = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
-      if (t.isPartTime && !t.isExpense && isDone) {
+      if (t.isPartTime && !t.isExpense && !t.isExtraIncome && isDone) {
          completedWorkDates.add(format(new Date(t.start), 'yyyy-MM-dd'));
       }
     });
@@ -495,6 +606,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                       <div className="flex items-center gap-1.5 opacity-90">
                         <span>{b.job ? b.job.emoji : '🏢'}</span>
                         <span className="font-medium text-main">{b.name}</span>
+                        {b.deductsSSO && <span className="text-[9px] text-red-500 bg-red-500/10 px-1 py-0.5 rounded font-bold ml-1">หักประกันสังคม</span>}
                       </div>
                       <span className={`font-bold ${c.text}`}>฿{b.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
@@ -623,6 +735,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
           priority: TASK_PRIORITY.MEDIUM,
           isPartTime: true,
           hourlyRate: formData.hourlyRate,
+          isHolidayPay: formData.isHolidayPay,
           rateType: formData.rateType,
           breakHours: (formData.rateType === RATE_TYPE.HOURLY) ? (Number(formData.breakHours) || 0) : 0,
           actualStart: null,
@@ -647,43 +760,45 @@ export default function PartTimePage({ user, lang = 'en' }) {
     setShowAddForm(false);
     setIsMutating(false);
   };
-  const handleAddExpense = async (e) => {
+  const handleAddExtraItem = async (e) => {
     e.preventDefault();
     setIsMutating(true);
     
-    let expenseDateStr = `${expenseFormData.month}-01`;
-    const startDateTime = new Date(`${expenseDateStr}T00:00:00`).toISOString();
+    let extraDateStr = `${extraFormData.month}-01`;
+    const startDateTime = new Date(`${extraDateStr}T00:00:00`).toISOString();
     
-    const expenseTask = {
-      title: expenseFormData.title,
+    const extraTask = {
+      title: extraFormData.title,
       description: '',
       start: startDateTime,
       end: startDateTime,
       status: TASK_STATUS.DONE,
       priority: TASK_PRIORITY.MEDIUM,
       isPartTime: true,
-      isExpense: true,
-      amount: expenseFormData.amount,
+      isExpense: extraFormType === 'expense',
+      isExtraIncome: extraFormType === 'income',
+      amount: extraFormData.amount,
       isPercentage: false
     };
     
-    if (expenseFormData.id) {
-      await saveTask('EDIT', { ...expenseTask, id: expenseFormData.id }, user.uid);
+    if (extraFormData.id) {
+      await saveTask('EDIT', { ...extraTask, id: extraFormData.id }, user.uid);
     } else {
-      await saveTask('ADD', expenseTask, user.uid);
+      await saveTask('ADD', extraTask, user.uid);
     }
-    setShowAddExpenseForm(false);
-    setExpenseFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10), month: new Date().toISOString().slice(0, 7), isPercentage: false });
+    setShowAddExtraForm(false);
+    setExtraFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10), month: new Date().toISOString().slice(0, 7), isPercentage: false });
     setIsMutating(false);
   };
 
 
-  const handleEditExpenseClick = (exp) => {
-    const startD = new Date(exp.start);
-    setExpenseFormData({
-      id: exp.id,
-      title: exp.title,
-      amount: exp.amount,
+  const handleEditExtraItemClick = (item) => {
+    const startD = new Date(item.start);
+    setExtraFormType(item.isExtraIncome ? 'income' : 'expense');
+    setExtraFormData({
+      id: item.id,
+      title: item.title,
+      amount: item.amount,
       date: isNaN(startD.getTime()) ? new Date().toISOString().slice(0, 10) : startD.toISOString().slice(0, 10),
       month: isNaN(startD.getTime()) ? new Date().toISOString().slice(0, 7) : startD.toISOString().slice(0, 7),
       isPercentage: false
@@ -860,36 +975,49 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
       {!isEditWidgetMode && <div className="mb-8" />}
 
-      <div className="flex flex-col md:flex-row justify-between items-center mb-5 px-2 gap-3">
-        <div className="flex gap-2 w-full md:w-auto">
-          <button 
-            onClick={() => setActiveTab('upcoming')}
-            className={`flex-1 md:flex-none flex justify-center items-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all text-sm whitespace-nowrap ${activeTab === 'upcoming' ? 'bg-primary-500 text-white shadow-md' : 'bg-white/20 text-main hover:bg-white/40'}`}
-          >
-            <CalendarDays size={16} /> {t.upcoming}
-          </button>
+      {!isEditWidgetMode && (
+        <div className="mb-6 px-2">
           <button 
             onClick={() => navigate('/income/history')}
-            className="flex-1 md:flex-none flex justify-center items-center gap-2 px-5 py-2.5 rounded-full font-bold transition-all text-sm whitespace-nowrap bg-primary-500 text-white shadow-md hover:bg-primary-600 active:scale-95"
+            className="w-full bg-gradient-to-r from-primary-500/10 to-transparent hover:from-primary-500/20 text-main p-4 rounded-2xl flex items-center justify-between transition-colors border border-primary-500/20 relative overflow-hidden group"
           >
-            <History size={16} /> {t.history}
+            <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-primary-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
+            <div className="flex items-center gap-4 relative z-10">
+              <div className="p-3 bg-primary-500 text-white rounded-xl shadow-md">
+                 <History size={22} />
+              </div>
+              <div className="text-left">
+                 <p className="font-bold text-base md:text-lg text-main m-0">{t.history}</p>
+                 <p className="text-xs md:text-sm opacity-60 m-0">ดูประวัติรายได้ กราฟ และสถิติทั้งหมด</p>
+              </div>
+            </div>
+            <div className="text-primary-500 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
+              <ChevronRight size={24} />
+            </div>
           </button>
         </div>
+      )}
+
+      <div className="flex flex-col md:flex-row justify-end items-center mb-5 px-2 gap-3">
         <div className="flex gap-2 w-full md:w-auto">
             <button 
               onClick={() => { 
-                if (!showAddExpenseForm) {
-                  setExpenseFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10), month: new Date().toISOString().slice(0, 7), isPercentage: false });
+                if (!showAddExtraForm) {
+                  setExtraFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10), month: new Date().toISOString().slice(0, 7), isPercentage: false });
                 }
-                setShowAddExpenseForm(!showAddExpenseForm); 
+                if (showAddExtraForm) {
+                  setShowAddExtraForm(false);
+                } else {
+                  setShowExtraActionSheet(true);
+                }
                 setShowAddForm(false); 
               }}
-              className={`flex-1 md:flex-none justify-center items-center gap-2 flex px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-sm ${showAddExpenseForm ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-white/20 text-red-500 hover:bg-red-500/10'}`}
+              className={`flex-1 md:flex-none justify-center items-center gap-2 flex px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-sm ${showAddExtraForm ? (extraFormType === 'income' ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-red-500 text-white hover:bg-red-600') : 'bg-white/20 text-amber-500 dark:text-amber-400 hover:bg-amber-500/10'}`}
             >
-              <Plus size={16} /> {showAddExpenseForm ? t.close : t.addExpense}
+              <Plus size={16} /> {showAddExtraForm ? t.close : 'เพิ่มรายการอื่น'}
             </button>
             <button 
-              onClick={() => { setShowAddForm(!showAddForm); setShowAddExpenseForm(false); }}
+              onClick={() => { setShowAddForm(!showAddForm); setShowAddExtraForm(false); }}
               className={`flex-1 md:flex-none justify-center items-center gap-2 flex px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-sm ${showAddForm ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-white/20 text-green-600 dark:text-green-400 hover:bg-green-500/10'}`}
             >
               <Plus size={16} /> {showAddForm ? t.close : t.addShift}
@@ -897,21 +1025,54 @@ export default function PartTimePage({ user, lang = 'en' }) {
         </div>
       </div>
 
+      <div className="mb-5 px-2">
+        <div className="flex flex-1 bg-black/5 dark:bg-white/5 rounded-full p-1.5 items-center justify-between">
+          <span className="text-sm font-bold text-main px-4 opacity-70">เวรล่วงหน้า</span>
+          <div className="flex gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-full">
+            <button
+              onClick={() => { 
+                setIsBulkEditMode(!isBulkEditMode);
+                setSelectedShifts([]);
+              }}
+              className={`px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold ${isBulkEditMode ? 'bg-primary-500 text-white shadow-md scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
+            >
+              {isBulkEditMode ? 'ยกเลิกเลือก' : 'เลือก'}
+            </button>
+            <button
+              onClick={() => setViewMode('list')}
+              className={`px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold ${viewMode === 'list' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300 scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
+            >
+              <List size={14} /> ลิสต์
+            </button>
+            <button
+              onClick={() => setViewMode('calendar')}
+              className={`px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold ${viewMode === 'calendar' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300 scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
+            >
+              <CalendarDays size={14} /> ปฏิทิน
+            </button>
+          </div>
+        </div>
+      </div>
+
       <AnimatePresence>
-        {showAddExpenseForm && (
+        {showAddExtraForm && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-6">
-            <form onSubmit={handleAddExpense} className="liquid-glass-card p-6 space-y-5 border-2 border-red-500/30 bg-red-500/5">
-              <h3 className="font-bold text-main">{t.addExpenseTitle}</h3>
+            <form onSubmit={handleAddExtraItem} className={`liquid-glass-card p-6 space-y-5 border-2 ${extraFormType === 'income' ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
+              <h3 className="font-bold text-main">
+                {extraFormType === 'income' ? 'เพิ่มรายได้พิเศษ (ทิป, ค่าคอม)' : t.addExpenseTitle}
+              </h3>
               
               <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                 <div>
-                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.expenseTitle}</label>
-                  <input type="text" value={expenseFormData.title} onChange={e => setExpenseFormData({...expenseFormData, title: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder={t.expenseTitlePlaceholder} />
+                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
+                    {extraFormType === 'income' ? 'ชื่อรายการ' : t.expenseTitle}
+                  </label>
+                  <input type="text" value={extraFormData.title} onChange={e => setExtraFormData({...extraFormData, title: e.target.value})} required className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder={extraFormType === 'income' ? 'เช่น ทิป, ค่าคอมมิชชัน' : t.expenseTitlePlaceholder} />
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.amount}</label>
                   <div className="relative">
-                    <input type="number" step="any" value={expenseFormData.amount} onChange={e => setExpenseFormData({...expenseFormData, amount: e.target.value})} required min="0" className="w-full pl-4 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                    <input type="number" step="any" value={extraFormData.amount} onChange={e => setExtraFormData({...extraFormData, amount: e.target.value})} required min="0" className={`w-full pl-4 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} />
                     <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold opacity-50">฿</span>
                   </div>
                 </div>
@@ -919,13 +1080,13 @@ export default function PartTimePage({ user, lang = 'en' }) {
                   <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
                     ประจำเดือน
                   </label>
-                  <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="month" value={expenseFormData.month} onChange={e => setExpenseFormData({...expenseFormData, month: e.target.value})} required className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-red-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                  <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="month" value={extraFormData.month} onChange={e => setExtraFormData({...extraFormData, month: e.target.value})} required className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} />
                 </div>
               </div>
               
               <div className="pt-2">
-                <button type="submit" disabled={isMutating || isTasksLoading} className="w-full py-4 bg-red-500 text-white font-bold rounded-xl hover:bg-red-600 transition-colors shadow-lg active:scale-[0.98]">
-                  {t.createExpense}
+                <button type="submit" disabled={isMutating || isTasksLoading} className={`w-full py-4 text-white font-bold rounded-xl transition-colors shadow-lg active:scale-[0.98] ${extraFormType === 'income' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}>
+                  {extraFormType === 'income' ? 'บันทึกรายได้พิเศษ' : t.createExpense}
                 </button>
               </div>
             </form>
@@ -953,7 +1114,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                         <span className="text-xs font-bold text-main whitespace-nowrap truncate w-full px-1">{job.name}</span>
                       </button>
                     )})}
-                    <button type="button" onClick={() => navigate('/settings')} className="flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 border-dashed border-main/20 bg-transparent hover:bg-black/5 dark:hover:bg-white/5 transition-all snap-start shadow-sm">
+                    <button type="button" onClick={() => navigate('/settings', { state: { openSheet: 'manageJobs' } })} className="flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 border-dashed border-main/20 bg-transparent hover:bg-black/5 dark:hover:bg-white/5 transition-all snap-start shadow-sm">
                       <Plus className="text-main opacity-50 mb-1" size={24} />
                       <span className="text-xs font-bold text-main opacity-50">จัดการบริษัท</span>
                     </button>
@@ -979,6 +1140,17 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 </div>
               </div>
 
+              <div className="flex items-center mt-2">
+                <input 
+                  type="checkbox" 
+                  id="isHolidayPay"
+                  checked={formData.isHolidayPay} 
+                  onChange={e => setFormData({...formData, isHolidayPay: e.target.checked})}
+                  className="w-5 h-5 rounded text-primary-500 focus:ring-primary-500"
+                />
+                <label htmlFor="isHolidayPay" className="ml-2 text-sm font-bold text-main cursor-pointer">ทำในวันหยุด (ค่าแรง x2)</label>
+              </div>
+
               <div>
                 <label className="block text-sm font-medium text-main mb-1.5 opacity-80">หมายเหตุ (เช่น ทำกะแทนใคร)</label>
                 <input type="text" value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="ตัวอย่าง: ทำแทนคุณ A" />
@@ -992,7 +1164,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 const canTakeBreak = true;
                 const breakHrs = canTakeBreak ? (Number(formData.breakHours) || 0) : 0;
                 const netHrs = Math.max(0, grossHrs - breakHrs);
-                const estPay = formData.rateType === 'daily' ? (Number(formData.hourlyRate) || 0) : (netHrs * (Number(formData.hourlyRate) || 0));
+                let estPay = formData.rateType === 'daily' ? (Number(formData.hourlyRate) || 0) : (netHrs * (Number(formData.hourlyRate) || 0));
+                if (formData.isHolidayPay) estPay *= 2;
                 return (
                   <div>
                     <div className="flex items-center gap-2 mb-1.5">
@@ -1087,6 +1260,65 @@ export default function PartTimePage({ user, lang = 'en' }) {
           </div>
         )}
 
+        {viewMode === 'calendar' && (
+          <div className="liquid-glass-card p-4 mb-6 relative">
+            <div className="grid grid-cols-7 gap-1 mb-2">
+              {['จ.', 'อ.', 'พ.', 'พฤ.', 'ศ.', 'ส.', 'อา.'].map(day => (
+                <div key={day} className="text-center text-xs font-bold text-main opacity-50 py-1">
+                  {day}
+                </div>
+              ))}
+            </div>
+            <div className="grid grid-cols-7 gap-1 md:gap-2">
+              {calendarDays.map((day, i) => {
+                const dayStr = format(day, 'yyyy-MM-dd');
+                const isCurrentMonth = format(day, 'yyyy-MM') === selectedMonth;
+                const isToday = isSameDay(day, new Date());
+                const isSelected = selectedDate && isSameDay(day, selectedDate);
+                
+                const allShifts = [...upcomingTasks, ...historyTasks];
+                const dayTasks = allShifts.filter(t => {
+                  try { return format(new Date(t.start), 'yyyy-MM-dd') === dayStr && !t.isExpense; } catch(e) { return false; }
+                });
+                
+                return (
+                  <button
+                    key={dayStr}
+                    onClick={() => setSelectedDate(day)}
+                    className={`
+                      aspect-square rounded-xl p-1 flex flex-col items-center justify-start transition-all border overflow-hidden
+                      ${!isCurrentMonth ? 'opacity-30' : 'opacity-100'}
+                      ${isSelected ? 'border-primary-500 bg-primary-500/10' : 'border-transparent hover:bg-black/5 dark:hover:bg-white/5'}
+                      ${isToday && !isSelected ? 'border-main/20 bg-main/5' : ''}
+                    `}
+                  >
+                    <span className={`text-xs md:text-sm font-bold mt-0.5 md:mt-1 ${isToday ? 'text-primary-500' : 'text-main'}`}>
+                      {format(day, 'd')}
+                    </span>
+                    <div className="flex gap-0.5 mt-auto mb-1 flex-wrap justify-center w-full px-0.5">
+                      {dayTasks.slice(0, 4).map((t, idx) => {
+                        const job = (settings.jobs || []).find(j => j.name === t.title);
+                        const colorMap = { blue: 'bg-blue-500', red: 'bg-red-500', green: 'bg-green-500', amber: 'bg-amber-500', purple: 'bg-purple-500', pink: 'bg-pink-500', primary: 'bg-primary-500' };
+                        const dotColor = colorMap[job ? job.color : 'primary'] || colorMap.primary;
+                        return (
+                          <div key={idx} className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${dotColor}`} />
+                        );
+                      })}
+                      {dayTasks.length > 4 && <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-main/50" />}
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+          </div>
+        )}
+
+        {viewMode === 'calendar' && selectedDate && groupedTasks.length === 0 && (
+          <div className="text-center py-8 text-main opacity-60 font-medium">
+            ไม่มีกะงานในวันที่ {format(selectedDate, 'd MMM', { locale: th })}
+          </div>
+        )}
+
         {groupedTasks.map(([groupName, groupData]) => (
           <div key={groupName} className="mb-6">
             <h4 className="font-bold text-main text-lg mb-3 flex items-center gap-2 opacity-90 pl-1">
@@ -1097,9 +1329,9 @@ export default function PartTimePage({ user, lang = 'en' }) {
               const isCompleted = task.status === TASK_STATUS.DONE || (task.actualStart && task.actualEnd);
               const jobColor = groupData.job ? groupData.job.color : 'primary';
               
-              if (task.isExpense) {
+              if (task.isExpense || task.isExtraIncome) {
                 let expenseAmount = 0;
-                if (task.isPercentage) {
+                if (task.isPercentage && task.isExpense) {
                   const d = new Date(task.start);
                   const monthKey = !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : null;
                   const monthEarned = monthKey ? (monthlyGross.earned[monthKey] || 0) : 0;
@@ -1118,22 +1350,29 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     onPointerCancel={handlePointerUp}
                     onClick={() => {
                        if (!timerRef.current) return; 
-                       handleEditExpenseClick(task);
+                       handleEditExtraItemClick(task);
                     }}
                     animate={{ scale: pressingId === task.id ? 0.98 : 1 }}
-                    className="liquid-glass-card p-5 flex flex-col md:flex-row gap-5 items-start md:items-center relative group hover:border-red-500/30 transition-colors border-l-4 border-l-red-500 cursor-pointer touch-none"
+                    className={`liquid-glass-card p-5 flex flex-col md:flex-row gap-5 items-start md:items-center relative group transition-colors border-l-4 cursor-pointer touch-none ${task.isExtraIncome ? 'hover:border-green-500/30 border-l-green-500' : 'hover:border-red-500/30 border-l-red-500'}`}
                   >
-                    <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
-                      <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full transition-all">
+                    {isBulkEditMode && (
+                      <div className="absolute top-4 left-4 z-10">
+                        <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${selectedShifts.includes(task.id) ? 'bg-primary-500 border-primary-500' : 'border-main/30'}`}>
+                          {selectedShifts.includes(task.id) && <Check size={16} className="text-white" />}
+                        </div>
+                      </div>
+                    )}
+                    <div className={`absolute top-4 right-4 flex gap-1 transition-opacity ${isBulkEditMode ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
+                      <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }} className={`p-2 rounded-full transition-all ${task.isExtraIncome ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-500/20' : 'text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20'}`}>
                         <Trash2 size={16} />
                       </button>
                     </div>
                     
-                    <div className="flex-1 w-full">
+                    <div className={`flex-1 w-full ${isBulkEditMode ? 'pl-8' : ''}`}>
                       <div className="flex items-center gap-3 mb-2">
                         <h3 className="font-bold text-main text-lg m-0">{task.title}</h3>
-                        <span className="px-2 py-1 bg-red-500/10 text-red-600 dark:text-red-400 text-xs rounded-lg font-bold border border-red-500/20">
-                          {t.expenses}
+                        <span className={`px-2 py-1 text-xs rounded-lg font-bold border ${task.isExtraIncome ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'}`}>
+                          {task.isExtraIncome ? 'รายได้พิเศษ' : t.expenses}
                         </span>
                       </div>
                       <div className="text-sm text-main opacity-80 space-y-1.5 bg-white/30 dark:bg-black/20 p-3 rounded-xl border border-white/40 dark:border-white/5 w-fit">
@@ -1142,11 +1381,13 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     </div>
 
                     <div className="flex flex-row md:flex-col items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
-                      <div className="text-right flex-1 md:flex-none p-3 bg-red-500/10 rounded-xl border border-red-500/20">
-                        <p className="text-sm text-red-600 dark:text-red-400 font-bold mb-1 flex items-center justify-end gap-1">
-                          {task.isPercentage ? `${task.amount}% (${t.expenses})` : t.expenses}
+                      <div className={`text-right flex-1 md:flex-none p-3 rounded-xl border ${task.isExtraIncome ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
+                        <p className={`text-sm font-bold mb-1 flex items-center justify-end gap-1 ${task.isExtraIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {task.isExtraIncome ? 'รายได้พิเศษ' : (task.isPercentage ? `${task.amount}% (${t.expenses})` : t.expenses)}
                         </p>
-                        <p className="text-2xl font-bold text-red-600 dark:text-red-400">-฿{expenseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+                        <p className={`text-2xl font-bold ${task.isExtraIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
+                          {task.isExtraIncome ? '+' : '-'}฿{expenseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </p>
                       </div>
                     </div>
                   </motion.div>
@@ -1165,11 +1406,12 @@ export default function PartTimePage({ user, lang = 'en' }) {
               
               hours = Math.max(0, hours - (Number(task.breakHours) || 0));
               
-              if (task.rateType === RATE_TYPE.DAILY) {
+               if (task.rateType === RATE_TYPE.DAILY) {
                  earnings = Number(task.hourlyRate) || 0;
-              } else {
+               } else if (hours > 0) {
                  earnings = hours * (Number(task.hourlyRate) || 0);
-              }
+               }
+               if (task.isHolidayPay) earnings *= 2;
 
               const today = new Date();
               today.setHours(0, 0, 0, 0);
@@ -1188,6 +1430,12 @@ export default function PartTimePage({ user, lang = 'en' }) {
                   onPointerCancel={handlePointerUp}
                   onClick={(e) => {
                     if (e.target.closest('button')) return;
+                    if (isBulkEditMode) {
+                      setSelectedShifts(prev => 
+                        prev.includes(task.id) ? prev.filter(id => id !== task.id) : [...prev, task.id]
+                      );
+                      return;
+                    }
                     if (timerRef.current) {
                       setActionTask(task);
                     }
@@ -1195,7 +1443,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
                   animate={{ scale: pressingId === task.id ? 0.98 : 1 }}
                   className={`liquid-glass-card p-5 flex flex-col md:flex-row gap-5 items-start md:items-center relative group transition-colors border-l-4 cursor-pointer touch-none ${c.borderL} ${isCompleted ? 'opacity-70' : ''}`}
                 >
-                  <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+                  {isBulkEditMode && (
+                    <div className="absolute top-4 left-4 z-10">
+                      <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${selectedShifts.includes(task.id) ? 'bg-primary-500 border-primary-500' : 'border-main/30'}`}>
+                        {selectedShifts.includes(task.id) && <Check size={16} className="text-white" />}
+                      </div>
+                    </div>
+                  )}
+                  <div className={`absolute top-4 right-4 flex gap-1 transition-opacity ${isBulkEditMode ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
                     <button onClick={(e) => { e.stopPropagation(); setEditingTask(task); setIsModalOpen(true); }} className={`p-2 ${c.button} rounded-full transition-all`}>
                       <Edit size={16} />
                     </button>
@@ -1204,7 +1459,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     </button>
                   </div>
                   
-                  <div className="flex-1 w-full">
+                  <div className={`flex-1 w-full ${isBulkEditMode ? 'pl-8' : ''}`}>
                     <div className="flex items-center gap-3 mb-2">
                       <h3 className="font-bold text-main text-lg m-0">{task.title}</h3>
                       <span className={`px-2 py-1 ${c.bg} ${c.text} text-xs rounded-lg font-bold border ${c.border}`}>
@@ -1391,6 +1646,139 @@ export default function PartTimePage({ user, lang = 'en' }) {
         task={editingTask}
         lang={lang}
       />
+
+      {/* Bottom Action Bar for Bulk Edit */}
+      <AnimatePresence>
+        {isBulkEditMode && selectedShifts.length > 0 && (
+          <motion.div
+            initial={{ y: 100, opacity: 0 }}
+            animate={{ y: 0, opacity: 1 }}
+            exit={{ y: 100, opacity: 0 }}
+            className="fixed bottom-20 left-0 right-0 z-40 px-4"
+          >
+            <div className="max-w-md mx-auto bg-white/90 dark:bg-[#1a1a2e]/90 backdrop-blur-md border border-main/10 shadow-xl rounded-2xl p-4 flex gap-3">
+              <button
+                onClick={() => {
+                  setIsBulkEditMode(false);
+                  setSelectedShifts([]);
+                }}
+                className="flex-1 py-3.5 rounded-xl font-bold bg-black/5 dark:bg-white/10 text-main hover:bg-black/10 transition-colors"
+              >
+                ยกเลิก
+              </button>
+              <button
+                onClick={() => setShowBulkEditForm(true)}
+                className="flex-[2] py-3.5 rounded-xl font-bold bg-primary-500 text-white shadow-lg shadow-primary-500/30 hover:bg-primary-600 transition-colors"
+              >
+                แก้ไขกะที่เลือก ({selectedShifts.length})
+              </button>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ActionSheet for Bulk Edit Options */}
+      <ActionSheet isOpen={showBulkEditForm} onClose={() => setShowBulkEditForm(false)} title="แก้ไขหลายรายการ">
+        <div className="flex flex-col gap-5 px-1 max-h-[70vh] overflow-y-auto">
+          <p className="text-sm text-center text-main opacity-70 mb-2">
+            เลือกข้อมูลที่ต้องการเปลี่ยนสำหรับ {selectedShifts.length} กะที่เลือก (ปล่อยว่างไว้ถ้าไม่ต้องการเปลี่ยน)
+          </p>
+          
+          <div>
+            <label className="block text-sm font-bold text-main mb-2 opacity-80">เลือกบริษัทใหม่</label>
+            <select 
+              value={bulkEditFormData.jobName} 
+              onChange={e => setBulkEditFormData({...bulkEditFormData, jobName: e.target.value})} 
+              className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-black/5 dark:bg-white/10"
+            >
+              <option value="">ไม่เปลี่ยน</option>
+              {(settings.jobs || []).map(j => (
+                <option key={j.id} value={j.name}>{j.emoji} {j.name}</option>
+              ))}
+            </select>
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm font-bold text-main mb-2 opacity-80">เวลาเข้างานใหม่</label>
+              <input 
+                type="time" 
+                value={bulkEditFormData.startTime} 
+                onChange={e => setBulkEditFormData({...bulkEditFormData, startTime: e.target.value})} 
+                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-black/5 dark:bg-white/10"
+              />
+            </div>
+            <div>
+              <label className="block text-sm font-bold text-main mb-2 opacity-80">เวลาเลิกงานใหม่</label>
+              <input 
+                type="time" 
+                value={bulkEditFormData.endTime} 
+                onChange={e => setBulkEditFormData({...bulkEditFormData, endTime: e.target.value})} 
+                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-black/5 dark:bg-white/10"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-main mb-2 opacity-80">เวลาพักใหม่ (ชั่วโมง)</label>
+            <input 
+              type="number" 
+              step="any" 
+              min="0" 
+              value={bulkEditFormData.breakHours} 
+              onChange={e => setBulkEditFormData({...bulkEditFormData, breakHours: e.target.value})} 
+              placeholder="ปล่อยว่างถ้าไม่ต้องการเปลี่ยน" 
+              className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-black/5 dark:bg-white/10"
+            />
+          </div>
+
+          <button 
+            onClick={handleBulkEditSave}
+            className="w-full mt-4 py-4 bg-primary-500 text-white rounded-xl font-bold shadow-lg shadow-primary-500/30 hover:bg-primary-600 transition-colors"
+          >
+            บันทึกการเปลี่ยนแปลง
+          </button>
+        </div>
+      </ActionSheet>
+
+      {/* ActionSheet for Extra Item Type Selection */}
+      <ActionSheet isOpen={showExtraActionSheet} onClose={() => setShowExtraActionSheet(false)} title="เพิ่มรายการอื่น">
+        <div className="flex flex-col gap-3 py-2">
+          <button 
+            onClick={() => {
+              setExtraFormType('income');
+              setShowAddExtraForm(true);
+              setShowExtraActionSheet(false);
+            }}
+            className="w-full flex items-center gap-4 p-4 rounded-2xl bg-green-500/10 border border-green-500/20 hover:bg-green-500/20 transition-colors"
+          >
+            <div className="w-12 h-12 rounded-xl bg-green-500 text-white flex items-center justify-center shadow-lg shadow-green-500/30">
+              <Banknote size={24} />
+            </div>
+            <div className="text-left">
+              <h4 className="font-bold text-main">รายได้พิเศษ</h4>
+              <p className="text-sm opacity-60 text-main">เช่น ทิป, ค่าคอมมิชชัน, โบนัส</p>
+            </div>
+          </button>
+          
+          <button 
+            onClick={() => {
+              setExtraFormType('expense');
+              setShowAddExtraForm(true);
+              setShowExtraActionSheet(false);
+            }}
+            className="w-full flex items-center gap-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-colors"
+          >
+            <div className="w-12 h-12 rounded-xl bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-500/30">
+              <Receipt size={24} />
+            </div>
+            <div className="text-left">
+              <h4 className="font-bold text-main">รายจ่าย / หักเงิน</h4>
+              <p className="text-sm opacity-60 text-main">เช่น ค่าชุด, ค่าปรับ, หักภาษี</p>
+            </div>
+          </button>
+        </div>
+      </ActionSheet>
     </motion.div>
   );
 }
