@@ -327,6 +327,27 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
     );
   };
 
+  const monthSuccess = React.useMemo(() => {
+    const currentMonth = currentDate.getMonth();
+    const currentYear = currentDate.getFullYear();
+    
+    let total = 0;
+    let completed = 0;
+    
+    tasks.forEach(t => {
+      const d = new Date(t.start);
+      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear && !t.isExpense && !t.isExtraIncome) {
+        total++;
+        if (t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd)) {
+          completed++;
+        }
+      }
+    });
+    
+    if (total === 0) return 0;
+    return Math.round((completed / total) * 100);
+  }, [tasks, currentDate]);
+
   const CalendarView = (
     <motion.div 
       initial={{ opacity: 0, scale: 0.98 }}
@@ -335,32 +356,17 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="min-h-screen font-sans pb-32 md:pb-8 overflow-x-hidden"
     >
-      {/* Sticky Header */}
-      <header className="sticky top-0 z-40 liquid-glass border-b-0 border-x-0 rounded-none rounded-b-3xl p-4 md:p-6 mb-6 pt-safe flex justify-between items-center animate-slide-up">
-        <div className="flex items-center">
-          <Logo variant={theme === 'dark' ? 'dark' : 'full'} size="md" className="w-32 md:w-40" />
-        </div>
-        
-        <div className="flex items-center gap-2">
+      <div className="max-w-7xl mx-auto px-4 md:px-8 relative z-10 animate-slide-up mt-8">
+        <header className="flex justify-between items-start mb-6 animate-slide-up">
+          <div>
+            <h1 className="text-3xl md:text-4xl font-black text-main flex items-center gap-2 mb-1">
+              <CalendarIcon size={32} className="text-primary-500" />
+              ปฏิทิน
+            </h1>
+            <p className="text-main/60 font-medium text-sm">จัดการตารางเวลาและวันสำคัญของคุณ</p>
+          </div>
+        </header>
 
-          <button 
-            onClick={() => { setSelectedTask(null); setIsModalOpen(true); }}
-            className="tour-add-btn hidden md:flex items-center gap-2 px-5 py-2.5 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-[20px] transition-all shadow-[0_4px_16px_0_rgba(108,99,255,0.3)] active:scale-95 border"
-            style={{ borderColor: 'var(--glass-border)' }}
-          >
-            <Plus size={20} /> {t.addTask}
-          </button>
-          <button 
-            onClick={() => navigate('/profile')}
-            className="liquid-glass-button p-2.5 min-w-[44px] min-h-[44px] flex items-center justify-center text-primary-500 hover:text-primary-600"
-            title="Profile"
-          >
-            <User size={20} />
-          </button>
-        </div>
-      </header>
-
-      <div className="max-w-7xl mx-auto px-4 md:px-8 relative z-10 animate-slide-up">
         <main className="relative">
           {isLoading && (
             <div className="absolute inset-0 z-30 flex items-center justify-center backdrop-blur-sm rounded-[24px]" style={{ backgroundColor: 'var(--glass-bg-strong)' }}>
@@ -471,8 +477,8 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
     <>
       <AnimatePresence mode="wait">
         <Routes location={location} key={location.pathname}>
-          <Route path="/" element={CalendarView} />
-          <Route path="/today" element={<TodayPage user={user} lang={lang} />} />
+          <Route path="/" element={<TodayPage user={user} lang={lang} />} />
+          <Route path="/calendar" element={CalendarView} />
           <Route path="/profile" element={<ProfilePage user={user} lang={lang} />} />
           <Route path="/settings" element={<ErrorBoundary><SettingsPage user={user} lang={lang} setLang={setLang} theme={theme} toggleTheme={toggleTheme} /></ErrorBoundary>} />
           <Route path="/part-time" element={<ErrorBoundary><PartTimePage user={user} lang={lang} /></ErrorBoundary>} />
@@ -523,7 +529,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
       )}
 
       {/* Floating Action Button */}
-      {location.pathname === '/' && (
+      {location.pathname === '/calendar' && (
         <button 
           onClick={() => { 
             setSelectedTask(selectedDateFilter ? { start: selectedDateFilter, end: selectedDateFilter } : null); 

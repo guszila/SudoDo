@@ -456,10 +456,6 @@ export default function PartTimePage({ user, lang = 'en' }) {
     { id: 'chart', label: 'กราฟรายเดือน (Monthly Chart)' }
   ];
 
-  const renderWidgetContent = (id) => {
-    switch(id) {
-      case 'net':
-      
   React.useEffect(() => {
     if (isTasksLoading) return;
     
@@ -511,8 +507,10 @@ export default function PartTimePage({ user, lang = 'en' }) {
     }
   }, [achievementToShow]);
 
-  return (
-
+  const renderWidgetContent = (id) => {
+    switch(id) {
+      case 'net':
+        return (
           <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-purple-500 h-full">
             <p className="text-xs text-main opacity-70 font-medium mb-1">รายได้สุทธิ (Net Income)</p>
             <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">฿{stats.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>

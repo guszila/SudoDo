@@ -391,24 +391,24 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
         <SectionLabel>{t.display}</SectionLabel>
         <GlassCard>
           <Row 
-            icon={Palette} iconBgClass="bg-[var(--theme-accent-light)]" iconColorClass="text-[var(--theme-accent)]"
+            icon={Palette} iconBgClass="bg-purple-500/15" iconColorClass="text-purple-600 dark:text-purple-400"
             title={t.themeColor} subtitle={currentTheme.name}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => setActiveSheet('themePicker')}
           />
           <Row 
-            icon={theme === 'dark' ? Moon : Sun} iconBgClass="bg-[rgba(127,119,221,0.2)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
+            icon={theme === 'dark' ? Moon : Sun} iconBgClass="bg-purple-500/15" iconColorClass="text-purple-600 dark:text-purple-400"
             title={t.theme} subtitle={t.themeSub}
             rightElement={<Toggle checked={theme === 'dark'} onChange={(val) => handleToggle('darkMode', val)} />}
           />
           <Row 
-            icon={Languages} iconBgClass="bg-[rgba(127,119,221,0.2)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
+            icon={Languages} iconBgClass="bg-purple-500/15" iconColorClass="text-purple-600 dark:text-purple-400"
             title={t.language} subtitle={lang === 'th' ? 'ไทย' : 'English'}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => setActiveSheet('language')}
           />
           <Row 
-            icon={Calendar} iconBgClass="bg-[rgba(127,119,221,0.2)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
+            icon={Calendar} iconBgClass="bg-purple-500/15" iconColorClass="text-purple-600 dark:text-purple-400"
             title={t.weekStartTitle} subtitle={settings?.weekStart === 'จันทร์' ? t.monday : (settings?.weekStart === 'อาทิตย์' ? t.sunday : (lang === 'en' ? 'Sunday' : 'อาทิตย์'))}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => setActiveSheet('weekStart')}
@@ -420,44 +420,19 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
         <SectionLabel>{t.notifications}</SectionLabel>
         <GlassCard>
           <Row 
-            icon={Bell} iconBgClass="bg-[rgba(240,159,39,0.2)]" iconColorClass="text-[#E5A040] dark:text-[#FAC775]"
+            icon={Bell} iconBgClass="bg-amber-500/15" iconColorClass="text-amber-600 dark:text-amber-400"
             title={t.notifyTasks} subtitle={t.notifyTasksSub}
             rightElement={<Toggle checked={settings?.notifyTasks ?? true} onChange={(val) => handleToggle('notifyTasks', val)} />}
           />
           <Row 
-            icon={Clock} iconBgClass="bg-[rgba(240,159,39,0.2)]" iconColorClass="text-[#E5A040] dark:text-[#FAC775]"
+            icon={Clock} iconBgClass="bg-amber-500/15" iconColorClass="text-amber-600 dark:text-amber-400"
             title={t.notifyShifts} subtitle={t.notifyShiftsSub}
             rightElement={<Toggle checked={settings?.notifyShifts ?? true} onChange={(val) => handleToggle('notifyShifts', val)} />}
           />
           <Row 
-            icon={Flame} iconBgClass="bg-[rgba(240,159,39,0.2)]" iconColorClass="text-[#E5A040] dark:text-[#FAC775]"
+            icon={Flame} iconBgClass="bg-amber-500/15" iconColorClass="text-amber-600 dark:text-amber-400"
             title={t.notifyStreak} subtitle={t.notifyStreakSub}
             rightElement={<Toggle checked={settings?.notifyStreak ?? false} onChange={(val) => handleToggle('notifyStreak', val)} />}
-            isLast
-          />
-        </GlassCard>
-
-        {/* Section 3: ปฏิทิน */}
-        <SectionLabel>{t.calendar}</SectionLabel>
-        <GlassCard>
-          <Row 
-            icon={Globe} iconBgClass="bg-[rgba(29,158,117,0.2)]" iconColorClass="text-[#34A853] dark:text-[#5DCAA5]"
-            title={t.syncGoogle} subtitle={t.notConnected}
-            rightElement={
-              <>
-                <div className="bg-[var(--theme-nav-active)] text-white text-[10px] font-bold px-2 py-0.5 rounded-full">{t.new}</div>
-                <ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />
-              </>
-            }
-            onClick={() => {
-              showToast(t.comingSoon);
-            }}
-          />
-          <Row 
-            icon={Download} iconBgClass="bg-[rgba(29,158,117,0.2)]" iconColorClass="text-[#34A853] dark:text-[#5DCAA5]"
-            title={t.exportPdf}
-            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
-            onClick={() => setActiveSheet('exportPdf')}
             isLast
           />
         </GlassCard>
@@ -466,25 +441,31 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
         <SectionLabel>{t.data}</SectionLabel>
         <GlassCard>
           <Row 
-            icon={Briefcase} iconBgClass="bg-[rgba(59,130,246,0.15)]" iconColorClass="text-blue-500"
+            icon={Download} iconBgClass="bg-emerald-500/15" iconColorClass="text-emerald-600 dark:text-emerald-400"
+            title={t.exportPdf}
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            onClick={() => setActiveSheet('exportPdf')}
+          />
+          <Row 
+            icon={Briefcase} iconBgClass="bg-emerald-500/15" iconColorClass="text-emerald-600 dark:text-emerald-400"
             title={t.manageJobs} subtitle={t.manageJobsSub}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => setActiveSheet('manageJobs')}
           />
           <Row 
-            icon={ShieldCheck} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
+            icon={ShieldCheck} iconBgClass="bg-emerald-500/15" iconColorClass="text-emerald-600 dark:text-emerald-400"
             title={t.socialSecurity} subtitle={t.ssoSub}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => navigate('/social-security')}
           />
           <Row 
-            icon={RefreshCw} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
+            icon={RefreshCw} iconBgClass="bg-emerald-500/15" iconColorClass="text-emerald-600 dark:text-emerald-400"
             title={t.resetIncome} subtitle={t.resetIncomeSub}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => setActiveSheet('resetIncome')}
           />
           <Row 
-            icon={Database} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
+            icon={Database} iconBgClass="bg-emerald-500/15" iconColorClass="text-emerald-600 dark:text-emerald-400"
             title={t.storage} 
             subtitle={isCountingStorage ? (
               <div className="h-3 w-32 bg-main/10 animate-pulse rounded mt-1"></div>
@@ -499,17 +480,11 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
         <SectionLabel>{t.about}</SectionLabel>
         <GlassCard>
           <Row 
-            icon={Info} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
+            icon={Info} iconBgClass="bg-blue-500/15" iconColorClass="text-blue-600 dark:text-blue-400"
             title={t.version} subtitle={pkg.version || '1.0.0'}
           />
           <Row 
-            icon={Star} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
-            title={t.reviewApp} subtitle={t.reviewAppSub}
-            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
-            onClick={() => window.open('https://appstore.com', '_blank')}
-          />
-          <Row 
-            icon={PlayCircle} iconBgClass="bg-[rgba(127,119,221,0.15)]" iconColorClass="text-[var(--theme-section-label)] dark:text-[#AFA9EC]"
+            icon={PlayCircle} iconBgClass="bg-blue-500/15" iconColorClass="text-blue-600 dark:text-blue-400"
             title={t.restartTour} 
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => {

@@ -18,6 +18,15 @@ const JOB_COLORS = {
   primary: { bg: 'bg-primary-500/10', text: 'text-primary-600 dark:text-primary-400', border: 'border-primary-500/20' }
 };
 
+const toLocalISOString = (dateObj) => {
+  const d = new Date(dateObj);
+  if (isNaN(d.getTime())) {
+    const now = new Date();
+    return new Date(now.getTime() - now.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+  }
+  return new Date(d.getTime() - d.getTimezoneOffset() * 60000).toISOString().slice(0, 16);
+};
+
 export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lang = 'en' }) {
   const t = translations[lang].modal;
   const statusT = translations[lang].status;
@@ -27,8 +36,8 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
   const [formData, setFormData] = useState({
     title: '',
     description: '',
-    start: new Date().toISOString().slice(0, 16),
-    end: new Date().toISOString().slice(0, 16),
+    start: toLocalISOString(new Date()),
+    end: toLocalISOString(new Date()),
     status: TASK_STATUS.TODO,
     priority: TASK_PRIORITY.MEDIUM
   });
@@ -38,8 +47,8 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
       setFormData({
         title: task.title || '',
         description: task.description || '',
-        start: task.start ? new Date(task.start).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
-        end: task.end ? new Date(task.end).toISOString().slice(0, 16) : new Date().toISOString().slice(0, 16),
+        start: task.start ? toLocalISOString(task.start) : toLocalISOString(new Date()),
+        end: task.end ? toLocalISOString(task.end) : toLocalISOString(new Date()),
         status: task.status || TASK_STATUS.TODO,
         priority: task.priority || TASK_PRIORITY.MEDIUM,
         isPartTime: task.isPartTime || false,
@@ -50,11 +59,13 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         isAllDay: task.isAllDay || false
       });
     } else {
+      const now = new Date();
+      const inOneHour = new Date(now.getTime() + 60*60*1000);
       setFormData({
         title: '',
         description: '',
-        start: new Date().toISOString().slice(0, 16),
-        end: new Date(new Date().getTime() + 60*60*1000).toISOString().slice(0, 16),
+        start: toLocalISOString(now),
+        end: toLocalISOString(inOneHour),
         status: TASK_STATUS.TODO,
         priority: TASK_PRIORITY.MEDIUM,
         isPartTime: false,
@@ -405,7 +416,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                     onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
                     type="time" 
                     value={formData.start.split('T')[1] || '00:00'} 
-                    onChange={(e) => setFormData(prev => ({ ...prev, start: `${prev.start.split('T')[0] || new Date().toISOString().slice(0, 10)}T${e.target.value}` }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, start: `${prev.start.split('T')[0] || toLocalISOString(new Date()).slice(0, 10)}T${e.target.value}` }))}
                     required
                     className="w-full px-2 sm:px-4 py-3.5 text-xs sm:text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-tight sm:tracking-wider text-center min-w-0"
                     style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
@@ -430,7 +441,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                     onClick={(e) => e.currentTarget.showPicker && e.currentTarget.showPicker()}
                     type="time" 
                     value={formData.end.split('T')[1] || '00:00'} 
-                    onChange={(e) => setFormData(prev => ({ ...prev, end: `${prev.end.split('T')[0] || new Date().toISOString().slice(0, 10)}T${e.target.value}` }))}
+                    onChange={(e) => setFormData(prev => ({ ...prev, end: `${prev.end.split('T')[0] || toLocalISOString(new Date()).slice(0, 10)}T${e.target.value}` }))}
                     required
                     className="w-full px-2 sm:px-4 py-3.5 text-xs sm:text-sm font-bold rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main tracking-tight sm:tracking-wider text-center min-w-0"
                     style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}

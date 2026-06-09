@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { ArrowLeft, CheckCircle2, Edit, ListTodo, Plus, Trash2, CalendarDays, DollarSign } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Edit, ListTodo, Plus, Trash2, CalendarDays, DollarSign, Search, Filter } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import TaskModal from '../components/tasks/TaskModal';
@@ -14,7 +14,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
 import { saveTask } from '../services/taskService';
-import { TASK_STATUS } from '../constants';
+import { TASK_STATUS, PRIORITY_WEIGHT } from '../constants';
 import { translations } from '../i18n';
 
 export default function TasksPage({ user, lang = 'en' }) {
@@ -29,6 +29,8 @@ export default function TasksPage({ user, lang = 'en' }) {
   const [editingTask, setEditingTask] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [sortBy, setSortBy] = useState('date-desc');
 
   // Bulk Selection State
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -68,12 +70,28 @@ export default function TasksPage({ user, lang = 'en' }) {
   }, [tasks]);
 
   const displayedTasks = useMemo(() => {
+    let list = [];
     if (activeTab === 'general') {
-      return activeStatus === 'pending' ? generalPending : generalDone;
+      list = activeStatus === 'pending' ? generalPending : generalDone;
     } else {
-      return activeStatus === 'pending' ? partTimePending : partTimeDone;
+      list = activeStatus === 'pending' ? partTimePending : partTimeDone;
     }
-  }, [activeTab, activeStatus, generalPending, generalDone, partTimePending, partTimeDone]);
+    
+    if (searchQuery) {
+      const q = searchQuery.toLowerCase();
+      list = list.filter(t => t.title?.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q));
+    }
+    
+    list = [...list];
+    if (sortBy === 'priority') {
+      list.sort((a, b) => (PRIORITY_WEIGHT[b.priority] || 0) - (PRIORITY_WEIGHT[a.priority] || 0) || new Date(b.start) - new Date(a.start));
+    } else if (sortBy === 'date-asc') {
+      list.sort((a, b) => new Date(a.start) - new Date(b.start));
+    } else {
+      list.sort((a, b) => new Date(b.start) - new Date(a.start));
+    }
+    return list;
+  }, [activeTab, activeStatus, generalPending, generalDone, partTimePending, partTimeDone, searchQuery, sortBy]);
 
   const handleMarkDone = async (task) => {
     const updated = {
@@ -249,6 +267,31 @@ export default function TasksPage({ user, lang = 'en' }) {
             {t.done}
           </button>
         </div>
+      </div>
+
+      <div className="flex flex-col md:flex-row gap-3 mb-6">
+         <div className="relative flex-1">
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-main/40" size={18} />
+            <input 
+               type="text"
+               placeholder={lang === 'th' ? "ค้นหางาน..." : "Search tasks..."}
+               value={searchQuery}
+               onChange={(e) => setSearchQuery(e.target.value)}
+               className="w-full bg-black/5 dark:bg-white/10 border-transparent rounded-2xl pl-10 pr-4 py-2.5 text-main font-medium focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+            />
+         </div>
+         <div className="relative">
+            <select 
+               value={sortBy}
+               onChange={(e) => setSortBy(e.target.value)}
+               className="appearance-none bg-black/5 dark:bg-white/10 border-transparent rounded-2xl pl-10 pr-8 py-2.5 text-main font-bold focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all h-full"
+            >
+               <option value="date-desc">{lang === 'th' ? "ล่าสุดก่อน" : "Newest first"}</option>
+               <option value="date-asc">{lang === 'th' ? "เก่าสุดก่อน" : "Oldest first"}</option>
+               <option value="priority">{lang === 'th' ? "ความสำคัญ" : "Priority"}</option>
+            </select>
+            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-main/40 pointer-events-none" size={18} />
+         </div>
       </div>
 
       <div className="space-y-3 relative min-h-[200px]">

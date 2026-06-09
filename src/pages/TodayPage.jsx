@@ -1,9 +1,9 @@
 import { useState, useEffect, useMemo } from 'react';
 
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, isBefore, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2, Bell } from 'lucide-react';
+import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2, Bell, Edit2, Zap, Briefcase, Settings, GripHorizontal, LayoutGrid, Plus, Calendar } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -13,7 +13,144 @@ import { updateUserStreak } from '../services/userService';
 import { saveTask } from '../services/taskService';
 import { calcSSO } from '../utils/socialSecurity';
 import { TASK_STATUS, TASK_PRIORITY, PRIORITY_WEIGHT, RATE_TYPE } from '../constants';
-export default function TodayPage({ user }) {
+import GreetingBanner from '../components/GreetingBanner';
+
+const AVAILABLE_WIDGETS = [
+  { id: 'ALL_TASKS', labelKey: 'allTasks', size: 1 },
+  { id: 'URGENT_TASKS', labelKey: 'urgentTasks', size: 1 },
+  { id: 'TODAY_INCOME', labelKey: 'todayIncome', size: 1 },
+  { id: 'APP_STREAK', labelKey: 'appStreak', size: 1 },
+  { id: 'WORK_STREAK', labelKey: 'workStreak', size: 1 },
+  { id: 'DDAY_WIDGET', labelKey: 'ddayWidget', size: 1 },
+  { id: 'INCOME_GOAL', labelKey: 'incomeGoal', size: 2 }
+];
+
+const DEFAULT_WIDGETS = ['ALL_TASKS', 'URGENT_TASKS', 'TODAY_INCOME', 'APP_STREAK'];
+
+export default function TodayPage({ user, lang = 'th' }) {
+  const t = lang === 'en' ? {
+    allTasks: 'All Tasks',
+    urgentTasks: 'Urgent Tasks',
+    todayIncome: 'Today Income',
+    appStreak: 'App Streak',
+    workStreak: 'Work Streak',
+    ddayWidget: 'D-Day',
+    incomeGoal: 'Income Goal',
+    done: 'Done',
+    pending: 'Pending',
+    dueTonight: 'Due tonight',
+    noShiftsToday: 'No shifts today',
+    fromTodayShift: 'From today\'s shift',
+    days: 'days',
+    bestStreak: 'Best',
+    thisMonthIncome: 'This Month',
+    ssoDeduction: 'SSO',
+    pastDays: 'Past',
+    tapToSet: 'Tap to configure',
+    youHaveTasks: (n) => `${n} tasks today`,
+    noTasksToday: 'No tasks today 🎉',
+    urgentItems: (n) => `${n} urgent`,
+    editWidget: 'Edit Widget',
+    finish: 'Done',
+    addWidget: 'Add Widget',
+    removeWidgetHelp: 'Tap ✕ to remove widget',
+    weeklyStreak: 'Weekly Streak',
+    monSun: 'Mon-Sun',
+    monthlyIncome: 'Monthly Income',
+    bar: 'Bar',
+    line: 'Line',
+    incomeTitle: 'Income',
+    tasksToday: 'Tasks Today',
+    totalItems: (n) => `Total ${n}`,
+    workShift: 'Shift',
+    important: 'High',
+    overdue: 'Overdue',
+    upcoming7Days: 'Upcoming (7 days)',
+    noUrgent7Days: 'No urgent tasks in 7 days 🎉',
+    waiting: 'Pending',
+    last12Months: 'Last 12 Months',
+    last12MonthsSub: 'Total income from shifts over the past year',
+    loadingChart: 'Loading chart...',
+    selectWidget: 'Select Widget',
+    slots: 'slots',
+    space: 'Space',
+    close: 'Close',
+    configDDay: 'Configure D-Day',
+    eventName: 'Event Name',
+    eventNamePlaceholder: 'e.g., Final Exam',
+    targetDate: 'Target Date',
+    cancel: 'Cancel',
+    save: 'Save',
+    goodMorning: 'Good morning',
+    goodAfternoon: 'Good afternoon',
+    goodEvening: 'Good evening',
+    goodNight: 'Good night',
+    deleteConfirm: 'Are you sure you want to delete this item?',
+    deleteError: 'Error deleting item',
+    ddayDefault: 'D-Day',
+    incomeLabel: 'Income'
+  } : {
+    allTasks: 'สิ่งที่ต้องทำทั้งหมด',
+    urgentTasks: 'สิ่งที่ต้องทำด่วน',
+    todayIncome: 'รายได้วันนี้',
+    appStreak: 'App Streak',
+    workStreak: 'Work Streak',
+    ddayWidget: 'D-Day วันสำคัญ',
+    incomeGoal: 'เป้าหมายรายได้เดือนนี้',
+    done: 'เสร็จ',
+    pending: 'ค้างอยู่',
+    dueTonight: 'ครบกำหนดคืนนี้',
+    noShiftsToday: 'ไม่มีกะวันนี้',
+    fromTodayShift: 'จากกะวันนี้',
+    days: 'วัน',
+    bestStreak: 'สถิติสูงสุด',
+    thisMonthIncome: 'รายได้เดือนนี้',
+    ssoDeduction: 'หักประกันสังคม',
+    pastDays: 'ผ่านมาแล้ว',
+    tapToSet: 'กดเพื่อตั้งค่า',
+    youHaveTasks: (n) => `วันนี้มี ${n} สิ่งที่ต้องทำ`,
+    noTasksToday: 'วันนี้ไม่มีสิ่งที่ต้องทำ 🎉',
+    urgentItems: (n) => `ด่วน ${n} รายการ`,
+    editWidget: 'แก้ไข Widget',
+    finish: 'เสร็จสิ้น',
+    addWidget: 'เพิ่ม Widget',
+    removeWidgetHelp: 'แตะ ✕ เพื่อลบ Widget ออกจากหน้าจอ',
+    weeklyStreak: 'Streak รายสัปดาห์',
+    monSun: 'จ-อา',
+    monthlyIncome: 'รายได้รายเดือน',
+    bar: 'บาร์',
+    line: 'เส้น',
+    incomeTitle: 'รายได้ (฿)',
+    tasksToday: 'สิ่งที่ต้องทำวันนี้',
+    totalItems: (n) => `ทั้งหมด ${n} รายการ`,
+    workShift: 'กะงาน',
+    important: 'สำคัญ',
+    overdue: 'เลยกำหนด',
+    upcoming7Days: 'สิ่งที่ต้องทำเร็วๆ นี้ (7 วัน)',
+    noUrgent7Days: 'ไม่มีรายการเร่งด่วนในช่วง 7 วันนี้ 🎉',
+    waiting: 'รอทำ',
+    last12Months: 'รายได้ 12 เดือนล่าสุด',
+    last12MonthsSub: 'ยอดรวมรายได้จากกะงานในช่วง 1 ปีที่ผ่านมา',
+    loadingChart: 'กำลังโหลดกราฟ...',
+    selectWidget: 'เลือก Widget ที่ต้องการแสดง',
+    slots: 'ช่อง',
+    space: 'พื้นที่',
+    close: 'ปิด',
+    configDDay: 'ตั้งค่า D-Day',
+    eventName: 'ชื่อเหตุการณ์',
+    eventNamePlaceholder: 'เช่น สอบปลายภาค, วันเกิด',
+    targetDate: 'วันที่เป้าหมาย',
+    cancel: 'ยกเลิก',
+    save: 'บันทึก',
+    goodMorning: 'สวัสดีตอนเช้า',
+    goodAfternoon: 'สวัสดีตอนบ่าย',
+    goodEvening: 'สวัสดีตอนเย็น',
+    goodNight: 'สวัสดีตอนดึก',
+    deleteConfirm: 'คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?',
+    deleteError: 'เกิดข้อผิดพลาดในการลบรายการ',
+    ddayDefault: 'วันสำคัญ',
+    incomeLabel: 'รายได้'
+  };
   const { tasks, isLoading: tasksLoading } = useTasks();
   const { settings } = useSettings();
   const [streakData, setStreakData] = useState({ currentStreak: 0, bestStreak: 0, history: [] });
@@ -23,16 +160,38 @@ export default function TodayPage({ user }) {
   const [showModalChart, setShowModalChart] = useState(false);
   const [isTickerActive, setIsTickerActive] = useState(false);
 
+  const [selectedWidgets, setSelectedWidgets] = useState(() => {
+    const saved = localStorage.getItem('dashboard_widgets');
+    return saved ? JSON.parse(saved) : DEFAULT_WIDGETS;
+  });
+  const [isEditWidgetMode, setIsEditWidgetMode] = useState(false);
+  const [showWidgetSelector, setShowWidgetSelector] = useState(false);
+
+  const [ddayConfig, setDdayConfig] = useState(() => {
+    const saved = localStorage.getItem('dashboard_dday');
+    return saved ? JSON.parse(saved) : { title: t.ddayDefault, date: '' };
+  });
+  const [showDdayModal, setShowDdayModal] = useState(false);
+  const [ddayInput, setDdayInput] = useState({ title: '', date: '' });
+
+  useEffect(() => {
+    localStorage.setItem('dashboard_widgets', JSON.stringify(selectedWidgets));
+  }, [selectedWidgets]);
+
+  useEffect(() => {
+    localStorage.setItem('dashboard_dday', JSON.stringify(ddayConfig));
+  }, [ddayConfig]);
+
   const navigate = useNavigate();
   
   const [now] = useState(new Date());
 
   const handleDelete = async (taskId) => {
-    if (window.confirm('คุณแน่ใจหรือไม่ว่าต้องการลบงานนี้?')) {
+    if (window.confirm(t.deleteConfirm)) {
       try {
         await saveTask('DELETE', { id: taskId }, user?.uid);
       } catch {
-        alert('เกิดข้อผิดพลาดในการลบงาน');
+        alert(t.deleteError);
       }
     }
   };
@@ -57,11 +216,17 @@ export default function TodayPage({ user }) {
     initData();
   }, [user]);
 
-  const { todayTasks, highPriorityCount, todayIncome, todayNetIncome, todaySSODeduction, chartData, fullChartData, weeklyStreak, totalToday, doneToday, pendingToday } = useMemo(() => {
+  const [incomeGoal, setIncomeGoal] = useState(() => {
+    const saved = localStorage.getItem('income_goal');
+    return saved ? JSON.parse(saved) : { goalAmount: 5000, goalMonth: format(new Date(), 'yyyy-MM'), isRecurring: true };
+  });
+
+  const { todayTasks, upcomingTasks, highPriorityCount, todayIncome, todayNetIncome, todaySSODeduction, chartData, fullChartData, weeklyStreak, totalToday, doneToday, pendingToday, thisMonthIncome, thisMonthSSO, currentWorkStreak, bestWorkStreak } = useMemo(() => {
     let income = 0;
     let ssoIncome = 0;
     const tTasks = [];
     const oTasks = [];
+    const upcomingList = [];
     let highPriority = 0;
     let doneT = 0;
     let pendingT = 0;
@@ -71,6 +236,11 @@ export default function TodayPage({ user }) {
     const fullMonthlyIncome = {};
     const monthKeys6 = [];
     const monthKeys12 = [];
+    
+    const currentMonthKey = format(now, 'yyyy-MM');
+    let currentMonthSSOIncome = 0;
+    
+    const completedWorkDates = new Set();
 
     for (let i = 5; i >= 0; i--) {
       const d = subMonths(now, i);
@@ -120,6 +290,16 @@ export default function TodayPage({ user }) {
               
               if (monthlyIncome[key] !== undefined) monthlyIncome[key].income += earnings;
               if (fullMonthlyIncome[key] !== undefined) fullMonthlyIncome[key].income += earnings;
+              
+              if (key === currentMonthKey) {
+                const job = (settings.jobs || []).find(j => j.name === t.title);
+                const deductsSSO = (job && job.deductSSO !== undefined) ? job.deductSSO : settings.socialSecurity;
+                if (deductsSSO) currentMonthSSOIncome += earnings;
+              }
+              
+              if (!t.isExpense && !t.isExtraIncome) {
+                 completedWorkDates.add(format(new Date(t.start), 'yyyy-MM-dd'));
+              }
             }
           }
         }
@@ -148,10 +328,12 @@ export default function TodayPage({ user }) {
 
       const isDueToday = isSameDay(t.end, now);
       const isOverdue = !isDone && isBefore(endOfDay(t.end), now) && !isDueToday;
+      const isUpcoming = !isDone && !isOverdue && !isDueToday && isBefore(t.start, new Date(now.getTime() + 7 * 24 * 60 * 60 * 1000));
 
-      if (isDueToday || isOverdue) {
+      if (isDueToday || isOverdue || isUpcoming) {
         if (isOverdue) oTasks.push(t);
-        else tTasks.push(t);
+        else if (isDueToday) tTasks.push(t);
+        else if (isUpcoming) upcomingList.push(t);
         
         if (isDueToday) {
             if (isDone) doneT++;
@@ -175,9 +357,7 @@ export default function TodayPage({ user }) {
       active: streakData.history.includes(format(d, 'yyyy-MM-dd')),
       isToday: isSameDay(d, now)
     }));
-    
 
-    
     const allTodayTasks = [...oTasks, ...tTasks].sort((a, b) => {
       const aOverdue = isBefore(a.end, now) && a.status !== TASK_STATUS.DONE;
       const bOverdue = isBefore(b.end, now) && b.status !== TASK_STATUS.DONE;
@@ -189,6 +369,8 @@ export default function TodayPage({ user }) {
       }
       return a.end.getTime() - b.end.getTime();
     });
+    
+    upcomingList.sort((a, b) => a.start.getTime() - b.start.getTime());
 
     let todayNetIncome = income;
     let todaySSODeduction = 0;
@@ -197,9 +379,51 @@ export default function TodayPage({ user }) {
       todaySSODeduction = sso.deduction;
       todayNetIncome = income - todaySSODeduction;
     }
+    
+    const thisMonthIncomeTotal = fullMonthlyIncome[currentMonthKey]?.income || 0;
+    let thisMonthSSODeduction = 0;
+    if (currentMonthSSOIncome > 0) {
+        thisMonthSSODeduction = calcSSO(currentMonthSSOIncome).deduction;
+    }
+    
+    let currentWorkStreak = 0;
+    let bestWorkStreak = 0;
+    const sortedWorkDates = Array.from(completedWorkDates).sort((a, b) => b.localeCompare(a));
+    const todayStr = format(now, 'yyyy-MM-dd');
+    const yesterdayDate = new Date(now);
+    yesterdayDate.setDate(yesterdayDate.getDate() - 1);
+    const yesterdayStr = format(yesterdayDate, 'yyyy-MM-dd');
+
+    if (completedWorkDates.has(todayStr) || completedWorkDates.has(yesterdayStr)) {
+      let checkDate = new Date(completedWorkDates.has(todayStr) ? now : yesterdayDate);
+      while (completedWorkDates.has(format(checkDate, 'yyyy-MM-dd'))) {
+        currentWorkStreak++;
+        checkDate.setDate(checkDate.getDate() - 1);
+      }
+    }
+    
+    let tempStreak = 0;
+    let previousDate = null;
+    for (let i = sortedWorkDates.length - 1; i >= 0; i--) {
+       if (i === sortedWorkDates.length - 1) {
+          tempStreak = 1;
+       } else {
+          const currentD = new Date(sortedWorkDates[i]);
+          const prevD = new Date(previousDate);
+          prevD.setDate(prevD.getDate() + 1);
+          if (format(currentD, 'yyyy-MM-dd') === format(prevD, 'yyyy-MM-dd')) {
+             tempStreak++;
+          } else {
+             tempStreak = 1;
+          }
+       }
+       if (tempStreak > bestWorkStreak) bestWorkStreak = tempStreak;
+       previousDate = sortedWorkDates[i];
+    }
 
     return { 
       todayTasks: allTodayTasks.slice(0, 5), 
+      upcomingTasks: upcomingList.slice(0, 4),
       highPriorityCount: highPriority, 
       todayIncome: Math.round(income),
       todayNetIncome,
@@ -209,7 +433,11 @@ export default function TodayPage({ user }) {
       weeklyStreak: wStreak,
       totalToday: doneT + pendingT,
       doneToday: doneT,
-      pendingToday: pendingT
+      pendingToday: pendingT,
+      thisMonthIncome: thisMonthIncomeTotal,
+      thisMonthSSO: thisMonthSSODeduction,
+      currentWorkStreak,
+      bestWorkStreak
     };
   }, [tasks, streakData, now, settings.socialSecurity, settings.showInIncome]);
 
@@ -239,10 +467,10 @@ export default function TodayPage({ user }) {
 
   const getGreeting = () => {
     const hour = now.getHours();
-    if (hour >= 5 && hour < 12) return 'สวัสดีตอนเช้า';
-    if (hour >= 12 && hour < 17) return 'สวัสดีตอนบ่าย';
-    if (hour >= 17 && hour < 21) return 'สวัสดีตอนเย็น';
-    return 'สวัสดีตอนดึก';
+    if (hour >= 5 && hour < 12) return t.goodMorning;
+    if (hour >= 12 && hour < 17) return t.goodAfternoon;
+    if (hour >= 17 && hour < 21) return t.goodEvening;
+    return t.goodNight;
   };
 
   const getStatusColor = (status, priority) => {
@@ -263,28 +491,212 @@ export default function TodayPage({ user }) {
   const avatarInitial = user?.displayName ? user.displayName.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'U');
   const avatarUrl = user?.uid ? (localStorage.getItem(`avatar_${user.uid}`) || '') : '';
 
+  const renderWidget = (id) => {
+    switch (id) {
+      case 'ALL_TASKS':
+        return (
+          <div key={id} onClick={() => navigate('/tasks')} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all cursor-pointer group active:scale-95 col-span-1 min-h-[120px]">
+            <h3 className="text-sm font-bold text-main/80 mb-2 group-hover:text-primary-500 transition-colors">{t.allTasks}</h3>
+            <div className="text-3xl md:text-4xl font-black text-main mb-1 group-hover:scale-105 transition-transform origin-left">{totalToday}</div>
+            <p className="text-xs font-medium text-main/60">{doneToday} {t.done} · {pendingToday} {t.pending}</p>
+          </div>
+        );
+      case 'URGENT_TASKS':
+        return (
+          <div key={id} onClick={() => navigate('/tasks')} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all cursor-pointer group active:scale-95 col-span-1 min-h-[120px]">
+            <h3 className="text-sm font-bold text-main/80 mb-2 group-hover:text-primary-500 transition-colors">{t.urgentTasks}</h3>
+            <div className={`text-3xl md:text-4xl font-black mb-1 group-hover:scale-105 transition-transform origin-left ${highPriorityCount > 0 ? 'text-red-500' : 'text-main'}`}>
+              {highPriorityCount}
+            </div>
+            <p className="text-xs font-medium text-main/60">{t.dueTonight}</p>
+          </div>
+        );
+      case 'TODAY_INCOME':
+        return (
+          <div key={id} onClick={() => navigate('/part-time')} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all cursor-pointer group active:scale-95 col-span-1 min-h-[120px]">
+            <h3 className="text-sm font-bold text-main/80 mb-2 flex items-center justify-between group-hover:text-primary-500 transition-colors">
+              {t.todayIncome}
+              {todaySSODeduction > 0 && (
+                <span className="text-[10px] bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded font-bold border border-red-500/20">
+                  -5% {t.ssoDeduction}
+                </span>
+              )}
+            </h3>
+            <div className="text-3xl md:text-4xl font-black text-green-500 dark:text-green-400 mb-1 group-hover:scale-105 transition-transform origin-left">
+              ฿{todayNetIncome.toLocaleString()}
+            </div>
+            <p className="text-xs font-medium text-main/60">{todayIncome > 0 ? t.fromTodayShift : t.noShiftsToday}</p>
+          </div>
+        );
+      case 'APP_STREAK':
+        return (
+          <div key={id} className="p-4 rounded-[20px] flex flex-col justify-between shadow-lg relative overflow-hidden group hover:scale-[1.02] transition-all duration-300 col-span-1 min-h-[120px]" 
+               style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.1) 0%, rgba(139,92,246,0.15) 100%)', border: '1px solid rgba(139,92,246,0.2)' }}>
+            <motion.div className="absolute -right-4 -top-4 text-primary-500/10" animate={{ scale: [1, 1.1, 1], rotate: [0, 10, -5, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
+              <Flame size={80} strokeWidth={1.5} />
+            </motion.div>
+            <h3 className="text-sm font-bold text-primary-600 dark:text-primary-400 mb-2 flex items-center gap-1 relative z-10 group-hover:text-primary-500 transition-colors">
+              <motion.div animate={{ scale: [1, 1.15, 1], rotate: [0, -8, 8, 0] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} style={{ originY: 0.8 }}>
+                <Flame size={18} className="text-orange-500" fill="currentColor" />
+              </motion.div>
+              {t.appStreak}
+            </h3>
+            <div className="text-3xl md:text-4xl font-black text-primary-600 dark:text-primary-500 mb-1 relative z-10 group-hover:scale-105 transition-transform origin-left">
+              {streakData.currentStreak} {t.days}
+            </div>
+            <p className="text-xs font-medium text-primary-700/70 dark:text-primary-300/70 relative z-10">{t.bestStreak} {streakData.bestStreak} {t.days}</p>
+          </div>
+        );
+      case 'WORK_STREAK':
+        return (
+          <div key={id} onClick={() => navigate('/part-time')} className="p-4 rounded-[20px] flex flex-col justify-between shadow-lg relative overflow-hidden group hover:scale-[1.02] active:scale-95 transition-all duration-300 cursor-pointer col-span-1 min-h-[120px]" 
+               style={{ background: 'linear-gradient(135deg, rgba(34,197,94,0.1) 0%, rgba(22,163,74,0.15) 100%)', border: '1px solid rgba(34,197,94,0.2)' }}>
+            <motion.div className="absolute -right-4 -top-4 text-green-500/10" animate={{ scale: [1, 1.1, 1], rotate: [0, 10, -5, 0] }} transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}>
+              <Briefcase size={80} strokeWidth={1.5} />
+            </motion.div>
+            <h3 className="text-sm font-bold text-green-600 dark:text-green-400 mb-2 flex items-center gap-1 relative z-10 group-hover:text-green-500 transition-colors">
+              <Briefcase size={18} className="text-green-500" fill="currentColor" />
+              {t.workStreak}
+            </h3>
+            <div className="text-3xl md:text-4xl font-black text-green-600 dark:text-green-500 mb-1 relative z-10 group-hover:scale-105 transition-transform origin-left">
+              {currentWorkStreak} {t.days}
+            </div>
+            <p className="text-xs font-medium text-green-700/70 dark:text-green-300/70 relative z-10">{t.bestStreak} {bestWorkStreak} {t.days}</p>
+          </div>
+        );
+      case 'INCOME_GOAL':
+        if (settings.showInIncome === false || !incomeGoal || incomeGoal.goalAmount <= 0) return null;
+        return (
+          <div key={id} onClick={() => navigate('/part-time')} className="col-span-2 liquid-glass-card p-4 rounded-[20px] relative overflow-hidden group cursor-pointer hover:border-primary-500/30 transition-all flex flex-col justify-center min-h-[120px]">
+            <div className="flex justify-between items-center mb-2">
+              <h3 className="font-bold text-main/80 flex items-center gap-2 text-sm">{t.incomeGoal}</h3>
+              <span className="text-[10px] md:text-xs font-bold bg-primary-500/10 text-primary-500 px-2 py-1 rounded-full">
+                 ฿{thisMonthIncome.toLocaleString()} / ฿{incomeGoal.goalAmount.toLocaleString()}
+              </span>
+            </div>
+            <div className="w-full bg-black/10 dark:bg-white/10 h-2.5 rounded-full overflow-hidden mb-2">
+              <div 
+                className="h-full bg-green-500 transition-all duration-1000 ease-out relative"
+                style={{ width: `${Math.min(100, (thisMonthIncome / incomeGoal.goalAmount) * 100)}%` }}
+              >
+                <div className="absolute inset-0 bg-white/20 w-full animate-[shimmer_2s_infinite]"></div>
+              </div>
+            </div>
+            <div className="flex justify-between items-center text-[10px] md:text-xs font-bold text-main/60">
+              <span>{(thisMonthIncome / incomeGoal.goalAmount * 100).toFixed(1)}%</span>
+              {thisMonthSSO > 0 && <span>{t.ssoDeduction} ฿{thisMonthSSO.toLocaleString()}</span>}
+            </div>
+          </div>
+        );
+      case 'DDAY_WIDGET':
+        let daysDiff = null;
+        let isPast = false;
+        let isToday = false;
+        if (ddayConfig.date) {
+           const targetDate = new Date(ddayConfig.date);
+           const today = new Date(now);
+           today.setHours(0,0,0,0);
+           targetDate.setHours(0,0,0,0);
+           const timeDiff = targetDate.getTime() - today.getTime();
+           daysDiff = Math.ceil(timeDiff / (1000 * 3600 * 24));
+           if (daysDiff < 0) isPast = true;
+           if (daysDiff === 0) isToday = true;
+        }
+
+        return (
+          <div 
+             key={id} 
+             onClick={() => {
+                if (isEditWidgetMode) return;
+                setDdayInput({ title: ddayConfig.title, date: ddayConfig.date });
+                setShowDdayModal(true);
+             }} 
+             className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all cursor-pointer group active:scale-95 col-span-1 min-h-[120px] relative overflow-hidden"
+          >
+            <h3 className="text-sm font-bold text-main/80 mb-2 truncate group-hover:text-primary-500 transition-colors z-10">
+              {ddayConfig.title || t.ddayDefault}
+            </h3>
+            <div className="z-10 flex flex-col">
+               {ddayConfig.date ? (
+                  isToday ? (
+                     <div className="text-2xl md:text-3xl font-black text-primary-500 animate-pulse">D-Day! 🎉</div>
+                  ) : isPast ? (
+                     <div className="text-xl md:text-2xl font-black text-main/60">{t.pastDays} {Math.abs(daysDiff)} {t.days}</div>
+                  ) : (
+                     <div className="flex items-baseline gap-1">
+                        <span className="text-3xl md:text-4xl font-black text-primary-500 group-hover:scale-105 transition-transform origin-left">
+                          D-{daysDiff}
+                        </span>
+                     </div>
+                  )
+               ) : (
+                  <div className="text-sm font-bold text-main/50">{t.tapToSet}</div>
+               )}
+            </div>
+            {ddayConfig.date && !isToday && !isPast && (() => {
+               const d = new Date(ddayConfig.date);
+               return (
+                 <p className="text-[10px] md:text-xs font-medium text-main/60 mt-1 z-10">
+                   {`${format(d, 'd MMM', { locale: th })} ${d.getFullYear() + 543}`}
+                 </p>
+               );
+            })()}
+            <div className="absolute -bottom-6 -right-6 text-primary-500/5 group-hover:text-primary-500/10 transition-colors group-hover:scale-110 duration-500 pointer-events-none">
+              <Calendar size={100} strokeWidth={1} />
+            </div>
+          </div>
+        );
+      default:
+        return null;
+    }
+  };
+
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="min-h-screen font-sans pb-32 md:pb-8 overflow-x-hidden p-4 md:p-8"
+      className="min-h-screen font-sans pb-32 md:pb-8 overflow-x-hidden"
     >
-      <div className="max-w-4xl mx-auto">
+      <div className="relative w-full h-[180px] md:h-[220px] mb-6">
+        <GreetingBanner 
+          name={user?.displayName?.split(' ')[0] || ''} 
+          dateLabel={format(now, 'EEEE d MMM yyyy', { locale: lang === 'th' ? th : undefined })} 
+          className="rounded-b-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-b border-white/10" 
+        />
         
-        <div className="flex items-center mb-4 gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main">
+        <div className="absolute top-0 left-0 right-0 p-4 md:p-8 flex justify-between items-start z-10 max-w-4xl mx-auto w-full">
+          <button onClick={() => navigate(-1)} className="p-2 rounded-full bg-black/20 hover:bg-black/30 backdrop-blur-md transition-colors text-white mt-2">
             <ArrowLeft size={24} />
           </button>
+          
+          <div className="flex items-center gap-2 mt-2">
+            <button 
+               onClick={() => setIsEditWidgetMode(!isEditWidgetMode)} 
+               className={`hidden md:flex text-sm px-3 py-1.5 rounded-full transition-colors items-center gap-1 ${isEditWidgetMode ? 'bg-primary-500 text-white shadow-md' : 'bg-black/20 hover:bg-black/30 backdrop-blur-md text-white'}`}
+            >
+               {isEditWidgetMode ? t.finish : <><LayoutGrid size={14}/> {t.editWidget}</>}
+            </button>
+            <button 
+               onClick={() => setIsEditWidgetMode(!isEditWidgetMode)} 
+               className={`md:hidden w-10 h-10 rounded-full flex items-center justify-center transition-colors ${isEditWidgetMode ? 'bg-primary-500 text-white shadow-md' : 'bg-black/20 hover:bg-black/30 backdrop-blur-md text-white'}`}
+            >
+               {isEditWidgetMode ? <Check size={18} /> : <LayoutGrid size={18} />}
+            </button>
+            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xl shadow-inner border border-white/30 flex-shrink-0 overflow-hidden backdrop-blur-sm">
+              {avatarUrl
+                ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                : avatarInitial
+              }
+            </div>
+          </div>
         </div>
+      </div>
 
-        <header className="flex justify-between items-start mb-8 mt-2 animate-slide-up">
-          <div className="flex-1 pr-4">
-            <p className="text-main/60 font-medium text-sm mb-1">{format(now, 'EEEE d MMM yyyy', { locale: th })}</p>
-            <h1 className="text-2xl md:text-3xl font-bold text-main flex items-center gap-2 mb-3">
-              {getGreeting()} {user?.displayName?.split(' ')[0] || ''} <span className="animate-wave origin-bottom-right inline-block">👋</span>
-            </h1>
+      <div className="max-w-4xl mx-auto px-4 md:px-8">
+        <header className="flex justify-between items-start mb-6 animate-slide-up">
+          <div className="flex-1 w-full">
             
             <div className="flex flex-wrap items-center gap-2">
               <motion.div 
@@ -304,8 +716,8 @@ export default function TodayPage({ user }) {
                       className="whitespace-nowrap"
                     >
                       {pendingToday > 0 
-                        ? `วันนี้มี ${pendingToday} กิจกรรมที่ต้องทำ` 
-                        : 'วันนี้ไม่มีกิจกรรมที่ต้องทำ 🎉'
+                        ? t.youHaveTasks(pendingToday)
+                        : t.noTasksToday
                       }
                     </motion.div>
                   ) : (
@@ -326,12 +738,12 @@ export default function TodayPage({ user }) {
                         style={{ display: 'flex', animation: 'slide-ticker 8s linear forwards' }} 
                         className="items-center whitespace-nowrap"
                       >
-                        {pendingTasksList.map((t, idx) => {
-                          const isWork = t.isPartTime;
-                          const timeStr = `${format(t.start, 'd MMM HH:mm', { locale: th })} - ${format(t.end, 'HH:mm')}`;
+                        {pendingTasksList.map((tItem, idx) => {
+                          const isWork = tItem.isPartTime;
+                          const timeStr = `${format(tItem.start, 'd MMM HH:mm', { locale: lang === 'th' ? th : undefined })} - ${format(tItem.end, 'HH:mm')}`;
                           return (
                             <div 
-                              key={t.id || idx} 
+                              key={tItem.id || idx} 
                               className={`inline-flex items-center gap-1.5 px-3 py-1 mx-1 rounded-full text-[11px] font-bold transition-all ${
                                 isWork 
                                   ? 'bg-green-500/15 text-green-700 dark:text-green-300 border border-green-500/30' 
@@ -341,9 +753,9 @@ export default function TodayPage({ user }) {
                                {isWork ? (
                                  <DollarSign size={12} className="text-green-600 dark:text-green-400" />
                                ) : (
-                                 <div className={`w-1.5 h-1.5 rounded-full ${t.priority === TASK_PRIORITY.HIGH ? 'bg-red-500 animate-pulse' : 'bg-primary-500/70'}`} />
+                                 <div className={`w-1.5 h-1.5 rounded-full ${tItem.priority === TASK_PRIORITY.HIGH ? 'bg-red-500 animate-pulse' : 'bg-primary-500/70'}`} />
                                )}
-                               <span>{t.title}</span>
+                               <span>{tItem.title}</span>
                                <span className="opacity-60 font-medium ml-0.5">{timeStr}</span>
                             </div>
                           );
@@ -356,93 +768,73 @@ export default function TodayPage({ user }) {
               {highPriorityCount > 0 && (
                 <div className="px-3 py-1.5 bg-red-500/10 text-red-600 dark:text-red-400 rounded-full text-[11px] md:text-xs font-bold border border-red-500/20 flex items-center gap-1.5">
                    <div className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse"></div>
-                   ด่วน {highPriorityCount} งาน
+                   {t.urgentItems(highPriorityCount)}
                 </div>
               )}
             </div>
           </div>
-          <div className="w-12 h-12 rounded-full bg-primary-100 dark:bg-primary-900/50 flex items-center justify-center text-primary-600 dark:text-primary-400 font-bold text-xl shadow-inner border border-primary-500/20 flex-shrink-0 overflow-hidden">
-            {avatarUrl
-              ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-              : avatarInitial
-            }
-          </div>
         </header>
 
-        <div className="grid grid-cols-2 gap-4 mb-8 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-          <div onClick={() => navigate('/tasks')} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all cursor-pointer group active:scale-95">
-            <h3 className="text-sm font-bold text-main/80 mb-2 group-hover:text-primary-500 transition-colors">งานทั้งหมด</h3>
-            <div className="text-3xl md:text-4xl font-black text-main mb-1 group-hover:scale-105 transition-transform origin-left">{totalToday}</div>
-            <p className="text-xs font-medium text-main/60">{doneToday} เสร็จ · {pendingToday} ค้างอยู่</p>
-          </div>
-          
-          <div onClick={() => navigate('/tasks')} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all cursor-pointer group active:scale-95">
-            <h3 className="text-sm font-bold text-main/80 mb-2 group-hover:text-primary-500 transition-colors">งานด่วนวันนี้</h3>
-            <div className={`text-3xl md:text-4xl font-black mb-1 group-hover:scale-105 transition-transform origin-left ${highPriorityCount > 0 ? 'text-red-500' : 'text-main'}`}>
-              {highPriorityCount}
-            </div>
-            <p className="text-xs font-medium text-main/60">ครบกำหนดคืนนี้</p>
-          </div>
-          
-          <div onClick={() => navigate('/part-time')} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all cursor-pointer group active:scale-95">
-            <h3 className="text-sm font-bold text-main/80 mb-2 flex items-center justify-between group-hover:text-primary-500 transition-colors">
-              รายได้วันนี้
-              {todaySSODeduction > 0 && (
-                <span className="text-[10px] bg-red-500/10 text-red-500 px-1.5 py-0.5 rounded font-bold border border-red-500/20">
-                  -5% ประกัน
-                </span>
-              )}
-            </h3>
-            <div className="text-3xl md:text-4xl font-black text-green-500 dark:text-green-400 mb-1 group-hover:scale-105 transition-transform origin-left">
-              ฿{todayNetIncome.toLocaleString()}
-            </div>
-            <p className="text-xs font-medium text-main/60">{todayIncome > 0 ? 'จากกะวันนี้' : 'ไม่มีกะวันนี้'}</p>
-          </div>
-          
-          <div onClick={() => navigate('/')} className="p-4 rounded-[20px] flex flex-col justify-between shadow-lg relative overflow-hidden group hover:scale-[1.02] active:scale-95 transition-all duration-300 cursor-pointer" 
-               style={{ background: 'linear-gradient(135deg, rgba(167,139,250,0.1) 0%, rgba(139,92,246,0.15) 100%)', border: '1px solid rgba(139,92,246,0.2)' }}>
-            <motion.div 
-              className="absolute -right-4 -top-4 text-primary-500/10"
-              animate={{ 
-                scale: [1, 1.1, 1],
-                rotate: [0, 10, -5, 0],
-              }}
-              transition={{
-                duration: 4,
-                repeat: Infinity,
-                ease: "easeInOut"
-              }}
-            >
-              <Flame size={80} strokeWidth={1.5} />
-            </motion.div>
-            <h3 className="text-sm font-bold text-primary-600 dark:text-primary-400 mb-2 flex items-center gap-1 relative z-10 group-hover:text-primary-500 transition-colors">
-              <motion.div
-                animate={{ 
-                  scale: [1, 1.15, 1],
-                  rotate: [0, -8, 8, 0],
-                }}
-                transition={{
-                  duration: 2,
-                  repeat: Infinity,
-                  ease: "easeInOut"
-                }}
-                style={{ originY: 0.8 }}
+        <Reorder.Group 
+          axis="y"
+          values={selectedWidgets}
+          onReorder={setSelectedWidgets}
+          className="grid grid-cols-2 gap-4 mb-8"
+        >
+          <AnimatePresence>
+            {selectedWidgets.filter(id => AVAILABLE_WIDGETS.some(w => w.id === id)).map(id => (
+              <Reorder.Item 
+                key={id}
+                value={id}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={isEditWidgetMode ? {
+                   opacity: 1, 
+                   scale: 1, 
+                   rotate: [-0.8, 0.8, -0.8],
+                   transition: { rotate: { repeat: Infinity, duration: 0.2 } }
+                } : { opacity: 1, scale: 1, rotate: 0 }}
+                exit={{ opacity: 0, scale: 0.5 }}
+                dragListener={isEditWidgetMode}
+                className={`relative ${['INCOME_GOAL'].includes(id) ? 'col-span-2' : 'col-span-1'} ${isEditWidgetMode ? 'cursor-grab active:cursor-grabbing z-50' : ''}`}
               >
-                <Flame size={18} className="text-orange-500" fill="currentColor" />
-              </motion.div>
-              Streak
-            </h3>
-            <div className="text-3xl md:text-4xl font-black text-primary-600 dark:text-primary-500 mb-1 relative z-10 group-hover:scale-105 transition-transform origin-left">
-              {streakData.currentStreak} วัน
-            </div>
-            <p className="text-xs font-medium text-primary-700/70 dark:text-primary-300/70 relative z-10">สถิติสูงสุด {streakData.bestStreak} วัน</p>
-          </div>
-        </div>
+                {isEditWidgetMode && (
+                  <>
+                    <button 
+                      onClick={() => setSelectedWidgets(prev => prev.filter(w => w !== id))}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-lg z-[60] hover:scale-110 transition-transform"
+                    >
+                      <X size={14} />
+                    </button>
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[60] opacity-30 text-main pointer-events-none">
+                      <GripHorizontal size={20} />
+                    </div>
+                  </>
+                )}
+                <div className={isEditWidgetMode ? 'pointer-events-none opacity-80' : ''}>
+                  {renderWidget(id)}
+                </div>
+              </Reorder.Item>
+            ))}
+          </AnimatePresence>
+        </Reorder.Group>
+
+        {isEditWidgetMode && (
+           <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mb-8">
+             <button 
+               onClick={() => setShowWidgetSelector(true)}
+               className="w-full py-4 border-2 border-dashed border-main/20 rounded-2xl flex items-center justify-center gap-2 text-main/60 hover:text-main hover:border-main/40 transition-colors bg-white/10"
+             >
+               <Plus size={20} /> {t.addWidget}
+             </button>
+             <p className="text-center text-xs opacity-50 mt-2">{t.removeWidgetHelp}</p>
+           </motion.div>
+        )}
+
 
         <div className="mb-8 animate-slide-up" style={{ animationDelay: '0.2s' }}>
           <div className="flex justify-between items-end mb-3">
-            <h3 className="font-bold text-main/80">Streak รายสัปดาห์</h3>
-            <span className="text-xs font-medium text-main/50">จ-อา</span>
+            <h3 className="font-bold text-main/80">{t.weeklyStreak}</h3>
+            <span className="text-xs font-medium text-main/50">{t.monSun}</span>
           </div>
           <div className="flex justify-between gap-1 md:gap-2">
             {weeklyStreak.map((day, idx) => (
@@ -464,19 +856,19 @@ export default function TodayPage({ user }) {
 
         <div className="mb-8 animate-slide-up" style={{ animationDelay: '0.3s' }}>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-main/80 flex items-center gap-2">รายได้รายเดือน</h3>
+            <h3 className="font-bold text-main/80 flex items-center gap-2">{t.monthlyIncome}</h3>
             <div className="flex bg-black/5 dark:bg-white/10 rounded-full p-1">
               <button 
                 onClick={() => setChartType('bar')} 
                 className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${chartType === 'bar' ? 'bg-white dark:bg-slate-800 text-primary-500 shadow-sm' : 'text-main/60'}`}
               >
-                บาร์
+                {t.bar}
               </button>
               <button 
                 onClick={() => setChartType('line')} 
                 className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${chartType === 'line' ? 'bg-white dark:bg-slate-800 text-primary-500 shadow-sm' : 'text-main/60'}`}
               >
-                เส้น
+                {t.line}
               </button>
             </div>
           </div>
@@ -497,7 +889,7 @@ export default function TodayPage({ user }) {
                     cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.4 }}
                     contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
                     itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
-                    formatter={(value) => [`฿${(value || 0).toLocaleString()}`, 'รายได้']}
+                    formatter={(value) => [`฿${(value || 0).toLocaleString()}`, t.incomeLabel]}
                     labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
                   />
                   <Bar dataKey="income" radius={[6, 6, 6, 6]}>
@@ -514,7 +906,7 @@ export default function TodayPage({ user }) {
                   <Tooltip 
                     contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
                     itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
-                    formatter={(value) => [`฿${(value || 0).toLocaleString()}`, 'รายได้']}
+                    formatter={(value) => [`฿${(value || 0).toLocaleString()}`, t.incomeLabel]}
                     labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
                   />
                   <Line type="monotone" dataKey="income" stroke="var(--color-primary-500)" strokeWidth={3} dot={{ r: 4, fill: 'var(--color-primary-500)', strokeWidth: 2, stroke: 'white' }} activeDot={{ r: 6 }} />
@@ -523,20 +915,20 @@ export default function TodayPage({ user }) {
             </ResponsiveContainer>
           </div>
           <div className="flex items-center gap-2 mt-2 text-xs font-bold text-main/70">
-             <div className="w-2 h-2 rounded-sm bg-primary-500"></div> รายได้ (฿)
+             <div className="w-2 h-2 rounded-sm bg-primary-500"></div> {t.incomeTitle}
           </div>
         </div>
 
         <div className="animate-slide-up" style={{ animationDelay: '0.4s' }}>
           <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-main/80">งานวันนี้</h3>
-            {todayTasks.length > 0 && <span className="text-xs font-bold text-primary-500">ทั้งหมด {todayTasks.length} งาน</span>}
+            <h3 className="font-bold text-main/80">{t.tasksToday}</h3>
+            {todayTasks.length > 0 && <span className="text-xs font-bold text-primary-500">{t.totalItems(todayTasks.length)}</span>}
           </div>
           
           <div className="space-y-3">
             {todayTasks.length === 0 ? (
               <div className="liquid-glass-card p-6 text-center text-main/50 font-medium rounded-[20px]">
-                ไม่มีงานสำหรับวันนี้ 🎉
+                {t.noTasksToday}
               </div>
             ) : (
               todayTasks.map(task => {
@@ -550,17 +942,17 @@ export default function TodayPage({ user }) {
                          {format(task.start, 'HH:mm')} - {format(task.end, 'HH:mm')}
                          <span className="opacity-50">•</span>
                          {task.isPartTime ? (
-                           <span className="text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5"><DollarSign size={10} /> กะงาน</span>
+                           <span className="text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5"><DollarSign size={10} /> {t.workShift}</span>
                          ) : (
-                           <span className={task.priority === TASK_PRIORITY.HIGH ? 'text-red-500 font-bold' : ''}>สำคัญ{task.priority}</span>
+                           <span className={task.priority === TASK_PRIORITY.HIGH ? 'text-red-500 font-bold' : ''}>{t.important}{task.priority}</span>
                          )}
-                         {isOverdue && <span className="text-red-500 font-bold ml-1 bg-red-500/10 px-1.5 rounded text-[9px]">เลยกำหนด</span>}
+                         {isOverdue && <span className="text-red-500 font-bold ml-1 bg-red-500/10 px-1.5 rounded text-[9px]">{t.overdue}</span>}
                       </p>
                     </div>
                     <div className="flex-shrink-0 flex items-center gap-1.5">
                       {task.status === TASK_STATUS.DONE ? (
                         <div className="px-3 py-1.5 rounded-full bg-green-500/10 text-green-600 dark:text-green-400 text-xs font-bold border border-green-500/20 flex items-center gap-1">
-                          <Check size={12} /> เสร็จแล้ว
+                          <Check size={12} /> {t.done}
                         </div>
                       ) : (
                         <div className="px-3 py-1.5 rounded-full bg-white/50 dark:bg-black/30 text-main text-xs font-bold border border-main/10 shadow-sm">
@@ -570,7 +962,7 @@ export default function TodayPage({ user }) {
                       <button 
                         onClick={(e) => { e.stopPropagation(); handleDelete(task.id); }}
                         className="p-1.5 text-main/30 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors"
-                        title="ลบงานนี้"
+                        title="ลบรายการนี้"
                       >
                         <Trash2 size={16} />
                       </button>
@@ -582,6 +974,43 @@ export default function TodayPage({ user }) {
           </div>
         </div>
 
+        <div className="animate-slide-up mt-8" style={{ animationDelay: '0.5s' }}>
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="font-bold text-main/80">{t.upcoming7Days}</h3>
+            {upcomingTasks.length > 0 && <span className="text-xs font-bold text-amber-500">{t.totalItems(upcomingTasks.length)}</span>}
+          </div>
+          
+          <div className="space-y-3">
+            {upcomingTasks.length === 0 ? (
+              <div className="liquid-glass-card p-6 text-center text-main/50 font-medium rounded-[20px]">
+                {t.noUrgent7Days}
+              </div>
+            ) : (
+              upcomingTasks.map(task => (
+                <div key={task.id} className="liquid-glass-card p-4 rounded-[20px] flex items-center gap-3 transition-all hover:border-amber-500/30">
+                  <div className={`w-2 h-2 rounded-full flex-shrink-0 ${task.priority === TASK_PRIORITY.HIGH ? 'bg-red-500' : 'bg-amber-500'}`} />
+                  <div className="flex-1 min-w-0">
+                    <h4 className="font-bold text-main truncate">{task.title}</h4>
+                    <p className="text-[10px] md:text-xs text-main/60 truncate flex items-center gap-1.5 mt-0.5">
+                       {format(task.start, 'd MMM HH:mm', { locale: lang === 'th' ? th : undefined })}
+                       <span className="opacity-50">•</span>
+                       {task.isPartTime ? (
+                         <span className="text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5"><DollarSign size={10} /> {t.workShift}</span>
+                       ) : (
+                         <span className={task.priority === TASK_PRIORITY.HIGH ? 'text-red-500 font-bold' : ''}>{t.important}{task.priority}</span>
+                       )}
+                    </p>
+                  </div>
+                  <div className="flex-shrink-0">
+                     <div className="px-3 py-1.5 rounded-full bg-amber-500/10 text-amber-600 dark:text-amber-400 text-[10px] font-bold border border-amber-500/20">
+                       {t.waiting}
+                     </div>
+                  </div>
+                </div>
+              ))
+            )}
+          </div>
+        </div>
       </div>
 
       {/* Expanded Chart Modal */}
@@ -599,8 +1028,8 @@ export default function TodayPage({ user }) {
             </button>
             
             <div className="mb-6">
-              <h2 className="text-2xl font-bold text-main">รายได้ 12 เดือนล่าสุด</h2>
-              <p className="text-main/60 text-sm mt-1">ยอดรวมรายได้จากกะงานในช่วง 1 ปีที่ผ่านมา</p>
+              <h2 className="text-2xl font-bold text-main">{t.last12Months}</h2>
+              <p className="text-main/60 text-sm mt-1">{t.last12MonthsSub}</p>
             </div>
             
             <div className="flex bg-black/5 dark:bg-white/10 rounded-full p-1 w-max mb-6">
@@ -608,13 +1037,13 @@ export default function TodayPage({ user }) {
                 onClick={() => setChartType('bar')} 
                 className={`px-4 py-2 text-sm font-bold rounded-full transition-all ${chartType === 'bar' ? 'bg-[var(--glass-bg-strong)] text-primary-500 shadow-sm border border-[var(--glass-border)]' : 'text-main/60'}`}
               >
-                บาร์
+                {t.bar}
               </button>
               <button 
                 onClick={() => setChartType('line')} 
                 className={`px-4 py-2 text-sm font-bold rounded-full transition-all ${chartType === 'line' ? 'bg-[var(--glass-bg-strong)] text-primary-500 shadow-sm border border-[var(--glass-border)]' : 'text-main/60'}`}
               >
-                เส้น
+                {t.line}
               </button>
             </div>
 
@@ -622,7 +1051,7 @@ export default function TodayPage({ user }) {
               {!showModalChart ? (
                 <div className="flex flex-col items-center justify-center text-main/50 gap-3">
                   <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm font-bold">กำลังโหลดกราฟ...</span>
+                  <span className="text-sm font-bold">{t.loadingChart}</span>
                 </div>
               ) : (
                 <div style={{ width: '100%', height: '100%' }}>
@@ -666,6 +1095,149 @@ export default function TodayPage({ user }) {
           </div>
         </div>
       )}
+
+      {/* Widget Selector Bottom Sheet */}
+      <AnimatePresence>
+        {showWidgetSelector && (
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowWidgetSelector(false)}>
+            <motion.div 
+              initial={{ opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }}
+              transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              onClick={(e) => e.stopPropagation()}
+              className="w-full sm:max-w-md bg-white dark:bg-[#1a1b26] rounded-t-[32px] sm:rounded-[32px] p-6 pb-safe shadow-2xl"
+            >
+              <div className="w-12 h-1.5 bg-black/10 dark:bg-white/10 rounded-full mx-auto mb-6" />
+              
+              <h3 className="text-lg font-bold mb-2 flex items-center gap-2"><LayoutGrid size={20}/> {t.selectWidget}</h3>
+              
+              <div className="mb-4 text-sm text-main/70">
+                <div className="flex items-center gap-2 font-bold text-primary-500">
+                  <div className="flex-1 bg-black/10 dark:bg-white/10 h-2 rounded-full overflow-hidden">
+                    <div 
+                      className="h-full bg-primary-500 transition-all duration-300"
+                      style={{ width: `${(selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(w => w.id === id)?.size || 1), 0) / 4) * 100}%` }}
+                    />
+                  </div>
+                  <span>
+                    {selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(w => w.id === id)?.size || 1), 0)} / 4 {t.slots}
+                  </span>
+                </div>
+              </div>
+
+              <div className="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
+                {AVAILABLE_WIDGETS.map(w => {
+                  const isEnabled = selectedWidgets.includes(w.id);
+                  const currentSize = selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(widget => widget.id === id)?.size || 1), 0);
+                  const canAdd = isEnabled || (currentSize + w.size <= 4);
+                  
+                  return (
+                    <button 
+                      key={w.id}
+                      disabled={!isEnabled && !canAdd}
+                      onClick={() => {
+                        if (isEnabled) {
+                          setSelectedWidgets(prev => prev.filter(id => id !== w.id));
+                        } else if (canAdd) {
+                          setSelectedWidgets(prev => [...prev, w.id]);
+                          setShowWidgetSelector(false); // Close after adding
+                        }
+                      }}
+                      className={`w-full flex justify-between items-center p-4 rounded-2xl border transition-all ${
+                        isEnabled 
+                          ? 'bg-primary-500/10 border-primary-500 text-primary-600 dark:text-primary-400' 
+                          : (!canAdd ? 'bg-black/5 dark:bg-white/5 border-transparent opacity-40 cursor-not-allowed' : 'bg-black/5 dark:bg-white/5 border-transparent hover:bg-black/10 dark:hover:bg-white/10 text-main')
+                      }`}
+                    >
+                      <div className="text-left">
+                        <div className="font-bold">{t[w.labelKey] || w.label}</div>
+                        <div className="text-[10px] opacity-70">{t.space} {w.size} {t.slots}</div>
+                      </div>
+                      {isEnabled ? (
+                        <div className="w-6 h-6 rounded-full bg-primary-500 text-white flex items-center justify-center">
+                          <Check size={14} />
+                        </div>
+                      ) : (
+                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${!canAdd ? 'border-main/20 text-main/20' : 'border-main/20 text-main/40'}`}>
+                          <Plus size={14} />
+                        </div>
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+              
+              <button onClick={() => setShowWidgetSelector(false)} className="w-full mt-6 py-4 bg-black/5 dark:bg-white/10 rounded-xl font-bold">{t.close}</button>
+            </motion.div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* D-Day Config Modal */}
+      {showDdayModal && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowDdayModal(false)}>
+          <div 
+            className="liquid-glass-card w-full max-w-sm p-6 flex flex-col relative animate-slide-up"
+            onClick={e => e.stopPropagation()}
+          >
+            <h2 className="text-xl font-bold text-main mb-4 flex items-center gap-2">
+              <Calendar size={20} className="text-primary-500" />
+              {t.configDDay}
+            </h2>
+            
+            <div className="space-y-4">
+               <div>
+                  <label className="block text-xs font-bold text-main/70 mb-1">{t.eventName}</label>
+                  <input 
+                     type="text" 
+                     value={ddayInput.title}
+                     onChange={(e) => setDdayInput({...ddayInput, title: e.target.value})}
+                     className="w-full bg-[var(--glass-bg-strong)] border border-[var(--glass-border)] rounded-xl px-4 py-2.5 text-main font-medium focus:outline-none focus:border-primary-500 transition-colors"
+                     placeholder={t.eventNamePlaceholder}
+                     maxLength={20}
+                  />
+               </div>
+               <div>
+                  <label className="block text-xs font-bold text-main/70 mb-1">{t.targetDate}</label>
+                  <input 
+                     type="date" 
+                     value={ddayInput.date}
+                     onChange={(e) => setDdayInput({...ddayInput, date: e.target.value})}
+                     className="w-full bg-[var(--glass-bg-strong)] border border-[var(--glass-border)] rounded-xl px-4 py-2.5 text-main font-medium focus:outline-none focus:border-primary-500 transition-colors"
+                  />
+               </div>
+            </div>
+
+            <div className="flex gap-2 mt-6">
+              <button 
+                onClick={() => setShowDdayModal(false)}
+                className="flex-1 py-2.5 rounded-xl text-main font-bold hover:bg-main/5 transition-colors"
+              >
+                {t.cancel}
+              </button>
+              <button 
+                onClick={() => {
+                   let savedDate = ddayInput.date;
+                   if (savedDate) {
+                       const parts = savedDate.split('-');
+                       if (parts.length === 3 && parseInt(parts[0], 10) > 2400) {
+                           parts[0] = (parseInt(parts[0], 10) - 543).toString();
+                           savedDate = parts.join('-');
+                       }
+                   }
+                   setDdayConfig({ ...ddayInput, date: savedDate });
+                   setShowDdayModal(false);
+                }}
+                className="flex-1 py-2.5 bg-primary-500 hover:bg-primary-600 text-white rounded-xl font-bold transition-colors shadow-lg shadow-primary-500/30"
+              >
+                {t.save}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
     </motion.div>
   );
 }
