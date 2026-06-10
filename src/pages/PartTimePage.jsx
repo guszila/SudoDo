@@ -457,6 +457,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
   ];
 
   React.useEffect(() => {
+    return; // TEMPORARILY DISABLED
     if (isTasksLoading) return;
     
     const shown = JSON.parse(localStorage.getItem('achievements_shown') || '{}');
