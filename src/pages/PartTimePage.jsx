@@ -497,15 +497,15 @@ export default function PartTimePage({ user, lang = 'en' }) {
   }, [extraStats.currentWorkStreak, monthlyGross, isTasksLoading, incomeGoal]);
 
   React.useEffect(() => {
-    if (achievementToShow) {
-       confetti({
-           particleCount: 150,
-           spread: 70,
-           origin: { y: 0.6 },
-           colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
-           zIndex: 1000
-       });
-    }
+    // if (achievementToShow) {
+    //    confetti({
+    //        particleCount: 150,
+    //        spread: 70,
+    //        origin: { y: 0.6 },
+    //        colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
+    //        zIndex: 1000
+    //    });
+    // }
   }, [achievementToShow]);
 
   const renderWidgetContent = (id) => {
