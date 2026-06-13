@@ -1,6 +1,8 @@
 import React, { useState, useEffect } from 'react';
 
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
+import withDragAndDropLib from 'react-big-calendar/lib/addons/dragAndDrop';
+import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { format, parse, startOfWeek, getDay, isBefore, startOfDay, endOfDay, differenceInDays, isSameDay } from 'date-fns';
 import { enUS, th } from 'date-fns/locale';
 import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Home, Settings, ListTodo, User, DollarSign, ChevronLeft, ChevronRight, X } from 'lucide-react';
@@ -17,6 +19,8 @@ import Logo from './components/layout/Logo';
 import BottomNav from './components/layout/BottomNav';
 import ProductTour from './components/onboarding/ProductTour';
 import ErrorBoundary from './components/common/ErrorBoundary';
+import ChangelogModal from './components/common/ChangelogModal';
+import pkg from '../package.json';
 
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
@@ -25,6 +29,7 @@ import IncomeHistoryPage from './pages/IncomeHistoryPage';
 import TodayPage from './pages/TodayPage';
 import SocialSecurityPage from './pages/SocialSecurityPage';
 import TasksPage from './pages/TasksPage';
+import FriendsPage from './pages/FriendsPage';
 
 import { saveTask } from './services/taskService';
 import { getThaiHoliday } from './utils/holidays';
@@ -53,6 +58,9 @@ const localizer = dateFnsLocalizer({
   locales,
 });
 
+const withDragAndDrop = typeof withDragAndDropLib === 'function' ? withDragAndDropLib : withDragAndDropLib.default;
+const DnDCalendar = withDragAndDrop(Calendar);
+
 const StatusIcon = ({ status, className = "" }) => {
   switch (status) {
     case TASK_STATUS.DONE: return <CheckCircle2 className={`text-status-done ${className}`} />;
@@ -77,6 +85,19 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
     return localStorage.getItem('tourCompleted_v1.1') !== 'true';
   });
 
+  const [showChangelog, setShowChangelog] = useState(() => {
+    const lastVersion = localStorage.getItem('lastSeenVersion');
+    if (lastVersion !== pkg.version) {
+      return true;
+    }
+    return false;
+  });
+
+  const handleCloseChangelog = () => {
+    localStorage.setItem('lastSeenVersion', pkg.version);
+    setShowChangelog(false);
+  };
+
   const t = translations[lang];
 
   const handleSelectSlot = ({ start }) => {
@@ -98,6 +119,16 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
     await saveTask(action, taskData, user.uid);
   };
 
+  const onEventDrop = async ({ event, start, end }) => {
+    const updatedEvent = { ...event, start: start.toISOString(), end: end.toISOString() };
+    await saveTask('EDIT', updatedEvent, user.uid);
+  };
+
+  const onEventResize = async ({ event, start, end }) => {
+    const updatedEvent = { ...event, start: start.toISOString(), end: end.toISOString() };
+    await saveTask('EDIT', updatedEvent, user.uid);
+  };
+
   const handleDeleteTask = async (taskId) => {
     setIsModalOpen(false);
     await saveTask('DELETE', { id: taskId }, user.uid);
@@ -107,18 +138,6 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
     const isDone = task.status === TASK_STATUS.DONE;
     const newStatus = isDone ? TASK_STATUS.TODO : TASK_STATUS.DONE;
     await handleSaveTask({ ...task, status: newStatus });
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-    } catch (error) {
-      console.error("Logout error", error);
-    }
-  };
-
-  const toggleLanguage = () => {
-    setLang(prev => prev === 'en' ? 'th' : 'en');
   };
 
   const EventComponent = ({ event }) => {
@@ -208,6 +227,12 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
       return isOverdue && startOfDay(t.end).getTime() === startOfDay(date).getTime();
     });
 
+    const dayTasks = tasks.filter(t => startOfDay(new Date(t.start)).getTime() === startOfDay(date).getTime());
+    const doneTasks = dayTasks.filter(t => t.status === TASK_STATUS.DONE || (t.isPartTime && t.actualStart && t.actualEnd));
+    const hasTasks = dayTasks.length > 0;
+    const allDone = hasTasks && doneTasks.length === dayTasks.length;
+    const someDone = hasTasks && doneTasks.length > 0 && !allDone;
+
     const holidayName = getThaiHoliday(date);
     const dayOfWeek = date.getDay();
     
@@ -226,9 +251,24 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
     return (
       <button onClick={() => handleSelectSlot({ start: date })} className="w-full text-center relative flex flex-col items-center justify-center pb-1 font-medium hover:bg-white/10 rounded-t-lg transition-colors pt-2 h-full min-h-[30px]">
         <span className={textClass} style={textColorStyle}>{label}</span>
-        {holidayName && (
-          <div className="w-1 h-1 bg-red-500 rounded-full mt-0.5 opacity-80" title={holidayName}></div>
-        )}
+        <div className="flex items-center gap-0.5 mt-0.5">
+          {holidayName && (
+            <div className="w-1 h-1 bg-red-500 rounded-full opacity-80" title={holidayName}></div>
+          )}
+          {!hasOverdue && allDone && (
+            <div className="w-2.5 h-2.5 rounded-full bg-green-500 flex items-center justify-center shadow-[0_0_6px_rgba(34,197,94,0.5)]" title="ทำงานเสร็จทั้งหมด">
+              <svg className="w-1.5 h-1.5 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth="2.5">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
+              </svg>
+            </div>
+          )}
+          {!hasOverdue && someDone && (
+            <div className="w-2 h-2 rounded-full bg-blue-400 opacity-80" title="มีงานบางส่วนเสร็จแล้ว" />
+          )}
+          {!hasOverdue && hasTasks && doneTasks.length === 0 && (
+            <div className="w-1.5 h-1.5 rounded-full bg-primary-400 opacity-60" title="มีงาน" />
+          )}
+        </div>
         {hasOverdue && <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />}
       </button>
     );
@@ -327,6 +367,45 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
     );
   };
 
+  const exportToICS = () => {
+    let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//SudoDo App//EN\n";
+    
+    tasks.forEach(task => {
+      if (!task.start || !task.end) return;
+      
+      const formatICSDate = (dateString) => {
+        const d = new Date(dateString);
+        if (isNaN(d.getTime())) return null;
+        return d.toISOString().replace(/[-:]/g, '').split('.')[0] + 'Z';
+      };
+
+      const start = formatICSDate(task.start);
+      const end = formatICSDate(task.end);
+      if (!start || !end) return;
+
+      icsContent += "BEGIN:VEVENT\n";
+      icsContent += `UID:${task.id}@sudodo.app\n`;
+      icsContent += `DTSTAMP:${formatICSDate(new Date())}\n`;
+      icsContent += `DTSTART:${start}\n`;
+      icsContent += `DTEND:${end}\n`;
+      icsContent += `SUMMARY:${task.title}\n`;
+      if (task.description) {
+        icsContent += `DESCRIPTION:${task.description.replace(/\n/g, '\\n')}\n`;
+      }
+      icsContent += "END:VEVENT\n";
+    });
+    
+    icsContent += "END:VCALENDAR";
+    
+    const blob = new Blob([icsContent], { type: 'text/calendar;charset=utf-8' });
+    const link = document.createElement('a');
+    link.href = window.URL.createObjectURL(blob);
+    link.download = 'sudodo_tasks.ics';
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const monthSuccess = React.useMemo(() => {
     const currentMonth = currentDate.getMonth();
     const currentYear = currentDate.getFullYear();
@@ -365,6 +444,13 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
             </h1>
             <p className="text-main/60 font-medium text-sm">จัดการตารางเวลาและวันสำคัญของคุณ</p>
           </div>
+          <button 
+            onClick={exportToICS}
+            className="flex items-center gap-2 px-3 py-2 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 rounded-[14px] text-xs font-bold text-main transition-colors active:scale-95 mt-1"
+            title="Export Calendar to .ics"
+          >
+            <CalendarIcon size={14} /> Export
+          </button>
         </header>
 
         <main className="relative">
@@ -379,7 +465,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
           
           <StatsBar tasks={tasks} />
 
-          <Calendar
+          <DnDCalendar
             localizer={localizer}
             culture={lang === 'en' ? 'en-US' : 'th'}
             messages={t.calendarMessages}
@@ -407,6 +493,9 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
             onNavigate={setCurrentDate}
             onDrillDown={() => {}}
             popup
+            resizable
+            onEventDrop={onEventDrop}
+            onEventResize={onEventResize}
           />
 
           {selectedDateFilter && (
@@ -485,6 +574,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
           <Route path="/income/history" element={<ErrorBoundary><IncomeHistoryPage user={user} lang={lang} /></ErrorBoundary>} />
           <Route path="/social-security" element={<SocialSecurityPage lang={lang} />} />
           <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
+          <Route path="/friends" element={<FriendsPage user={user} lang={lang} />} />
         </Routes>
       </AnimatePresence>
       
@@ -522,26 +612,28 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
               title: lang === 'en' ? 'Settings & Manage Jobs' : 'ตั้งค่า & จัดการบริษัท',
               content: lang === 'en' ? 'Change themes, setup your companies/jobs, and configure notifications here!' : 'คุณสามารถเข้ามาจัดการรายชื่อบริษัท (Jobs) ตั้งค่าหักประกันสังคม หรือเปลี่ยนธีมสีได้ที่นี่เลย!',
               icon: '🎨',
-              borderRadius: 16
+              borderRadius: 24
             }
           ]}
         />
       )}
 
-      {/* Floating Action Button */}
-      {location.pathname === '/calendar' && (
+      {/* Changelog Modal Auto-Show */}
+      <ChangelogModal isOpen={showChangelog && !showTour} onClose={handleCloseChangelog} lang={lang} />
+      
+      {/* Global Add Button */}
+      <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-50">
         <button 
           onClick={() => { 
             setSelectedTask(selectedDateFilter ? { start: selectedDateFilter, end: selectedDateFilter } : null); 
             setIsModalOpen(true); 
           }}
-          className="tour-add-btn fixed bottom-24 md:bottom-10 right-6 md:right-10 w-14 h-14 bg-[var(--theme-accent)] text-[var(--theme-accent-light)] rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.15)] z-50 hover:scale-105 active:scale-95 transition-all group"
+          className="tour-add-btn w-14 h-14 bg-[var(--theme-accent)] text-[var(--theme-accent-light)] rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:scale-105 active:scale-95 transition-all group"
         >
           <span className="absolute inset-0 rounded-full bg-[var(--theme-accent)] opacity-20 group-hover:animate-ping"></span>
           <Plus size={28} className="relative z-10" />
         </button>
-      )}
-
+      </div>
       {/* Mobile Bottom Navigation */}
       <BottomNav lang={lang} currentView={currentView} setCurrentView={setCurrentView} />
       <TaskModal 

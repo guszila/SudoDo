@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { ArrowLeft, CheckCircle2, Edit, ListTodo, Plus, Trash2, CalendarDays, DollarSign, Search, Filter } from 'lucide-react';
+import { ArrowLeft, CheckCircle2, Edit, ListTodo, Plus, Trash2, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 
 import TaskModal from '../components/tasks/TaskModal';
@@ -24,13 +24,14 @@ export default function TasksPage({ user, lang = 'en' }) {
   const tCommon = translations[lang];
   const navigate = useNavigate();
   
-  const [activeTab, setActiveTab] = useState('general'); // 'general' | 'partTime'
   const [activeStatus, setActiveStatus] = useState('pending'); // 'pending' | 'done'
+  const [priorityFilter, setPriorityFilter] = useState('all'); // 'all' | 'high' | 'normal' | 'low'
   const [editingTask, setEditingTask] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isMutating, setIsMutating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('date-desc');
+  const [showFilters, setShowFilters] = useState(false);
 
   // Bulk Selection State
   const [isSelectionMode, setIsSelectionMode] = useState(false);
@@ -41,47 +42,32 @@ export default function TasksPage({ user, lang = 'en' }) {
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
   const [bulkDeleteConfirm, setBulkDeleteConfirm] = useState(false);
 
-  // Derived state
-  const { generalPending, generalDone, partTimePending, partTimeDone } = useMemo(() => {
+  // Derived state — general tasks only
+  const { generalPending, generalDone } = useMemo(() => {
     const gp = [];
     const gd = [];
-    const pp = [];
-    const pd = [];
-    
     tasks.forEach(t => {
-      const isCompleted = t.status === TASK_STATUS.DONE || (t.isPartTime && t.actualStart && t.actualEnd);
-      
-      if (t.isPartTime) {
-        if (isCompleted) pd.push(t);
-        else pp.push(t);
-      } else {
-        if (isCompleted) gd.push(t);
-        else gp.push(t);
-      }
+      if (t.isPartTime) return; // Part-Time tasks belong to PartTimePage
+      const isCompleted = t.status === TASK_STATUS.DONE;
+      if (isCompleted) gd.push(t);
+      else gp.push(t);
     });
-    
-    const sortTasks = (a, b) => b.start - a.start;
+    const sortTasks = (a, b) => new Date(b.start) - new Date(a.start);
     gp.sort(sortTasks);
     gd.sort(sortTasks);
-    pp.sort(sortTasks);
-    pd.sort(sortTasks);
-    
-    return { generalPending: gp, generalDone: gd, partTimePending: pp, partTimeDone: pd };
+    return { generalPending: gp, generalDone: gd };
   }, [tasks]);
 
   const displayedTasks = useMemo(() => {
-    let list = [];
-    if (activeTab === 'general') {
-      list = activeStatus === 'pending' ? generalPending : generalDone;
-    } else {
-      list = activeStatus === 'pending' ? partTimePending : partTimeDone;
-    }
+    let list = activeStatus === 'pending' ? generalPending : generalDone;
     
+    if (priorityFilter !== 'all') {
+      list = list.filter(t => (t.priority || 'normal') === priorityFilter);
+    }
     if (searchQuery) {
       const q = searchQuery.toLowerCase();
       list = list.filter(t => t.title?.toLowerCase().includes(q) || t.description?.toLowerCase().includes(q));
     }
-    
     list = [...list];
     if (sortBy === 'priority') {
       list.sort((a, b) => (PRIORITY_WEIGHT[b.priority] || 0) - (PRIORITY_WEIGHT[a.priority] || 0) || new Date(b.start) - new Date(a.start));
@@ -91,17 +77,44 @@ export default function TasksPage({ user, lang = 'en' }) {
       list.sort((a, b) => new Date(b.start) - new Date(a.start));
     }
     return list;
-  }, [activeTab, activeStatus, generalPending, generalDone, partTimePending, partTimeDone, searchQuery, sortBy]);
+  }, [activeStatus, generalPending, generalDone, searchQuery, sortBy, priorityFilter]);
+
+  const generateRecurringTask = async (originalTask) => {
+    if (originalTask.recurring && originalTask.recurring !== 'none') {
+      const newStart = new Date(originalTask.start);
+      const newEnd = new Date(originalTask.end);
+      if (originalTask.recurring === 'daily') {
+        newStart.setDate(newStart.getDate() + 1);
+        newEnd.setDate(newEnd.getDate() + 1);
+      } else if (originalTask.recurring === 'weekly') {
+        newStart.setDate(newStart.getDate() + 7);
+        newEnd.setDate(newEnd.getDate() + 7);
+      }
+      
+      const recurringTask = {
+        ...originalTask,
+        status: TASK_STATUS.TODO,
+        start: newStart.toISOString(),
+        end: newEnd.toISOString(),
+        subtasks: originalTask.subtasks ? originalTask.subtasks.map(s => ({...s, done: false})) : []
+      };
+      delete recurringTask.id;
+      await saveTask('ADD', recurringTask, user.uid);
+      showToast(lang === 'th' ? `สร้างงานสำหรับรอบถัดไปอัตโนมัติแล้ว` : `Next recurring task created`, { duration: 3000 });
+    }
+  };
 
   const handleMarkDone = async (task) => {
+    const isNowDone = task.status !== TASK_STATUS.DONE;
     const updated = {
       ...task,
       start: task.start.toISOString(),
       end: task.end.toISOString(),
-      status: task.status === TASK_STATUS.DONE ? TASK_STATUS.TODO : TASK_STATUS.DONE
+      status: isNowDone ? TASK_STATUS.DONE : TASK_STATUS.TODO
     };
     setIsMutating(true);
     await saveTask('EDIT', updated, user.uid);
+    if (isNowDone) await generateRecurringTask(task);
     setIsMutating(false);
   };
 
@@ -173,7 +186,16 @@ export default function TasksPage({ user, lang = 'en' }) {
   const handleEditSave = async (taskData) => {
     setIsModalOpen(false);
     setIsMutating(true);
-    await saveTask('EDIT', taskData, user.uid);
+    
+    const wasDone = editingTask?.status === TASK_STATUS.DONE;
+    const isNowDone = taskData.status === TASK_STATUS.DONE;
+    
+    await saveTask(taskData.id ? 'EDIT' : 'ADD', taskData, user.uid);
+    
+    if (taskData.id && !wasDone && isNowDone) {
+      await generateRecurringTask(taskData);
+    }
+    
     setIsMutating(false);
   };
 
@@ -196,9 +218,7 @@ export default function TasksPage({ user, lang = 'en' }) {
     >
       <div className="flex items-center justify-between mb-6 px-2">
         <div className="flex items-center gap-4">
-          <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main">
-            <ArrowLeft size={24} />
-          </button>
+
           <h1 className="text-2xl font-bold text-main flex items-center gap-2 m-0">
             <ListTodo className="text-primary-500" size={28} />
             {lang === 'en' ? 'All Tasks' : 'งานทั้งหมด'}
@@ -235,63 +255,111 @@ export default function TasksPage({ user, lang = 'en' }) {
         )}
       </div>
 
-      <div className="flex flex-col md:flex-row gap-4 mb-6">
-        {/* Type Tabs */}
-        <div className="tour-tabs flex p-1.5 rounded-2xl w-full md:w-auto" style={{ background: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.4)' }}>
-          <button 
-            onClick={() => setActiveTab('general')}
-            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'general' ? 'bg-[var(--theme-accent)] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
+      {/* Status + Priority Tabs */}
+      <div className="flex gap-3 mb-4">
+        {/* Status filter */}
+        <div className="flex bg-black/5 dark:bg-white/5 rounded-full p-1 gap-0.5">
+          <button
+            onClick={() => setActiveStatus('pending')}
+            className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${
+              activeStatus === 'pending' ? 'bg-primary-500 text-white shadow-sm' : 'text-main/60 hover:text-main'
+            }`}
           >
-            <CalendarDays size={16} /> {t.generalTasks}
+            {lang === 'th' ? 'รอดำเนินการ' : 'Pending'}
           </button>
-          <button 
-            onClick={() => setActiveTab('partTime')}
-            className={`flex-1 md:flex-none flex items-center justify-center gap-2 px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeTab === 'partTime' ? 'bg-[var(--theme-accent)] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
+          <button
+            onClick={() => setActiveStatus('done')}
+            className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${
+              activeStatus === 'done' ? 'bg-primary-500 text-white shadow-sm' : 'text-main/60 hover:text-main'
+            }`}
           >
-            <DollarSign size={16} /> {t.shifts}
+            {lang === 'th' ? 'เสร็จแล้ว' : 'Done'}
           </button>
         </div>
 
-        {/* Status Tabs */}
-        <div className="flex p-1.5 rounded-2xl w-full md:w-auto ml-auto" style={{ background: 'rgba(255,255,255,0.3)', border: '1px solid rgba(255,255,255,0.4)' }}>
-          <button 
-            onClick={() => setActiveStatus('pending')}
-            className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeStatus === 'pending' ? 'bg-[var(--theme-accent)] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
-          >
-            {t.pending}
-          </button>
-          <button 
-            onClick={() => setActiveStatus('done')}
-            className={`flex-1 md:flex-none px-6 py-2.5 rounded-xl font-bold transition-all text-sm ${activeStatus === 'done' ? 'bg-[var(--theme-accent)] text-white shadow-sm' : 'bg-transparent text-main/60 hover:text-main'}`}
-          >
-            {t.done}
-          </button>
-        </div>
+        {/* Filter toggle */}
+        <button
+          onClick={() => setShowFilters(!showFilters)}
+          className={`ml-auto p-2.5 rounded-full font-bold text-sm transition-all flex items-center gap-1.5 ${
+            (priorityFilter !== 'all' || sortBy !== 'date-desc') ? 'bg-primary-500 text-white' : 'bg-black/5 dark:bg-white/5 text-main/60 hover:text-main'
+          }`}
+        >
+          <Filter size={16} />
+          {showFilters ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
+        </button>
       </div>
 
-      <div className="flex flex-col md:flex-row gap-3 mb-6">
-         <div className="relative flex-1">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-main/40" size={18} />
-            <input 
-               type="text"
-               placeholder={lang === 'th' ? "ค้นหางาน..." : "Search tasks..."}
-               value={searchQuery}
-               onChange={(e) => setSearchQuery(e.target.value)}
-               className="w-full bg-black/5 dark:bg-white/10 border-transparent rounded-2xl pl-10 pr-4 py-2.5 text-main font-medium focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
-            />
-         </div>
-         <div className="relative">
-            <select 
-               value={sortBy}
-               onChange={(e) => setSortBy(e.target.value)}
-               className="appearance-none bg-black/5 dark:bg-white/10 border-transparent rounded-2xl pl-10 pr-8 py-2.5 text-main font-bold focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all h-full"
-            >
-               <option value="date-desc">{lang === 'th' ? "ล่าสุดก่อน" : "Newest first"}</option>
-               <option value="date-asc">{lang === 'th' ? "เก่าสุดก่อน" : "Oldest first"}</option>
-               <option value="priority">{lang === 'th' ? "ความสำคัญ" : "Priority"}</option>
-            </select>
-            <Filter className="absolute left-3 top-1/2 -translate-y-1/2 text-main/40 pointer-events-none" size={18} />
-         </div>
+      {/* Filter Panel */}
+      <AnimatePresence>
+        {showFilters && (
+          <motion.div
+            initial={{ height: 0, opacity: 0 }}
+            animate={{ height: 'auto', opacity: 1 }}
+            exit={{ height: 0, opacity: 0 }}
+            className="overflow-hidden mb-4"
+          >
+            <div className="liquid-glass-card p-4 space-y-3">
+              {/* Priority chips */}
+              <div>
+                <p className="text-xs font-bold text-main/50 mb-2">{lang === 'th' ? 'ความสำคัญ' : 'Priority'}</p>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { id: 'all', label: lang === 'th' ? 'ทั้งหมด' : 'All', color: 'bg-main/10 text-main' },
+                    { id: 'high', label: lang === 'th' ? 'สูง' : 'High', color: 'bg-red-500/10 text-red-500' },
+                    { id: 'normal', label: lang === 'th' ? 'ปกติ' : 'Normal', color: 'bg-amber-500/10 text-amber-500' },
+                    { id: 'low', label: lang === 'th' ? 'ต่ำ' : 'Low', color: 'bg-green-500/10 text-green-500' },
+                  ].map(p => (
+                    <button
+                      key={p.id}
+                      onClick={() => setPriorityFilter(p.id)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all border ${
+                        priorityFilter === p.id
+                          ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-300'
+                          : `border-transparent ${p.color} opacity-70 hover:opacity-100`
+                      }`}
+                    >
+                      {p.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+              {/* Sort */}
+              <div>
+                <p className="text-xs font-bold text-main/50 mb-2">{lang === 'th' ? 'เรียงตาม' : 'Sort by'}</p>
+                <div className="flex gap-2 flex-wrap">
+                  {[
+                    { id: 'date-desc', label: lang === 'th' ? 'ล่าสุดก่อน' : 'Newest' },
+                    { id: 'date-asc', label: lang === 'th' ? 'เก่าสุดก่อน' : 'Oldest' },
+                    { id: 'priority', label: lang === 'th' ? 'ความสำคัญ' : 'Priority' },
+                  ].map(s => (
+                    <button
+                      key={s.id}
+                      onClick={() => setSortBy(s.id)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-bold transition-all border ${
+                        sortBy === s.id
+                          ? 'border-primary-500 bg-primary-500/10 text-primary-600 dark:text-primary-300'
+                          : 'border-transparent bg-main/5 text-main/60 hover:text-main'
+                      }`}
+                    >
+                      {s.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      <div className="relative mb-6">
+         <Search className="absolute left-3 top-1/2 -translate-y-1/2 text-main/40" size={18} />
+         <input 
+            type="text"
+            placeholder={lang === 'th' ? 'ค้นหางาน...' : 'Search tasks...'}
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            className="w-full bg-black/5 dark:bg-white/10 border-transparent rounded-2xl pl-10 pr-4 py-3 text-main font-medium focus:outline-none focus:ring-2 focus:ring-primary-500/50 transition-all"
+         />
       </div>
 
       <div className="space-y-3 relative min-h-[200px]">

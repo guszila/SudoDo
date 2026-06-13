@@ -7,6 +7,8 @@ export const COLLECTIONS = {
   TASKS: 'tasks',
   STATS: 'stats',
   STREAK: 'streak',
+  PUBLIC_PROFILES: 'public_profiles',
+  FRIENDS: 'friends',
 };
 
 export const TASK_STATUS = {

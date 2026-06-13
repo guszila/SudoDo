@@ -9,7 +9,7 @@ import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, ChevronRight, Moon, Sun, Languages, Calendar,
-  Palette,
+  Palette, Lock, Loader2, Mail,
   Bell, Clock, Flame, Globe, Download,
   ShieldCheck, RefreshCw, Database, Info, Star,
   Trash2, LogOut, Check, PlayCircle, UserX, Briefcase, Plus, X
@@ -19,11 +19,12 @@ import { useTheme } from '../contexts/ThemeContext';
 import { useTasks } from '../contexts/TasksContext';
 import { saveTask, fetchTasks } from '../services/taskService';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import ChangelogModal from '../components/common/ChangelogModal';
 import { SectionLabel, GlassCard, Toggle, SettingsRow as Row } from '../components/common/SettingsUI';
 import { useToast } from '../contexts/ToastContext';
 import pkg from '../../package.json';
 import { auth } from '../firebase';
-import { signOut, deleteUser } from 'firebase/auth';
+import { signOut, deleteUser, updatePassword, sendPasswordResetEmail } from 'firebase/auth';
 
 const ActionSheet = ({ isOpen, onClose, title, children }) => {
   return (
@@ -64,6 +65,7 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
 
   // Sheets & Dialogs State
   const [activeSheet, setActiveSheet] = useState(null); // 'language', 'weekStart', 'resetIncome', 'manageJobs', 'editJob', 'themePicker', 'exportPdf'
+  const [showChangelog, setShowChangelog] = useState(false);
   
   // Job Management State
   const [editingJob, setEditingJob] = useState(null);
@@ -79,6 +81,41 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
   const [deleteAccountStep, setDeleteAccountStep] = useState(0);
   const [deleteAccountText, setDeleteAccountText] = useState('');
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+
+  // Security
+  const [newPassword, setNewPassword] = useState('');
+  const [isChangingPassword, setIsChangingPassword] = useState(false);
+  const [sendingReset, setSendingReset] = useState(false);
+
+  const handleUpdatePassword = async (e) => {
+    e.preventDefault();
+    if (newPassword.length < 6) return;
+    setIsChangingPassword(true);
+    try {
+      await updatePassword(user, newPassword);
+      setNewPassword('');
+      showToast(lang === 'en' ? 'Password updated successfully' : 'อัปเดตรหัสผ่านสำเร็จ');
+      setActiveSheet(null);
+    } catch (error) {
+      if (error.code === 'auth/requires-recent-login') {
+        showToast(lang === 'en' ? 'Please log out and log in again to change password' : 'กรุณาออกจากระบบและเข้าสู่ระบบใหม่ เพื่อเปลี่ยนรหัสผ่าน', { isError: true });
+      } else {
+        showToast(error.message, { isError: true });
+      }
+    }
+    setIsChangingPassword(false);
+  };
+
+  const handleResetPasswordEmail = async () => {
+    setSendingReset(true);
+    try {
+      await sendPasswordResetEmail(auth, user.email);
+      showToast(lang === 'en' ? 'Password reset link sent to your email' : 'ส่งลิงก์ตั้งรหัสผ่านใหม่ไปยังอีเมลแล้ว');
+    } catch (error) {
+      showToast(error.message, { isError: true });
+    }
+    setSendingReset(false);
+  };
 
   const t = {
     display: lang === 'en' ? 'Display' : 'การแสดงผล',
@@ -111,6 +148,7 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
     storageSub: lang === 'en' ? `${storageCounts.tasks} tasks · ${storageCounts.shifts} shifts` : `งาน ${storageCounts.tasks} รายการ · กะ ${storageCounts.shifts} รายการ`,
     about: lang === 'en' ? 'About' : 'เกี่ยวกับ',
     version: lang === 'en' ? 'Version' : 'เวอร์ชัน',
+    whatsNew: lang === 'en' ? "What's New" : 'มีอะไรใหม่',
     reviewApp: lang === 'en' ? 'Review App' : 'รีวิวแอป',
     reviewAppSub: lang === 'en' ? 'Rate on App Store' : 'ให้คะแนนบน App Store',
     dangerZone: lang === 'en' ? 'Danger Zone' : 'Danger Zone',
@@ -121,6 +159,8 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
     deleteAccountMsg: lang === 'en' ? 'This will permanently delete your account and all data. Cannot be undone.' : 'การกระทำนี้จะลบบัญชีและข้อมูลทั้งหมดของคุณอย่างถาวร ไม่สามารถย้อนกลับได้',
     deleteAccountError: lang === 'en' ? 'Error: Please log out and log back in to verify your identity before deleting.' : 'ข้อผิดพลาด: กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่ เพื่อยืนยันตัวตนก่อนลบบัญชี',
     logout: lang === 'en' ? 'Log Out' : 'ออกจากระบบ',
+    securityTitle: lang === 'en' ? 'Security' : 'ความปลอดภัย',
+    changePassword: lang === 'en' ? 'Change Password' : 'เปลี่ยนรหัสผ่าน',
     selectLang: lang === 'en' ? 'Select Language' : 'เลือกภาษา',
     thai: lang === 'en' ? 'Thai' : 'ภาษาไทย',
     english: lang === 'en' ? 'English' : 'English',
@@ -484,6 +524,12 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
             title={t.version} subtitle={pkg.version || '1.0.0'}
           />
           <Row 
+            icon={Star} iconBgClass="bg-purple-500/15" iconColorClass="text-purple-600 dark:text-purple-400"
+            title={t.whatsNew} 
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            onClick={() => setShowChangelog(true)}
+          />
+          <Row 
             icon={PlayCircle} iconBgClass="bg-blue-500/15" iconColorClass="text-blue-600 dark:text-blue-400"
             title={t.restartTour} 
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
@@ -495,7 +541,19 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
           />
         </GlassCard>
 
-        {/* Section 6: Danger Zone */}
+        {/* Section 6: Security */}
+        <SectionLabel>{t.securityTitle}</SectionLabel>
+        <GlassCard>
+          <Row 
+            icon={Lock} iconBgClass="bg-amber-500/10" iconColorClass="text-amber-500"
+            title={t.changePassword} 
+            rightElement={<ChevronRight size={20} className="text-main/30" />}
+            onClick={() => setActiveSheet('changePassword')}
+            isLast
+          />
+        </GlassCard>
+
+        {/* Section 7: Danger Zone */}
         <SectionLabel>{t.dangerZone}</SectionLabel>
         <div className="bg-[rgba(252,235,235,0.5)] dark:bg-[rgba(163,45,45,0.15)] backdrop-blur-[20px] border-[0.5px] border-[rgba(242,148,148,0.4)] dark:border-[rgba(240,149,149,0.2)] rounded-[16px] mx-4 mb-8 overflow-hidden shadow-sm">
           <Row 
@@ -822,6 +880,42 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
         </div>
       </ActionSheet>
 
+      {/* Change Password Sheet */}
+      <ActionSheet isOpen={activeSheet === 'changePassword'} onClose={() => setActiveSheet(null)} title={t.changePassword}>
+        <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto px-1">
+          <form onSubmit={handleUpdatePassword} className="flex flex-col gap-4">
+            <div>
+              <label className="block text-sm font-bold text-main mb-2 opacity-80">{lang === 'en' ? 'New Password' : 'เปลี่ยนรหัสผ่านใหม่ (New Password)'}</label>
+              <input 
+                type="password" 
+                value={newPassword} 
+                onChange={(e) => setNewPassword(e.target.value)}
+                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-main bg-black/5 dark:bg-white/10"
+                placeholder={lang === 'en' ? "At least 6 characters" : "รหัสผ่านใหม่อย่างน้อย 6 ตัวอักษร"}
+              />
+            </div>
+            <button 
+              type="submit"
+              disabled={isChangingPassword || newPassword.length < 6}
+              className="w-full py-4 bg-amber-500 text-white rounded-xl font-bold flex items-center justify-center gap-2 shadow-lg shadow-amber-500/30 disabled:opacity-50 transition-all hover:bg-amber-600"
+            >
+              {isChangingPassword ? <Loader2 size={20} className="animate-spin" /> : <Check size={20} />}
+              {t.changePassword}
+            </button>
+          </form>
+
+          <button
+            type="button"
+            onClick={handleResetPasswordEmail}
+            disabled={sendingReset}
+            className="mt-2 text-sm flex items-center justify-center gap-2 text-main opacity-70 hover:opacity-100 transition-opacity font-medium py-3 rounded-xl hover:bg-black/5 dark:hover:bg-white/5"
+          >
+            {sendingReset ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
+            {lang === 'en' ? 'Forgot password? Send reset link' : 'ลืมรหัสผ่าน? ส่งลิงก์ตั้งรหัสผ่านใหม่ไปยังอีเมล'}
+          </button>
+        </div>
+      </ActionSheet>
+
       {/* Export PDF Sheet */}
       <ActionSheet isOpen={activeSheet === 'exportPdf'} onClose={() => setActiveSheet(null)} title={t.exportPdf}>
         <div className="flex flex-col gap-4 max-h-[60vh] overflow-y-auto px-1">
@@ -867,6 +961,9 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
           />
         </div>
       </ActionSheet>
+
+      {/* Changelog Modal */}
+      <ChangelogModal isOpen={showChangelog} onClose={() => setShowChangelog(false)} lang={lang} />
     </motion.div>
   );
 }

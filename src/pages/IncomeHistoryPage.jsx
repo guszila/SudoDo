@@ -7,11 +7,13 @@ import {
 } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { 
-  ArrowLeft, CheckCircle2, Clock, Calendar as CalendarIcon, ArrowDown, ArrowUp, CalendarOff, ChevronDown, ChevronUp, Banknote
+  ArrowLeft, CheckCircle2, Clock, Calendar as CalendarIcon, ArrowDown, ArrowUp, CalendarOff, ChevronDown, ChevronUp, Banknote, Calculator
 } from 'lucide-react';
 import { 
   BarChart, Bar, XAxis, Tooltip, ResponsiveContainer, Cell 
 } from 'recharts';
+
+import CalculatorWidget from '../components/common/CalculatorWidget';
 
 import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
@@ -35,6 +37,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [showBreakdown, setShowBreakdown] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
   
   const partTimeTasks = useMemo(() => {
     return allTasks.filter(t => t.isPartTime).sort((a, b) => new Date(b.start) - new Date(a.start));
@@ -320,11 +323,20 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
       className="min-h-screen font-sans pb-32 md:pb-8"
     >
       {/* Top Bar */}
-      <div className="p-4 flex items-center gap-4 sticky top-0 liquid-glass border-b border-main/5 z-20">
-        <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
-          <ArrowLeft size={24} className="text-main/80" />
+      <div className="p-4 flex items-center justify-between sticky top-0 liquid-glass border-b border-main/5 z-20">
+        <div className="flex items-center gap-4">
+          <button onClick={() => navigate(-1)} className="p-2 -ml-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors">
+            <ArrowLeft size={24} className="text-main/80" />
+          </button>
+          <h1 className="text-xl font-bold text-main">สรุปรายได้</h1>
+        </div>
+        <button 
+          onClick={() => setShowCalculator(true)}
+          className="p-2 bg-primary-500/10 text-primary-500 rounded-full hover:bg-primary-500/20 transition-colors shadow-sm"
+          title={lang === 'en' ? 'Calculator' : 'เครื่องคิดเลข'}
+        >
+          <Calculator size={22} />
         </button>
-        <h1 className="text-xl font-bold text-main">สรุปรายได้</h1>
       </div>
 
       <div className="max-w-4xl mx-auto p-4 space-y-6">
@@ -609,6 +621,12 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
         isDanger={true}
         onConfirm={handleConfirmDelete}
         onCancel={() => setDeleteConfirmTask(null)}
+      />
+
+      <CalculatorWidget 
+        isOpen={showCalculator} 
+        onClose={() => setShowCalculator(false)} 
+        lang={lang} 
       />
     </motion.div>
   );

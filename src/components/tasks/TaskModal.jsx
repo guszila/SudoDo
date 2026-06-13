@@ -39,7 +39,10 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
     start: toLocalISOString(new Date()),
     end: toLocalISOString(new Date()),
     status: TASK_STATUS.TODO,
-    priority: TASK_PRIORITY.MEDIUM
+    priority: TASK_PRIORITY.MEDIUM,
+    subtasks: [],
+    tags: [],
+    recurring: 'none'
   });
 
   useEffect(() => {
@@ -56,7 +59,10 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         isHolidayPay: task.isHolidayPay || false,
         rateType: task.rateType || 'hourly',
         breakHours: task.breakHours ?? 0,
-        isAllDay: task.isAllDay || false
+        isAllDay: task.isAllDay || false,
+        subtasks: task.subtasks || [],
+        tags: task.tags || [],
+        recurring: task.recurring || 'none'
       });
     } else {
       const now = new Date();
@@ -73,11 +79,47 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         isHolidayPay: false,
         rateType: 'hourly',
         breakHours: 0,
-        isAllDay: false
+        isAllDay: false,
+        subtasks: [],
+        tags: [],
+        recurring: 'none'
       });
     }
   }, [task, isOpen]);
 
+  const [tagInput, setTagInput] = useState('');
+  const [subtaskInput, setSubtaskInput] = useState('');
+
+  const addTag = (e) => {
+    e.preventDefault();
+    if (tagInput.trim() && !formData.tags.includes(tagInput.trim())) {
+      setFormData(prev => ({ ...prev, tags: [...prev.tags, tagInput.trim()] }));
+      setTagInput('');
+    }
+  };
+  const removeTag = (tag) => {
+    setFormData(prev => ({ ...prev, tags: prev.tags.filter(t => t !== tag) }));
+  };
+
+  const addSubtask = (e) => {
+    e.preventDefault();
+    if (subtaskInput.trim()) {
+      setFormData(prev => ({ 
+        ...prev, 
+        subtasks: [...prev.subtasks, { id: Date.now().toString(), text: subtaskInput.trim(), done: false }] 
+      }));
+      setSubtaskInput('');
+    }
+  };
+  const toggleSubtask = (id) => {
+    setFormData(prev => ({
+      ...prev,
+      subtasks: prev.subtasks.map(s => s.id === id ? { ...s, done: !s.done } : s)
+    }));
+  };
+  const removeSubtask = (id) => {
+    setFormData(prev => ({ ...prev, subtasks: prev.subtasks.filter(s => s.id !== id) }));
+  };
   useEffect(() => {
     if (isOpen) {
       document.body.style.overflow = 'hidden';
@@ -296,6 +338,84 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
               placeholder={t.descriptionPlaceholder}
             />
           </div>
+
+          {/* Tags */}
+          {!formData.isPartTime && (
+            <div>
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">Tags / หมวดหมู่</label>
+              {formData.tags.length > 0 && (
+                <div className="flex flex-wrap gap-2 mb-2">
+                  {formData.tags.map(tag => (
+                    <span key={tag} className="bg-primary-500/10 text-primary-500 px-2 py-1 rounded-md text-xs font-bold flex items-center gap-1 border border-primary-500/20">
+                      #{tag}
+                      <button type="button" onClick={() => removeTag(tag)} className="hover:text-red-500"><X size={12} /></button>
+                    </span>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={tagInput}
+                  onChange={(e) => setTagInput(e.target.value)}
+                  onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); addTag(e); } }}
+                  className="flex-1 px-4 py-2 rounded-[12px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm text-main"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                  placeholder="พิมพ์ Tag แล้วกด Enter..."
+                />
+                <button type="button" onClick={addTag} className="px-3 py-2 bg-primary-500 text-white rounded-[12px] text-sm font-bold shadow-sm active:scale-95 transition-transform">เพิ่ม</button>
+              </div>
+            </div>
+          )}
+
+          {/* Subtasks */}
+          {!formData.isPartTime && (
+            <div>
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">Checklist งานย่อย</label>
+              {formData.subtasks.length > 0 && (
+                <div className="space-y-2 mb-2 max-h-32 overflow-y-auto pr-1">
+                  {formData.subtasks.map(st => (
+                    <div key={st.id} className="flex items-center gap-2 bg-black/5 dark:bg-white/5 p-2 rounded-[12px] border border-transparent hover:border-main/10 transition-colors">
+                      <button type="button" onClick={() => toggleSubtask(st.id)} className={`flex-shrink-0 ${st.done ? 'text-green-500' : 'text-main/30'}`}>
+                        {st.done ? <CheckCircle2 size={18} /> : <Circle size={18} />}
+                      </button>
+                      <span className={`flex-1 text-sm truncate ${st.done ? 'line-through opacity-50 text-main' : 'text-main'}`}>{st.text}</span>
+                      <button type="button" onClick={() => removeSubtask(st.id)} className="text-red-500/50 hover:text-red-500 transition-colors"><Trash2 size={16} /></button>
+                    </div>
+                  ))}
+                </div>
+              )}
+              <div className="flex gap-2">
+                <input 
+                  type="text" 
+                  value={subtaskInput}
+                  onChange={(e) => setSubtaskInput(e.target.value)}
+                  onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); addSubtask(e); } }}
+                  className="flex-1 px-4 py-2 rounded-[12px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm text-main"
+                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                  placeholder="ชื่องานย่อย แล้วกด Enter..."
+                />
+                <button type="button" onClick={addSubtask} className="px-3 py-2 bg-primary-500 text-white rounded-[12px] text-sm font-bold shadow-sm active:scale-95 transition-transform">เพิ่ม</button>
+              </div>
+            </div>
+          )}
+
+          {/* Recurring */}
+          {!formData.isPartTime && (
+            <div>
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">ตั้งเวลาทำซ้ำ (Recurring)</label>
+              <select 
+                value={formData.recurring}
+                onChange={(e) => setFormData(prev => ({ ...prev, recurring: e.target.value }))}
+                className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main text-sm font-bold appearance-none cursor-pointer transition-colors hover:bg-black/5 dark:hover:bg-white/5"
+                style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+              >
+                <option value="none">ไม่ทำซ้ำ (ทำครั้งเดียว)</option>
+                <option value="daily">ทุกวัน (Daily)</option>
+                <option value="weekly">ทุกสัปดาห์ (Weekly)</option>
+              </select>
+            </div>
+          )}
 
           {formData.isPartTime && (
             <div>

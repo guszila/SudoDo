@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, isBefore, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2, Bell, Edit2, Zap, Briefcase, Settings, GripHorizontal, LayoutGrid, Plus, Calendar } from 'lucide-react';
+import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2, Bell, Edit2, Zap, Briefcase, Settings, GripHorizontal, LayoutGrid, Plus, Calendar, CloudRain, Timer, Play, Pause, RotateCcw, Users } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -14,6 +14,7 @@ import { saveTask } from '../services/taskService';
 import { calcSSO } from '../utils/socialSecurity';
 import { TASK_STATUS, TASK_PRIORITY, PRIORITY_WEIGHT, RATE_TYPE } from '../constants';
 import GreetingBanner from '../components/GreetingBanner';
+import { calculateStreaks } from '../utils/gamification';
 
 const AVAILABLE_WIDGETS = [
   { id: 'ALL_TASKS', labelKey: 'allTasks', size: 1 },
@@ -22,7 +23,10 @@ const AVAILABLE_WIDGETS = [
   { id: 'APP_STREAK', labelKey: 'appStreak', size: 1 },
   { id: 'WORK_STREAK', labelKey: 'workStreak', size: 1 },
   { id: 'DDAY_WIDGET', labelKey: 'ddayWidget', size: 1 },
-  { id: 'INCOME_GOAL', labelKey: 'incomeGoal', size: 2 }
+  { id: 'WEATHER_WIDGET', labelKey: 'weatherWidget', size: 1 },
+  { id: 'POMODORO_WIDGET', labelKey: 'pomodoroWidget', size: 1 },
+  { id: 'INCOME_GOAL', labelKey: 'incomeGoal', size: 2 },
+  { id: 'TODAY_WORK_WIDGET', labelKey: 'todayWorkWidget', size: 1 }
 ];
 
 const DEFAULT_WIDGETS = ['ALL_TASKS', 'URGENT_TASKS', 'TODAY_INCOME', 'APP_STREAK'];
@@ -88,7 +92,10 @@ export default function TodayPage({ user, lang = 'th' }) {
     deleteConfirm: 'Are you sure you want to delete this item?',
     deleteError: 'Error deleting item',
     ddayDefault: 'D-Day',
-    incomeLabel: 'Income'
+    incomeLabel: 'Income',
+    weatherWidget: 'Weather',
+    pomodoroWidget: 'Focus Timer',
+    todayWorkWidget: 'Work Today'
   } : {
     allTasks: 'สิ่งที่ต้องทำทั้งหมด',
     urgentTasks: 'สิ่งที่ต้องทำด่วน',
@@ -149,9 +156,13 @@ export default function TodayPage({ user, lang = 'th' }) {
     deleteConfirm: 'คุณแน่ใจหรือไม่ว่าต้องการลบรายการนี้?',
     deleteError: 'เกิดข้อผิดพลาดในการลบรายการ',
     ddayDefault: 'วันสำคัญ',
-    incomeLabel: 'รายได้'
+    incomeLabel: 'รายได้',
+    weatherWidget: 'สภาพอากาศ',
+    pomodoroWidget: 'จับเวลาสมาธิ',
+    todayWorkWidget: 'กะงานวันนี้'
   };
   const { tasks, isLoading: tasksLoading } = useTasks();
+  const gamificationStreaks = useMemo(() => calculateStreaks(tasks), [tasks]);
   const { settings } = useSettings();
   const [streakData, setStreakData] = useState({ currentStreak: 0, bestStreak: 0, history: [] });
   const [isLoadingStreak, setIsLoadingStreak] = useState(true);
@@ -174,6 +185,17 @@ export default function TodayPage({ user, lang = 'th' }) {
   const [showDdayModal, setShowDdayModal] = useState(false);
   const [ddayInput, setDdayInput] = useState({ title: '', date: '' });
 
+  // Weather State
+  const [weatherData, setWeatherData] = useState(null);
+  const [weatherLoading, setWeatherLoading] = useState(false);
+
+  // Pomodoro State
+  const [pomodoroState, setPomodoroState] = useState({
+    isActive: false,
+    timeLeft: 25 * 60,
+    isBreak: false
+  });
+
   useEffect(() => {
     localStorage.setItem('dashboard_widgets', JSON.stringify(selectedWidgets));
   }, [selectedWidgets]);
@@ -181,6 +203,95 @@ export default function TodayPage({ user, lang = 'th' }) {
   useEffect(() => {
     localStorage.setItem('dashboard_dday', JSON.stringify(ddayConfig));
   }, [ddayConfig]);
+
+  useEffect(() => {
+    let interval = null;
+    if (pomodoroState.isActive && pomodoroState.timeLeft > 0) {
+      interval = setInterval(() => {
+        setPomodoroState(prev => ({ ...prev, timeLeft: prev.timeLeft - 1 }));
+      }, 1000);
+    } else if (pomodoroState.isActive && pomodoroState.timeLeft === 0) {
+      const isBreakNow = !pomodoroState.isBreak;
+      setPomodoroState(prev => ({
+        isActive: false,
+        isBreak: isBreakNow,
+        timeLeft: isBreakNow ? 5 * 60 : 25 * 60
+      }));
+      if ("Notification" in window && Notification.permission === "granted") {
+        new Notification(isBreakNow ? (lang === 'en' ? "Time for a 5 min break!" : "ได้เวลาพัก 5 นาทีแล้ว!") : (lang === 'en' ? "Break over! Back to work." : "หมดเวลาพัก! ได้เวลากลับไปลุยงาน"));
+      } else if ("Notification" in window && Notification.permission !== "denied") {
+        Notification.requestPermission().then(permission => {
+          if (permission === "granted") {
+            new Notification(isBreakNow ? (lang === 'en' ? "Time for a 5 min break!" : "ได้เวลาพัก 5 นาทีแล้ว!") : (lang === 'en' ? "Break over! Back to work." : "หมดเวลาพัก! ได้เวลากลับไปลุยงาน"));
+          }
+        });
+      }
+    }
+    return () => clearInterval(interval);
+  }, [pomodoroState.isActive, pomodoroState.timeLeft, pomodoroState.isBreak, lang]);
+
+  useEffect(() => {
+    const fetchWeather = async () => {
+      if (!selectedWidgets.includes('WEATHER_WIDGET')) return;
+      setWeatherLoading(true);
+      
+      const getPosition = () => {
+        return new Promise((resolve, reject) => {
+          if (!navigator.geolocation) {
+            reject(new Error("Geolocation is not supported"));
+          } else {
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+          }
+        });
+      };
+
+      let lat = 13.75;
+      let lon = 100.51;
+      let isLocal = false;
+      let locationName = lang === 'en' ? 'Bangkok' : 'กรุงเทพมหานคร';
+
+      try {
+        const position = await getPosition();
+        lat = position.coords.latitude;
+        lon = position.coords.longitude;
+        isLocal = true;
+      } catch (err) {
+        console.log("Geolocation failed or denied, using fallback BKK.");
+      }
+
+      try {
+        if (isLocal) {
+          const geoRes = await fetch(`https://nominatim.openstreetmap.org/reverse?format=json&lat=${lat}&lon=${lon}&zoom=10&addressdetails=1&accept-language=${lang === 'en' ? 'en' : 'th'}`);
+          const geoData = await geoRes.json();
+          if (geoData && geoData.address) {
+             const addr = geoData.address;
+             const district = addr.city_district || addr.district || addr.suburb || addr.town || addr.county || "";
+             const province = addr.city || addr.province || addr.state || "";
+             if (district && province && district !== province) {
+                locationName = `${district}, ${province}`;
+             } else if (province || district) {
+                locationName = province || district;
+             } else {
+                locationName = geoData.name || (lang === 'en' ? 'Current Location' : 'ตำแหน่งปัจจุบัน');
+             }
+          }
+        }
+      } catch (e) {
+        console.log("Reverse geocoding failed", e);
+      }
+
+      try {
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+        const data = await res.json();
+        setWeatherData({ ...data.current_weather, isLocal, locationName });
+      } catch (err) {
+        console.error("Weather fetch error", err);
+      } finally {
+        setWeatherLoading(false);
+      }
+    };
+    fetchWeather();
+  }, [selectedWidgets]);
 
   const navigate = useNavigate();
   
@@ -646,6 +757,92 @@ export default function TodayPage({ user, lang = 'th' }) {
             </div>
           </div>
         );
+      case 'WEATHER_WIDGET':
+        return (
+          <div key={id} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all group col-span-1 min-h-[120px] relative overflow-hidden">
+            <h3 className="text-sm font-bold text-main/80 mb-2 truncate group-hover:text-primary-500 transition-colors z-10 flex items-center gap-1.5">
+              <CloudRain size={16} className="text-blue-500" />
+              {t.weatherWidget || (lang === 'en' ? 'Weather' : 'สภาพอากาศ')}
+            </h3>
+            <div className="z-10 flex flex-col items-center justify-center flex-1">
+              {weatherLoading ? (
+                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+              ) : weatherData ? (
+                <div className="flex flex-col items-center">
+                  <span className="text-3xl md:text-4xl font-black text-blue-500">{Math.round(weatherData.temperature)}°C</span>
+                  <span className="text-[10px] md:text-xs font-medium text-main/60 mt-1 text-center px-1 truncate w-full">
+                     {weatherData.locationName}
+                  </span>
+                </div>
+              ) : (
+                <span className="text-xs font-medium text-main/50">Unavailable</span>
+              )}
+            </div>
+            <div className="absolute -bottom-4 -right-4 text-blue-500/5 group-hover:text-blue-500/10 transition-colors group-hover:scale-110 duration-500 pointer-events-none">
+              <CloudRain size={80} strokeWidth={1.5} />
+            </div>
+          </div>
+        );
+      case 'POMODORO_WIDGET':
+        const formatTime = (seconds) => {
+          const m = Math.floor(seconds / 60);
+          const s = seconds % 60;
+          return `${m}:${s.toString().padStart(2, '0')}`;
+        };
+        const progress = pomodoroState.isBreak 
+          ? ((5 * 60 - pomodoroState.timeLeft) / (5 * 60)) * 100 
+          : ((25 * 60 - pomodoroState.timeLeft) / (25 * 60)) * 100;
+        
+        return (
+          <div key={id} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all group col-span-1 min-h-[120px] relative overflow-hidden">
+            <div className="absolute top-0 left-0 h-1 bg-primary-500/20 w-full">
+               <div className="h-full bg-primary-500 transition-all duration-1000" style={{ width: `${progress}%` }}></div>
+            </div>
+            <h3 className="text-sm font-bold text-main/80 mb-1 truncate group-hover:text-primary-500 transition-colors z-10 flex items-center justify-between">
+              <span className="flex items-center gap-1.5">
+                <Timer size={16} className={pomodoroState.isBreak ? "text-green-500" : "text-primary-500"} />
+                {pomodoroState.isBreak ? (lang === 'en' ? 'Break' : 'พักผ่อน') : (t.pomodoroWidget || (lang === 'en' ? 'Focus Timer' : 'จับเวลาสมาธิ'))}
+              </span>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPomodoroState(prev => ({ ...prev, timeLeft: prev.isBreak ? 5*60 : 25*60, isActive: false }));
+                }}
+                className="p-1 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-main/40 hover:text-main transition-colors"
+              >
+                <RotateCcw size={12} />
+              </button>
+            </h3>
+            <div className="z-10 flex flex-col items-center justify-center flex-1 mt-1">
+              <span className={`text-3xl md:text-4xl font-black ${pomodoroState.isBreak ? "text-green-500" : "text-primary-500 font-mono"}`}>
+                {formatTime(pomodoroState.timeLeft)}
+              </span>
+              <button 
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setPomodoroState(prev => ({ ...prev, isActive: !prev.isActive }));
+                }}
+                className={`mt-2 w-8 h-8 rounded-full flex items-center justify-center text-white shadow-md hover:scale-105 active:scale-95 transition-all ${pomodoroState.isBreak ? 'bg-green-500' : 'bg-primary-500'}`}
+              >
+                {pomodoroState.isActive ? <Pause size={14} fill="currentColor" /> : <Play size={14} fill="currentColor" className="ml-0.5" />}
+              </button>
+            </div>
+          </div>
+        );
+      case 'TODAY_WORK_WIDGET':
+        const todayShifts = tasks.filter(t => t.isPartTime && !t.isExpense && !t.isExtraIncome && isSameDay(t.start, now));
+        const hasShift = todayShifts.length > 0;
+        return (
+          <div key={id} onClick={() => navigate('/part-time')} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all cursor-pointer group active:scale-95 col-span-1 min-h-[120px]">
+            <h3 className="text-sm font-bold text-main/80 mb-2 group-hover:text-primary-500 transition-colors">{t.todayWorkWidget}</h3>
+            <div className={`text-3xl md:text-4xl font-black mb-1 group-hover:scale-105 transition-transform origin-left ${hasShift ? 'text-primary-500' : 'text-main opacity-50'}`}>
+              {hasShift ? (lang === 'en' ? 'Yes' : 'มีงาน') : (lang === 'en' ? 'Free' : 'ว่าง')}
+            </div>
+            <p className="text-xs font-medium text-main/60">
+              {hasShift ? `${todayShifts.length} ${lang === 'en' ? 'shifts' : 'กะ'}` : t.noShiftsToday}
+            </p>
+          </div>
+        );
       default:
         return null;
     }
@@ -663,15 +860,32 @@ export default function TodayPage({ user, lang = 'th' }) {
         <GreetingBanner 
           name={user?.displayName?.split(' ')[0] || ''} 
           dateLabel={format(now, 'EEEE d MMM yyyy', { locale: lang === 'th' ? th : undefined })} 
+          streak={gamificationStreaks.currentStreak}
           className="rounded-b-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-b border-white/10" 
         />
         
-        <div className="absolute top-0 left-0 right-0 p-4 md:p-8 flex justify-between items-start z-10 max-w-4xl mx-auto w-full">
-          <button onClick={() => navigate(-1)} className="p-2 rounded-full bg-black/20 hover:bg-black/30 backdrop-blur-md transition-colors text-white mt-2">
-            <ArrowLeft size={24} />
-          </button>
+        <div className="absolute top-0 left-0 right-0 p-4 md:p-8 flex justify-end items-start z-10 max-w-4xl mx-auto w-full">
+
           
           <div className="flex items-center gap-2 mt-2">
+            <div className="relative flex items-center">
+              <motion.div
+                 initial={{ opacity: 0, x: 30, scale: 0.5 }}
+                 animate={{ opacity: [0, 1, 1, 0], x: [30, 0, 0, 30], scale: [0.5, 1, 1, 0.5] }}
+                 transition={{ duration: 5, repeat: Infinity, repeatDelay: 3, times: [0, 0.1, 0.9, 1], ease: "easeInOut" }}
+                 className="absolute right-full whitespace-nowrap bg-white text-primary-600 font-bold text-[10px] px-2.5 py-1 rounded-full shadow-lg border border-primary-500/20 mr-2 pointer-events-none origin-right"
+              >
+                 {lang === 'en' ? 'Add Friends!' : 'เพิ่มเพื่อนเลย!'}
+                 <div className="absolute top-1/2 -right-1 -translate-y-1/2 border-[4px] border-transparent border-l-white"></div>
+              </motion.div>
+              <button 
+                 onClick={() => navigate('/friends')}
+                 className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-colors bg-black/20 hover:bg-black/30 backdrop-blur-md text-white shadow-sm"
+                 title={lang === 'en' ? 'Friends' : 'เพื่อน'}
+              >
+                 <Users size={18} />
+              </button>
+            </div>
             <button 
                onClick={() => setIsEditWidgetMode(!isEditWidgetMode)} 
                className={`hidden md:flex text-sm px-3 py-1.5 rounded-full transition-colors items-center gap-1 ${isEditWidgetMode ? 'bg-primary-500 text-white shadow-md' : 'bg-black/20 hover:bg-black/30 backdrop-blur-md text-white'}`}
@@ -684,7 +898,11 @@ export default function TodayPage({ user, lang = 'th' }) {
             >
                {isEditWidgetMode ? <Check size={18} /> : <LayoutGrid size={18} />}
             </button>
-            <div className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xl shadow-inner border border-white/30 flex-shrink-0 overflow-hidden backdrop-blur-sm">
+            <div 
+              onClick={() => navigate('/profile')}
+              className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xl shadow-inner border border-white/30 flex-shrink-0 overflow-hidden backdrop-blur-sm cursor-pointer hover:scale-105 active:scale-95 transition-transform"
+              title={lang === 'en' ? 'Profile' : 'โปรไฟล์'}
+            >
               {avatarUrl
                 ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                 : avatarInitial
@@ -1117,11 +1335,11 @@ export default function TodayPage({ user, lang = 'th' }) {
                   <div className="flex-1 bg-black/10 dark:bg-white/10 h-2 rounded-full overflow-hidden">
                     <div 
                       className="h-full bg-primary-500 transition-all duration-300"
-                      style={{ width: `${(selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(w => w.id === id)?.size || 1), 0) / 4) * 100}%` }}
+                      style={{ width: `${(selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(w => w.id === id)?.size || 1), 0) / 6) * 100}%` }}
                     />
                   </div>
                   <span>
-                    {selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(w => w.id === id)?.size || 1), 0)} / 4 {t.slots}
+                    {selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(w => w.id === id)?.size || 1), 0)} / 6 {t.slots}
                   </span>
                 </div>
               </div>
@@ -1130,7 +1348,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                 {AVAILABLE_WIDGETS.map(w => {
                   const isEnabled = selectedWidgets.includes(w.id);
                   const currentSize = selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(widget => widget.id === id)?.size || 1), 0);
-                  const canAdd = isEnabled || (currentSize + w.size <= 4);
+                  const canAdd = isEnabled || (currentSize + w.size <= 6);
                   
                   return (
                     <button 

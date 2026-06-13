@@ -68,8 +68,8 @@ function getTheme(hour) {
 const THEMES = {
   night: {
     bg: ["#0a0e2e", "#1a1040"],
-    label: "ดึก", emoji: "🌙",
-    greeting: (n) => `สวัสดีตอนดึก ${n} 👋`,
+    label: "ดึก",
+    greeting: (n) => `สวัสดีตอนดึก ${n}`,
     badgeBg: "rgba(255,255,255,0.12)",
     badgeColor: "#e0d9ff",
     textColor: "rgba(255,255,255,0.95)",
@@ -77,8 +77,8 @@ const THEMES = {
   },
   latenight: {
     bg: ["#050818", "#0d0824"],
-    label: "ตีสี่", emoji: "🌌",
-    greeting: (n) => `ยังไม่นอนเหรอ ${n}? 🌌`,
+    label: "ตีสี่",
+    greeting: (n) => `ยังไม่นอนเหรอ ${n}?`,
     badgeBg: "rgba(255,255,255,0.1)",
     badgeColor: "#b8b0e8",
     textColor: "rgba(255,255,255,0.9)",
@@ -86,8 +86,8 @@ const THEMES = {
   },
   sunrise: {
     bg: ["#f97316", "#fbbf24"],
-    label: "เช้า", emoji: "🌅",
-    greeting: (n) => `อรุณสวัสดิ์ ${n} 🌅`,
+    label: "เช้า",
+    greeting: (n) => `อรุณสวัสดิ์ ${n}`,
     badgeBg: "rgba(255,255,255,0.25)",
     badgeColor: "#7c2d12",
     textColor: "#3b0a00",
@@ -95,8 +95,8 @@ const THEMES = {
   },
   day: {
     bg: ["#38bdf8", "#7dd3fc"],
-    label: "กลางวัน", emoji: "☀️",
-    greeting: (n) => `สวัสดีตอนกลางวัน ${n} ☀️`,
+    label: "กลางวัน",
+    greeting: (n) => `สวัสดีตอนกลางวัน ${n}`,
     badgeBg: "rgba(255,255,255,0.3)",
     badgeColor: "#0c4a6e",
     textColor: "#0c4a6e",
@@ -104,8 +104,8 @@ const THEMES = {
   },
   sunset: {
     bg: ["#7e22ce", "#f97316"],
-    label: "เย็น", emoji: "🌆",
-    greeting: (n) => `สวัสดีตอนเย็น ${n} 🌆`,
+    label: "เย็น",
+    greeting: (n) => `สวัสดีตอนเย็น ${n}`,
     badgeBg: "rgba(255,255,255,0.18)",
     badgeColor: "#fde68a",
     textColor: "white",
@@ -113,8 +113,8 @@ const THEMES = {
   },
   evening: {
     bg: ["#1a1040", "#0a0e2e"],
-    label: "ค่ำ", emoji: "🌃",
-    greeting: (n) => `สวัสดีตอนค่ำ ${n} 🌃`,
+    label: "ค่ำ",
+    greeting: (n) => `สวัสดีตอนค่ำ ${n}`,
     badgeBg: "rgba(255,255,255,0.12)",
     badgeColor: "#c4b5fd",
     textColor: "rgba(255,255,255,0.95)",
@@ -236,11 +236,11 @@ const SKY_SCENES = {
  * @param {number}  [forceHour] - (optional) ล็อคเวลาเพื่อทดสอบ เช่น forceHour={23}
  * @param {string}  [className] - Tailwind / CSS class เพิ่มเติม
  */
-export default function GreetingBanner({ name = "โฟกัส", dateLabel, forceHour, className = "" }) {
+export default function GreetingBanner({ name = "โฟกัส", dateLabel, forceHour, streak = 0, className = "" }) {
   const [now, setNow] = useState(new Date());
 
   useEffect(() => {
-    const id = setInterval(() => setNow(new Date()), 60_000);
+    const id = setInterval(() => setNow(new Date()), 1000);
     return () => clearInterval(id);
   }, []);
 
@@ -249,7 +249,7 @@ export default function GreetingBanner({ name = "โฟกัส", dateLabel, fo
   const theme  = THEMES[key];
   const Scene  = SKY_SCENES[key];
 
-  const timeStr = now.toLocaleTimeString("th-TH", { hour: "2-digit", minute: "2-digit" });
+  const timeStr = now.toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", second: "2-digit", hour12: true });
 
   const displayDate = dateLabel ?? now.toLocaleDateString("th-TH", {
     weekday: "long", day: "numeric", month: "short",
@@ -340,18 +340,25 @@ export default function GreetingBanner({ name = "โฟกัส", dateLabel, fo
             </p>
           </div>
 
-          {/* time badge */}
-          <div className="absolute bottom-8 right-4 md:bottom-12 md:right-8 z-10" style={{
-            fontSize: 12,
-            fontWeight: 500,
-            padding: "6px 14px",
-            borderRadius: 20,
-            background: theme.badgeBg,
-            color: theme.badgeColor,
-            border: `0.5px solid ${theme.badgeColor}50`,
-            backdropFilter: "blur(4px)",
-          }}>
-            {theme.emoji} {timeStr} · {theme.label}
+          {/* time badge and streak */}
+          <div className="absolute bottom-8 right-4 md:bottom-12 md:right-8 z-10 flex flex-col items-end gap-2">
+            {streak > 0 && (
+              <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/20 backdrop-blur-md border border-white/20 text-white font-bold text-sm shadow-[0_4px_15px_rgba(0,0,0,0.1)]">
+                🔥 {streak}
+              </div>
+            )}
+            <div style={{
+              fontSize: 12,
+              fontWeight: 500,
+              padding: "6px 14px",
+              borderRadius: 20,
+              background: theme.badgeBg,
+              color: theme.badgeColor,
+              border: `0.5px solid ${theme.badgeColor}50`,
+              backdropFilter: "blur(4px)",
+            }}>
+              {timeStr}
+            </div>
           </div>
         </div>
       </div>

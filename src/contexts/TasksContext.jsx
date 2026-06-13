@@ -2,6 +2,7 @@ import React, { createContext, useContext, useState, useEffect } from 'react';
 
 import { subscribeToTasks } from '../services/taskService';
 import { syncTasksToGAS } from '../services/syncService';
+import { syncPublicProfile } from '../services/friendService';
 import { TASK_PRIORITY, PRIORITY_WEIGHT } from '../constants';
 
 const TasksContext = createContext({
@@ -44,6 +45,9 @@ export const TasksProvider = ({ children, user }) => {
         if (user.email) {
           syncTasksToGAS(data, user.email).catch(() => {});
         }
+        
+        // Sync public profile stats for Friend System
+        syncPublicProfile(user, formattedData).catch(err => console.error("Profile sync error", err));
       } catch (err) {
         setError(err);
         setIsLoading(false);

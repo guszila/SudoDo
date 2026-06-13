@@ -3,13 +3,15 @@ import React, { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { DollarSign, Clock, CheckCircle2, Check, Plus, ArrowLeft, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, PieChart, GripHorizontal, Flame, ChevronRight, Banknote, Receipt } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle2, Check, Plus, ArrowLeft, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, PieChart, GripHorizontal, Flame, ChevronRight, Banknote, Receipt, Calculator } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
 import TaskModal from '../components/tasks/TaskModal';
 import ActionSheet from '../components/common/ActionSheet';
 import ConfirmDialog from '../components/common/ConfirmDialog';
+import CalculatorWidget from '../components/common/CalculatorWidget';
+import IncomeSummaryTab from '../components/income/IncomeSummaryTab';
 import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -42,9 +44,11 @@ export default function PartTimePage({ user, lang = 'en' }) {
   }, [allTasks]);
 
   const [isMutating, setIsMutating] = useState(false);
+  const [mainTab, setMainTab] = useState('shifts'); // 'shifts' | 'summary'
   const [activeTab, setActiveTab] = useState('upcoming'); // 'upcoming' | 'history'
   const [editingTask, setEditingTask] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [showCalculator, setShowCalculator] = useState(false);
   
   const { showToast } = useToast();
   const [actionTask, setActionTask] = useState(null);
@@ -889,15 +893,51 @@ export default function PartTimePage({ user, lang = 'en' }) {
       exit={{ opacity: 0, scale: 0.98 }}
       className="min-h-screen font-sans pb-32 md:pb-8 p-4 md:p-8 max-w-4xl mx-auto"
     >
-      <div className="flex items-center mb-8 gap-4 px-2">
-        <button onClick={() => navigate(-1)} className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main shrink-0">
-          <ArrowLeft size={24} />
+      {/* Header */}
+      <div className="flex items-center justify-between mb-5 px-2">
+        <div className="flex items-center gap-4">
+
+          <h1 className="text-2xl font-bold text-main flex items-center gap-2 m-0">
+            <CalendarDays className="text-primary-500 shrink-0" size={28} />
+            {t.title}
+          </h1>
+        </div>
+        <button 
+          onClick={() => setShowCalculator(true)}
+          className="p-2 bg-primary-500/10 text-primary-500 rounded-full hover:bg-primary-500/20 transition-colors shadow-sm shrink-0"
+          title={lang === 'en' ? 'Calculator' : 'เครื่องคิดเลข'}
+        >
+          <Calculator size={22} />
         </button>
-        <h1 className="text-2xl font-bold text-main flex items-center gap-2 m-0">
-          <CalendarDays className="text-primary-500 shrink-0" size={28} />
-          {t.title}
-        </h1>
       </div>
+
+      {/* Main Tab Bar */}
+      <div className="flex gap-1 bg-black/5 dark:bg-white/5 rounded-full p-1.5 mb-6 mx-2">
+        <button
+          onClick={() => setMainTab('shifts')}
+          className={`flex-1 py-2.5 rounded-full text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
+            mainTab === 'shifts' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300' : 'text-main/50 hover:text-main'
+          }`}
+        >
+          <CalendarDays size={14} /> กะงาน
+        </button>
+        <button
+          onClick={() => setMainTab('summary')}
+          className={`flex-1 py-2.5 rounded-full text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
+            mainTab === 'summary' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300' : 'text-main/50 hover:text-main'
+          }`}
+        >
+          <BarChart2 size={14} /> สรุปรายได้
+        </button>
+      </div>
+
+      {/* Income Summary Tab */}
+      {mainTab === 'summary' && (
+        <IncomeSummaryTab user={user} lang={lang} />
+      )}
+
+      {/* Shifts Tab wrapper — hidden when on summary */}
+      <div className={mainTab !== 'shifts' ? 'hidden' : ''}>
 
       <div className="flex justify-between items-center mb-4 px-2 mt-2">
         <div className="flex flex-col gap-1">
@@ -974,28 +1014,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
       {!isEditWidgetMode && <div className="mb-8" />}
 
-      {!isEditWidgetMode && (
-        <div className="mb-6 px-2">
-          <button 
-            onClick={() => navigate('/income/history')}
-            className="w-full bg-gradient-to-r from-primary-500/10 to-transparent hover:from-primary-500/20 text-main p-4 rounded-2xl flex items-center justify-between transition-colors border border-primary-500/20 relative overflow-hidden group"
-          >
-            <div className="absolute right-0 top-0 bottom-0 w-32 bg-gradient-to-l from-primary-500/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity"></div>
-            <div className="flex items-center gap-4 relative z-10">
-              <div className="p-3 bg-primary-500 text-white rounded-xl shadow-md">
-                 <History size={22} />
-              </div>
-              <div className="text-left">
-                 <p className="font-bold text-base md:text-lg text-main m-0">{t.history}</p>
-                 <p className="text-xs md:text-sm opacity-60 m-0">ดูประวัติรายได้ กราฟ และสถิติทั้งหมด</p>
-              </div>
-            </div>
-            <div className="text-primary-500 opacity-70 group-hover:opacity-100 group-hover:translate-x-1 transition-all">
-              <ChevronRight size={24} />
-            </div>
-          </button>
-        </div>
-      )}
+
 
       <div className="flex flex-col md:flex-row justify-end items-center mb-5 px-2 gap-3">
         <div className="flex gap-2 w-full md:w-auto">
@@ -1299,8 +1318,15 @@ export default function PartTimePage({ user, lang = 'en' }) {
                         const job = (settings.jobs || []).find(j => j.name === t.title);
                         const colorMap = { blue: 'bg-blue-500', red: 'bg-red-500', green: 'bg-green-500', amber: 'bg-amber-500', purple: 'bg-purple-500', pink: 'bg-pink-500', primary: 'bg-primary-500' };
                         const dotColor = colorMap[job ? job.color : 'primary'] || colorMap.primary;
-                        return (
-                          <div key={idx} className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${dotColor}`} />
+                        const isShiftDone = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
+                        return isShiftDone ? (
+                          <div key={idx} className={`w-2 h-2 md:w-2.5 md:h-2.5 rounded-full ${dotColor} flex items-center justify-center`}>
+                            <svg className="w-1 h-1 md:w-1.5 md:h-1.5 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth="3">
+                              <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
+                            </svg>
+                          </div>
+                        ) : (
+                          <div key={idx} className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full ${dotColor} opacity-50`} />
                         );
                       })}
                       {dayTasks.length > 4 && <div className="w-1.5 h-1.5 md:w-2 md:h-2 rounded-full bg-main/50" />}
@@ -1450,6 +1476,21 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     </div>
                   )}
                   <div className={`absolute top-4 right-4 flex gap-1 transition-opacity ${isBulkEditMode ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
+                    <button 
+                      onClick={async (e) => { 
+                        e.stopPropagation(); 
+                        const newStatus = isCompleted ? 'PENDING' : 'DONE';
+                        try {
+                           await saveTask('EDIT', { ...task, status: newStatus }, user?.uid);
+                        } catch (err) {
+                           console.error(err);
+                        }
+                      }} 
+                      className={`p-2 ${isCompleted ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-500/20' : 'text-main/50 hover:bg-black/5 dark:hover:bg-white/5'} rounded-full transition-all`}
+                      title={isCompleted ? 'ยกเลิกสถานะสำเร็จ' : 'ทำเครื่องหมายว่าสำเร็จ'}
+                    >
+                      {isCompleted ? <CheckCircle2 size={16} /> : <Check size={16} />}
+                    </button>
                     <button onClick={(e) => { e.stopPropagation(); setEditingTask(task); setIsModalOpen(true); }} className={`p-2 ${c.button} rounded-full transition-all`}>
                       <Edit size={16} />
                     </button>
@@ -1778,6 +1819,15 @@ export default function PartTimePage({ user, lang = 'en' }) {
           </button>
         </div>
       </ActionSheet>
+
+      <CalculatorWidget 
+        isOpen={showCalculator} 
+        onClose={() => setShowCalculator(false)} 
+        lang={lang} 
+      />
+
+      {/* End of Shifts tab wrapper */}
+      </div>
     </motion.div>
   );
 }

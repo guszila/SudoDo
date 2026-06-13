@@ -198,6 +198,34 @@ body {
   animation: minimalShine 3.5s infinite ease-in-out;
 }
 
+@keyframes float {
+  0% { transform: translateY(0px); }
+  50% { transform: translateY(-5px); }
+  100% { transform: translateY(0px); }
+}
+
+.animate-float {
+  animation: float 4s ease-in-out infinite;
+}
+
+@keyframes gradient-xy {
+  0%, 100% { background-size: 400% 400%; background-position: left center; }
+  50% { background-size: 200% 200%; background-position: right center; }
+}
+
+.animate-gradient-xy {
+  animation: gradient-xy 5s ease infinite;
+}
+
+@keyframes sparkle {
+  0%, 100% { opacity: 0.8; transform: scale(1); }
+  50% { opacity: 1; transform: scale(1.1); filter: brightness(1.2); }
+}
+
+.animate-sparkle {
+  animation: sparkle 2s ease-in-out infinite;
+}
+
 /* --- Calendar Overrides --- */
 .rbc-calendar {
   font-family: 'Prompt', sans-serif;

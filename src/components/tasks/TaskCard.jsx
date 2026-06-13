@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { format, isBefore, endOfDay, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { CheckCircle2, CircleDashed, Clock, Edit, Trash2 } from 'lucide-react';
+import { CheckCircle2, CircleDashed, Clock, Edit, Trash2, ListTodo, Repeat } from 'lucide-react';
 import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE } from '../../constants';
 
 export default function TaskCard({ 
@@ -108,7 +108,10 @@ export default function TaskCard({
       )}
       
       <div className="flex-1 min-w-0">
-        <h3 className={`font-bold text-lg text-main truncate ${isCompleted ? 'line-through' : ''}`}>{task.title}</h3>
+        <h3 className={`font-bold text-lg text-main truncate flex items-center gap-2 ${isCompleted ? 'line-through opacity-70' : ''}`}>
+          {task.title}
+          {task.recurring && task.recurring !== 'none' && <Repeat size={14} className="text-primary-500 shrink-0" />}
+        </h3>
         <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-main/70">
           <span className="flex items-center gap-1 bg-black/5 dark:bg-white/10 px-2 py-0.5 rounded-md">
             <Clock size={12} /> {fDate(task.start)} {fTime(task.start)} - {fTime(task.end)}
@@ -135,6 +138,35 @@ export default function TaskCard({
           
           {isOverdue && <span className="text-red-500 font-bold bg-red-500/10 px-2 py-0.5 rounded-md">เลยกำหนด</span>}
         </div>
+
+        {!task.isPartTime && ((task.tags && task.tags.length > 0) || (task.subtasks && task.subtasks.length > 0)) && (
+          <div className="mt-2.5 space-y-2">
+            {task.tags && task.tags.length > 0 && (
+              <div className="flex gap-1.5 flex-wrap">
+                {task.tags.map(t => (
+                  <span key={t} className="px-2 py-0.5 rounded-md bg-primary-500/10 text-primary-600 dark:text-primary-400 font-bold text-[10px] border border-primary-500/20">
+                    #{t}
+                  </span>
+                ))}
+              </div>
+            )}
+            
+            {task.subtasks && task.subtasks.length > 0 && (() => {
+              const doneCount = task.subtasks.filter(s => s.done).length;
+              const totalCount = task.subtasks.length;
+              const progress = (doneCount / totalCount) * 100;
+              return (
+                <div className="flex items-center gap-2 text-[10px] font-bold text-main/60">
+                  <ListTodo size={14} className={progress === 100 ? "text-green-500" : "text-primary-500"} />
+                  <div className="flex-1 bg-black/10 dark:bg-white/10 h-1.5 rounded-full overflow-hidden">
+                    <div className={`h-full transition-all duration-500 ${progress === 100 ? 'bg-green-500' : 'bg-primary-500'}`} style={{ width: `${progress}%` }}></div>
+                  </div>
+                  <span className={progress === 100 ? "text-green-500" : ""}>{doneCount}/{totalCount}</span>
+                </div>
+              );
+            })()}
+          </div>
+        )}
       </div>
 
       {!isSelectionMode && (

@@ -1,40 +1,55 @@
 import React, { useState, useEffect } from 'react';
-import { updateProfile, updatePassword, signOut, sendEmailVerification, sendPasswordResetEmail, deleteUser } from 'firebase/auth';
+import { updateProfile, sendEmailVerification } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
-import { motion } from 'framer-motion';
-import { ArrowLeft, User, LogOut, Loader2, Check, Lock, AlertTriangle, Camera, Mail, Send, Calendar, UserX, RefreshCw } from 'lucide-react';
+import { motion, AnimatePresence } from 'framer-motion';
+import { 
+  ArrowLeft, User, Loader2, Check, Lock, AlertTriangle, Camera, Mail, 
+  Send, Calendar, Flame, Award, Medal, CheckCircle2, X, Users, Settings 
+} from 'lucide-react';
 
-import { auth } from '../firebase';
 import { useTasks } from '../contexts/TasksContext';
-import { saveTask } from '../services/taskService';
+import { useToast } from '../contexts/ToastContext';
+import { calculateStreaks, BADGE_LIST, getUnlockedBadges } from '../utils/gamification';
+import { getPublicProfile, updatePublicProfileSettings } from '../services/friendService';
 
-export default function ProfilePage({ user }) {
+export default function ProfilePage({ user, lang = 'th' }) {
   const navigate = useNavigate();
+  const { showToast } = useToast();
+  
+  const [activeTab, setActiveTab] = useState('private'); // 'private', 'public', 'achievements'
   
   const [displayName, setDisplayName] = useState('');
-  const [newPassword, setNewPassword] = useState('');
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem(`avatar_${user?.uid}`) || '');
   const [showAvatarModal, setShowAvatarModal] = useState(false);
+  const [selectedBadge, setSelectedBadge] = useState(null);
+  
+  const [statusMessage, setStatusMessage] = useState('');
+  const [featuredBadgeId, setFeaturedBadgeId] = useState('');
+  const [isSavingPublic, setIsSavingPublic] = useState(false);
   
   const [loading, setLoading] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
-  const [sendingReset, setSendingReset] = useState(false);
   
   const [successMsg, setSuccessMsg] = useState('');
   const [errorMsg, setErrorMsg] = useState('');
-  
-  const [showLogoutConfirm, setShowLogoutConfirm] = useState(false);
-  
-  const [showDeleteAccount, setShowDeleteAccount] = useState(false);
-  const [deleteAccountText, setDeleteAccountText] = useState('');
-  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
 
   const { tasks } = useTasks();
+  
+  const streaks = calculateStreaks(tasks);
+  const unlockedBadges = getUnlockedBadges(tasks, streaks);
 
   useEffect(() => {
     if (user) {
       setDisplayName(user.displayName || '');
       setAvatarUrl(localStorage.getItem(`avatar_${user.uid}`) || '');
+      
+      // Load public profile
+      getPublicProfile(user.uid).then(data => {
+        if (data) {
+          if (data.statusMessage) setStatusMessage(data.statusMessage);
+          if (data.featuredBadgeId) setFeaturedBadgeId(data.featuredBadgeId);
+        }
+      });
     }
   }, [user]);
 
@@ -82,6 +97,29 @@ export default function ProfilePage({ user }) {
     }
   };
 
+  const handleSavePublicProfile = async (e) => {
+    e.preventDefault();
+    setIsSavingPublic(true);
+    setSuccessMsg('');
+    setErrorMsg('');
+    try {
+      const res = await updatePublicProfileSettings(user.uid, {
+        statusMessage: statusMessage.trim(),
+        featuredBadgeId
+      });
+      if (res) {
+        setSuccessMsg(lang === 'en' ? 'Public profile updated!' : 'อัปเดตโปรไฟล์สาธารณะเรียบร้อยแล้ว!');
+        setTimeout(() => setSuccessMsg(''), 3000);
+      } else {
+        setErrorMsg('เกิดข้อผิดพลาดในการบันทึกโปรไฟล์สาธารณะ');
+      }
+    } catch (err) {
+      setErrorMsg('เกิดข้อผิดพลาดในการบันทึกโปรไฟล์สาธารณะ');
+    } finally {
+      setIsSavingPublic(false);
+    }
+  };
+
   const handleVerifyEmail = async () => {
     setSendingVerification(true);
     setSuccessMsg('');
@@ -98,81 +136,6 @@ export default function ProfilePage({ user }) {
       }
     } finally {
       setSendingVerification(false);
-    }
-  };
-
-  const handleResetPasswordEmail = async () => {
-    setSendingReset(true);
-    setSuccessMsg('');
-    setErrorMsg('');
-    try {
-      await sendPasswordResetEmail(auth, user.email);
-      setSuccessMsg('ส่งลิงก์รีเซ็ตรหัสผ่านไปที่อีเมลแล้ว!');
-    } catch (error) {
-      console.error(error);
-      setErrorMsg('เกิดข้อผิดพลาดในการส่งลิงก์รีเซ็ตรหัสผ่าน');
-    } finally {
-      setSendingReset(false);
-    }
-  };
-
-  const handleUpdatePassword = async (e) => {
-    e.preventDefault();
-    if (newPassword.length < 6) {
-      setErrorMsg('รหัสผ่านต้องมีความยาวอย่างน้อย 6 ตัวอักษร');
-      return;
-    }
-
-    setLoading(true);
-    setSuccessMsg('');
-    setErrorMsg('');
-    try {
-      await updatePassword(user, newPassword);
-      setSuccessMsg('เปลี่ยนรหัสผ่านสำเร็จแล้ว!');
-      setNewPassword('');
-      setTimeout(() => setSuccessMsg(''), 3000);
-    } catch (error) {
-      console.error("Error updating password", error);
-      if (error.code === 'auth/requires-recent-login') {
-        setErrorMsg('กรุณาออกจากระบบและเข้าสู่ระบบใหม่ก่อนเปลี่ยนรหัสผ่านเพื่อความปลอดภัย');
-      } else {
-        setErrorMsg('เกิดข้อผิดพลาดในการเปลี่ยนรหัสผ่าน');
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleDeleteAccount = async () => {
-    const matchText = user.displayName || user.email;
-    if (deleteAccountText !== matchText) return;
-    
-    setIsDeletingAccount(true);
-    setSuccessMsg('');
-    setErrorMsg('');
-    try {
-      for (const task of tasks) {
-        await saveTask('DELETE', { id: task.id }, user.uid);
-      }
-      await deleteUser(user);
-    } catch (error) {
-      console.error(error);
-      if (error.code === 'auth/requires-recent-login') {
-         setErrorMsg('กรุณาออกจากระบบแล้วเข้าสู่ระบบใหม่ เพื่อยืนยันตัวตนก่อนลบบัญชี');
-      } else {
-         setErrorMsg('เกิดข้อผิดพลาดในการลบบัญชี');
-      }
-      setShowDeleteAccount(false);
-      setIsDeletingAccount(false);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await signOut(auth);
-      navigate('/');
-    } catch (error) {
-      console.error("Logout error", error);
     }
   };
 
@@ -206,280 +169,407 @@ export default function ProfilePage({ user }) {
       <div className="max-w-2xl mx-auto">
         
         {/* Header */}
-        <div className="flex items-center gap-4 mb-8">
+        <div className="flex items-center justify-between mb-6">
+          <div className="flex items-center gap-4">
+            <h1 className="text-3xl font-bold tracking-tight text-main">{lang === 'en' ? 'Profile' : 'โปรไฟล์'}</h1>
+          </div>
           <button 
-            onClick={() => navigate(-1)}
-            className="liquid-glass-button p-3 flex items-center justify-center text-main"
-            style={{ ':hover': { backgroundColor: 'var(--glass-bg-strong)' } }}
+            onClick={() => navigate('/settings')}
+            className="liquid-glass-button p-3 flex items-center justify-center text-main hover:text-primary-500 transition-colors"
           >
-            <ArrowLeft size={24} />
+            <Settings size={24} />
           </button>
-          <h1 className="text-3xl font-bold tracking-tight text-main">โปรไฟล์ (Profile)</h1>
         </div>
 
-        {/* Profile Card */}
-        <div className="liquid-glass-card p-6 md:p-8 mb-8 relative">
-          <div className="flex flex-col md:flex-row items-center gap-6 mb-8 pb-8" style={{ borderBottom: '1px solid var(--glass-border-strong)' }}>
-            
-            <div className="relative flex-shrink-0">
-              <button
-                type="button"
-                onClick={() => setShowAvatarModal(true)}
-                className="w-28 h-28 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg overflow-hidden relative group active:scale-95 transition-transform"
-                style={{ border: '4px solid var(--glass-border)' }}
-              >
-                {avatarUrl
-                  ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-                  : getInitials()
-                }
-                <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                  <Camera size={28} className="text-white" />
-                </div>
-              </button>
-              <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={(e) => { handleAvatarChange(e); setShowAvatarModal(false); }} />
-            </div>
+        {/* Global Messages */}
+        {successMsg && (
+          <div className="mb-6 p-4 bg-green-500/20 border border-green-500/30 rounded-[16px] flex items-center gap-2 text-green-700 font-medium">
+            <Check size={20} /> {successMsg}
+          </div>
+        )}
+        
+        {errorMsg && (
+          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-[16px] flex items-center gap-2 text-red-700 font-medium">
+            <AlertTriangle size={20} /> {errorMsg}
+          </div>
+        )}
 
-            {/* Avatar Modal */}
-            {showAvatarModal && (
-              <div
-                className="fixed inset-0 z-[100] flex items-center justify-center p-4"
-                style={{ backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(8px)' }}
-                onClick={() => setShowAvatarModal(false)}
-              >
-                <div
-                  className="bg-white dark:bg-[#1e1e2d] w-full max-w-xs rounded-[28px] p-6 text-center shadow-2xl"
-                  onClick={e => e.stopPropagation()}
-                >
-                  <div className="w-20 h-20 rounded-full mx-auto mb-4 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center overflow-hidden shadow-lg">
+        {/* Custom Tabs */}
+        <div className="flex bg-black/5 dark:bg-white/5 p-1 rounded-2xl mb-8 border border-main/10 shadow-inner overflow-x-auto hide-scrollbar snap-x">
+          <button 
+            onClick={() => setActiveTab('private')}
+            className={`flex-1 min-w-[110px] snap-center py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === 'private' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+          >
+            <User size={18} /> {lang === 'en' ? 'Private' : 'ข้อมูลส่วนตัว'}
+          </button>
+          <button 
+            onClick={() => setActiveTab('public')}
+            className={`flex-1 min-w-[110px] snap-center py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === 'public' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+          >
+            <Users size={18} /> {lang === 'en' ? 'Public' : 'สาธารณะ'}
+          </button>
+          <button 
+            onClick={() => setActiveTab('achievements')}
+            className={`flex-1 min-w-[110px] snap-center py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === 'achievements' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+          >
+            <Award size={18} /> {lang === 'en' ? 'Stats' : 'ความสำเร็จ'}
+          </button>
+        </div>
+
+        <AnimatePresence mode="wait">
+          {/* ================= TAB 1: PRIVATE PROFILE ================= */}
+          {activeTab === 'private' && (
+            <motion.div 
+              key="private"
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="liquid-glass-card p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 relative">
+                <div className="relative flex-shrink-0">
+                  <button
+                    type="button"
+                    onClick={() => setShowAvatarModal(true)}
+                    className="w-28 h-28 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg overflow-hidden relative group active:scale-95 transition-transform"
+                    style={{ border: '4px solid var(--glass-border)' }}
+                  >
                     {avatarUrl
                       ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-                      : <span className="text-white text-3xl font-bold">{getInitials()}</span>
+                      : getInitials()
                     }
+                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
+                      <Camera size={28} className="text-white" />
+                    </div>
+                  </button>
+                  <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={(e) => { handleAvatarChange(e); setShowAvatarModal(false); }} />
+                </div>
+
+                <div className="text-center md:text-left flex-1">
+                  <h2 className="text-2xl font-bold text-main mb-2">{user.displayName || 'ผู้ใช้ SudoDo'}</h2>
+                  
+                  <div className="flex flex-col gap-1 items-center md:items-start text-sm text-main opacity-80">
+                    <p className="flex items-center gap-2">
+                      <Mail size={16} /> {user.email}
+                      {user.emailVerified ? (
+                        <span className="bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-green-500/20">
+                          <Check size={12} /> ยืนยันแล้ว
+                        </span>
+                      ) : (
+                        <span className="bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-amber-500/20">
+                          <AlertTriangle size={12} /> ยังไม่ยืนยัน
+                        </span>
+                      )}
+                    </p>
+                    <p className="flex items-center gap-2 mt-1">
+                      <Calendar size={16} /> {getMemberSince()}
+                    </p>
                   </div>
-                  <h3 className="text-lg font-bold text-main mb-1">รูปโปรไฟล์</h3>
-                  <p className="text-sm text-main/60 mb-6">เลือกการดำเนินการ</p>
 
-                  <div className="flex flex-col gap-3">
-                    <label
-                      htmlFor="avatar-upload"
-                      className="flex items-center justify-center gap-3 w-full py-4 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-2xl cursor-pointer transition-all active:scale-95 shadow-lg shadow-primary-500/20"
+                  {!user.emailVerified && (
+                    <button 
+                      onClick={handleVerifyEmail}
+                      disabled={sendingVerification}
+                      className="mt-4 text-sm flex items-center gap-2 text-primary-500 font-bold hover:text-primary-600 transition-colors mx-auto md:mx-0"
                     >
-                      <Camera size={20} />
-                      อัปโหลดรูปใหม่
-                    </label>
-
-                    {avatarUrl && (
-                      <button
-                        type="button"
-                        onClick={() => { handleRemoveAvatar(); setShowAvatarModal(false); }}
-                        className="flex items-center justify-center gap-3 w-full py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold rounded-2xl transition-all active:scale-95 border border-red-500/20"
-                      >
-                        ลบรูปปัจจุบัน
-                      </button>
-                    )}
-
-                    <button
-                      type="button"
-                      onClick={() => setShowAvatarModal(false)}
-                      className="py-3 text-main/50 font-bold rounded-2xl transition-all hover:text-main/80"
-                    >
-                      ยกเลิก
+                      {sendingVerification ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                      ส่งลิงก์ยืนยันอีเมล
                     </button>
+                  )}
+                </div>
+              </div>
+
+              <div className="liquid-glass-card p-6 md:p-8">
+                <form onSubmit={handleUpdateProfile}>
+                  <h3 className="text-sm font-bold text-main/50 uppercase tracking-wider mb-3">แก้ไขชื่อที่ใช้แสดง</h3>
+                  <div className="flex flex-col sm:flex-row gap-3">
+                    <input 
+                      type="text" 
+                      value={displayName} 
+                      onChange={(e) => setDisplayName(e.target.value)}
+                      className="flex-1 px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow font-medium"
+                      style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                      placeholder="กรอกชื่อของคุณ"
+                    />
+                    <button 
+                      type="submit"
+                      disabled={loading || displayName === user.displayName || !displayName.trim()}
+                      className="px-6 py-3 bg-primary-500 text-white font-bold rounded-[16px] hover:bg-primary-600 transition-all shadow-md active:scale-95 disabled:opacity-50 flex justify-center items-center min-h-[50px]"
+                    >
+                      {loading ? <Loader2 size={20} className="animate-spin" /> : 'บันทึก'}
+                    </button>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ================= TAB 2: PUBLIC PROFILE ================= */}
+          {activeTab === 'public' && (
+            <motion.div 
+              key="public"
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+            >
+              <div className="liquid-glass-card p-6 md:p-8">
+                <form onSubmit={handleSavePublicProfile} className="relative z-10">
+                  <h3 className="text-lg font-bold text-main mb-6 flex items-center gap-2">
+                    <Users size={22} className="text-primary-500" /> {lang === 'en' ? 'Public Profile (For Friends)' : 'โปรไฟล์สาธารณะ (ให้เพื่อนเห็น)'}
+                  </h3>
+                  
+                  <div className="space-y-6">
+                    <div>
+                      <label className="block text-sm font-bold text-main mb-2 opacity-80">{lang === 'en' ? 'Status Message' : 'ข้อความสถานะ'}</label>
+                      <input 
+                        type="text" 
+                        value={statusMessage} 
+                        onChange={(e) => setStatusMessage(e.target.value)}
+                        className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow font-medium"
+                        style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
+                        placeholder={lang === 'en' ? "What's on your mind?" : "กำลังทำอะไรอยู่?"}
+                        maxLength={50}
+                      />
+                      <p className="text-xs text-main/50 mt-1">{statusMessage.length}/50</p>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-bold text-main mb-3 opacity-80">{lang === 'en' ? 'Featured Badge' : 'เหรียญรางวัลเด่น'}</label>
+                      <div className="grid grid-cols-4 sm:grid-cols-6 gap-3">
+                        <div 
+                          onClick={() => setFeaturedBadgeId('')}
+                          className={`p-3 rounded-2xl flex items-center justify-center cursor-pointer border-2 transition-all ${!featuredBadgeId ? 'border-primary-500 bg-primary-500/10' : 'border-transparent bg-black/5 dark:bg-white/5 opacity-50 hover:opacity-100'}`}
+                          title="None"
+                        >
+                          <span className="text-main/50 font-bold text-xs">None</span>
+                        </div>
+                        {unlockedBadges.map(unlockedItem => {
+                          const fullBadge = BADGE_LIST.find(b => b.id === unlockedItem.id);
+                          if (!fullBadge) return null;
+                          return (
+                            <div 
+                              key={fullBadge.id}
+                              onClick={() => setFeaturedBadgeId(fullBadge.id)}
+                              className={`p-3 rounded-2xl flex items-center justify-center cursor-pointer border-2 transition-all text-3xl ${featuredBadgeId === fullBadge.id ? 'border-primary-500 bg-primary-500/10 shadow-md' : 'border-transparent bg-black/5 dark:bg-white/5 opacity-60 hover:opacity-100'}`}
+                              title={fullBadge.name[lang] || fullBadge.name.th}
+                            >
+                              <div className="hover:scale-110 transition-transform">{fullBadge.icon}</div>
+                            </div>
+                          );
+                        })}
+                      </div>
+                    </div>
+
+                    <div className="flex justify-end pt-4">
+                      <button 
+                        type="submit" 
+                        disabled={isSavingPublic}
+                        className="flex items-center justify-center px-8 py-3 bg-primary-500 hover:bg-primary-600 text-white rounded-[16px] font-bold transition-all active:scale-95 disabled:opacity-50 min-w-[140px] shadow-lg shadow-primary-500/30"
+                      >
+                        {isSavingPublic ? <Loader2 className="animate-spin" size={20} /> : (lang === 'en' ? 'Save Changes' : 'บันทึกการเปลี่ยนแปลง')}
+                      </button>
+                    </div>
+                  </div>
+                </form>
+              </div>
+            </motion.div>
+          )}
+
+          {/* ================= TAB 3: ACHIEVEMENTS ================= */}
+          {activeTab === 'achievements' && (
+            <motion.div 
+              key="achievements"
+              initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
+              className="space-y-6"
+            >
+              <div className="grid grid-cols-2 gap-4">
+                <div className="liquid-glass-card p-6 rounded-[24px] flex flex-col items-center justify-center text-center relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-orange-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <Flame size={36} className={`mb-3 ${streaks.currentStreak > 0 ? 'text-orange-500 animate-pulse' : 'text-main/20'}`} />
+                  <h3 className="text-4xl font-black text-main">{streaks.currentStreak} <span className="text-lg font-bold text-main/50">วัน</span></h3>
+                  <p className="text-xs font-bold text-main/60 uppercase tracking-wider mt-2">ไฟกำลังลุก (Current)</p>
+                </div>
+                
+                <div className="liquid-glass-card p-6 rounded-[24px] flex flex-col items-center justify-center text-center relative overflow-hidden group">
+                  <div className="absolute inset-0 bg-yellow-500/5 opacity-0 group-hover:opacity-100 transition-opacity"></div>
+                  <Medal size={36} className="mb-3 text-yellow-500" />
+                  <h3 className="text-4xl font-black text-main">{streaks.longestStreak} <span className="text-lg font-bold text-main/50">วัน</span></h3>
+                  <p className="text-xs font-bold text-main/60 uppercase tracking-wider mt-2">สถิติสูงสุด (Longest)</p>
+                </div>
+              </div>
+
+              <div className="liquid-glass-card p-6 md:p-8">
+                <h3 className="text-lg font-bold text-main mb-6 flex items-center gap-2">
+                  <Award size={22} className="text-primary-500" /> เหรียญเกียรติยศ (Badges)
+                  <span className="ml-auto text-sm font-bold bg-primary-500/10 text-primary-500 px-3 py-1 rounded-full">
+                    {unlockedBadges.length} / {BADGE_LIST.length}
+                  </span>
+                </h3>
+                
+                <div className="relative -mx-2">
+                  <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4">
+                    {(() => {
+                      const TIER_ORDER = { common: 1, rare: 2, epic: 3, legendary: 4, mythic: 5 };
+                      const sortedBadges = [...BADGE_LIST].sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier]);
+                      const chunks = Array.from({ length: Math.ceil(sortedBadges.length / 6) }, (_, i) => sortedBadges.slice(i * 6, i * 6 + 6));
+                      
+                      return chunks.map((chunk, pageIndex) => (
+                        <div key={pageIndex} className="w-full flex-none snap-center px-2">
+                          <div className="grid grid-cols-2 sm:grid-cols-3 gap-4 auto-rows-fr">
+                          {chunk.map(badge => {
+                            const unlockedBadgeInfo = unlockedBadges.find(b => b.id === badge.id);
+                            const isUnlocked = !!unlockedBadgeInfo;
+                            
+                            const handleBadgeClick = () => {
+                              setSelectedBadge({
+                                ...badge,
+                                isUnlocked,
+                                date: unlockedBadgeInfo?.date || null
+                              });
+                            };
+
+                            let tierClass = '';
+                            if (isUnlocked) {
+                              if (badge.tier === 'rare') tierClass = 'shadow-[0_0_15px_rgba(59,130,246,0.3)] border-blue-500/30';
+                              if (badge.tier === 'epic') tierClass = 'animate-float shadow-[0_0_20px_rgba(168,85,247,0.4)] border-purple-500/50';
+                              if (badge.tier === 'legendary') tierClass = 'animate-shimmer shadow-[0_0_25px_rgba(249,115,22,0.5)] border-orange-500/60';
+                              if (badge.tier === 'mythic') tierClass = 'animate-sparkle shadow-[0_0_30px_rgba(236,72,153,0.6)] border-pink-500/80 bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20';
+                            }
+
+                            return (
+                              <div 
+                                key={badge.id} 
+                                onClick={handleBadgeClick}
+                                className={`h-full relative p-4 rounded-[20px] flex flex-col items-center text-center transition-all ${isUnlocked ? badge.color + ' bg-opacity-10 border cursor-pointer hover:scale-105 active:scale-95 ' + tierClass : 'bg-black/5 dark:bg-white/5 border border-transparent grayscale opacity-50 cursor-pointer hover:scale-105 active:scale-95'}`}
+                              >
+                                <div className="text-4xl mb-3 drop-shadow-sm">{badge.icon}</div>
+                                <h4 className={`font-bold text-sm mb-1 ${isUnlocked ? '' : 'text-main'}`}>{badge.name[lang] || badge.name.th}</h4>
+                                <p className={`text-[10px] leading-snug flex-1 flex items-center justify-center ${isUnlocked ? 'opacity-80' : 'text-main/60'}`}>{badge.desc[lang] || badge.desc.th}</p>
+                                
+                                {isUnlocked && (
+                                  <div className="absolute top-2 right-2">
+                                    <CheckCircle2 size={14} className="text-current" />
+                                  </div>
+                                )}
+                              </div>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    ))})()}
+                  </div>
+                  
+                  {/* Pagination Dots indicator */}
+                  <div className="flex justify-center items-center gap-2 mt-2">
+                    {Array.from({ length: Math.ceil(BADGE_LIST.length / 6) }).map((_, i) => (
+                      <div key={i} className="w-2 h-2 rounded-full bg-main/20" />
+                    ))}
+                    <span className="text-[10px] text-main/40 ml-2 font-bold uppercase tracking-wider">Scroll</span>
                   </div>
                 </div>
               </div>
-            )}
-
-            <div className="text-center md:text-left flex-1">
-              <h2 className="text-2xl font-bold text-main mb-2">{user.displayName || 'ผู้ใช้ SudoDo'}</h2>
-              
-              <div className="flex flex-col gap-1 items-center md:items-start text-sm text-main opacity-80">
-                <p className="flex items-center gap-2">
-                  <Mail size={16} /> {user.email}
-                  {user.emailVerified ? (
-                    <span className="bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-green-500/20">
-                      <Check size={12} /> ยืนยันแล้ว
-                    </span>
-                  ) : (
-                    <span className="bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-amber-500/20">
-                      <AlertTriangle size={12} /> ยังไม่ยืนยัน
-                    </span>
-                  )}
-                </p>
-                <p className="flex items-center gap-2 mt-1">
-                  <Calendar size={16} /> {getMemberSince()}
-                </p>
-              </div>
-
-              {/* Verify Email Button (if not verified) */}
-              {!user.emailVerified && (
-                <button 
-                  onClick={handleVerifyEmail}
-                  disabled={sendingVerification}
-                  className="mt-3 text-sm flex items-center gap-2 text-primary-500 font-bold hover:text-primary-600 transition-colors"
-                >
-                  {sendingVerification ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                  ส่งลิงก์ยืนยันอีเมล
-                </button>
-              )}
-            </div>
-          </div>
-
-          {successMsg && (
-            <div className="mb-6 p-4 bg-green-500/20 border border-green-500/30 rounded-[16px] flex items-center gap-2 text-green-700 font-medium">
-              <Check size={20} /> {successMsg}
-            </div>
+            </motion.div>
           )}
-          
-          {errorMsg && (
-            <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-[16px] flex items-center gap-2 text-red-700 font-medium">
-              <AlertTriangle size={20} /> {errorMsg}
-            </div>
-          )}
+        </AnimatePresence>
 
-          <div className="space-y-10">
-            {/* Update Profile Form */}
-            <form onSubmit={handleUpdateProfile}>
-              <h3 className="text-lg font-bold text-main mb-4 flex items-center gap-2">
-                <User size={20} className="text-primary-500" /> ข้อมูลทั่วไป
-              </h3>
-              <label className="block text-sm font-medium text-main mb-2 opacity-80">ชื่อที่ใช้แสดง (Display Name)</label>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input 
-                  type="text" 
-                  value={displayName} 
-                  onChange={(e) => setDisplayName(e.target.value)}
-                  className="flex-1 px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow"
-                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                  placeholder="กรอกชื่อของคุณ"
-                />
-                <button 
-                  type="submit"
-                  disabled={loading || displayName === user.displayName || !displayName.trim()}
-                  className="px-6 py-3 bg-primary-500 text-white font-bold rounded-[16px] hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 transition-all shadow-md active:scale-95 disabled:opacity-50 sm:w-auto w-full flex justify-center items-center h-[50px]"
-                  style={{ border: '1px solid var(--glass-border)' }}
-                >
-                  {loading ? <Loader2 size={20} className="animate-spin" /> : 'บันทึกชื่อ'}
-                </button>
+        {/* Avatar Modal */}
+        {showAvatarModal && (
+          <div
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            style={{ backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(8px)' }}
+            onClick={() => setShowAvatarModal(false)}
+          >
+            <div
+              className="bg-white dark:bg-[#1e1e2d] w-full max-w-xs rounded-[28px] p-6 text-center shadow-2xl"
+              onClick={e => e.stopPropagation()}
+            >
+              <div className="w-20 h-20 rounded-full mx-auto mb-4 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center overflow-hidden shadow-lg">
+                {avatarUrl
+                  ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                  : <span className="text-white text-3xl font-bold">{getInitials()}</span>
+                }
               </div>
-            </form>
+              <h3 className="text-lg font-bold text-main mb-1">รูปโปรไฟล์</h3>
+              <p className="text-sm text-main/60 mb-6">เลือกการดำเนินการ</p>
 
-            {/* Update Password Form */}
-            <form onSubmit={handleUpdatePassword}>
-              <h3 className="text-lg font-bold text-main mb-4 flex items-center gap-2">
-                <Lock size={20} className="text-amber-500" /> ความปลอดภัย
-              </h3>
-              <label className="block text-sm font-medium text-main mb-2 opacity-80">เปลี่ยนรหัสผ่านใหม่ (New Password)</label>
-              <div className="flex flex-col sm:flex-row gap-3">
-                <input 
-                  type="password" 
-                  value={newPassword} 
-                  onChange={(e) => setNewPassword(e.target.value)}
-                  className="flex-1 px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-amber-500 text-main transition-shadow"
-                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                  placeholder="รหัสผ่านใหม่อย่างน้อย 6 ตัวอักษร"
-                />
-                <button 
-                  type="submit"
-                  disabled={loading || newPassword.length < 6}
-                  className="px-6 py-3 bg-amber-500 text-white font-bold rounded-[16px] hover:bg-amber-600 focus:outline-none focus:ring-2 focus:ring-amber-500 transition-all shadow-md active:scale-95 disabled:opacity-50 sm:w-auto w-full flex justify-center items-center h-[50px]"
-                  style={{ border: '1px solid var(--glass-border)' }}
+              <div className="flex flex-col gap-3">
+                <label
+                  htmlFor="avatar-upload"
+                  className="flex items-center justify-center gap-3 w-full py-4 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-2xl cursor-pointer transition-all active:scale-95 shadow-lg shadow-primary-500/20"
                 >
-                  {loading ? <Loader2 size={20} className="animate-spin" /> : 'เปลี่ยนรหัสผ่าน'}
-                </button>
-              </div>
-              
-              <button
-                type="button"
-                onClick={handleResetPasswordEmail}
-                disabled={sendingReset}
-                className="mt-4 text-sm flex items-center gap-2 text-main opacity-70 hover:opacity-100 transition-opacity font-medium"
-              >
-                {sendingReset ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
-                ลืมรหัสผ่าน? ส่งลิงก์ตั้งรหัสผ่านใหม่ไปยังอีเมล
-              </button>
-            </form>
-          </div>
-        </div>
+                  <Camera size={20} />
+                  อัปโหลดรูปใหม่
+                </label>
 
-        {/* Delete Account Section */}
-        <div className="liquid-glass-card p-6 md:p-8 mb-8 border-red-500/20" style={{ border: '1px solid rgba(239,68,68,0.2)' }}>
-          <h3 className="text-lg font-bold text-red-500 mb-2 flex items-center gap-2">
-            <UserX size={20} /> ลบบัญชีผู้ใช้ (Delete Account)
-          </h3>
-          <p className="text-sm text-main opacity-70 mb-4">การลบบัญชีจะลบข้อมูลงานและรายได้ของคุณทั้งหมดอย่างถาวร ไม่สามารถกู้คืนได้</p>
-          
-          {showDeleteAccount ? (
-            <div className="mt-4 p-4 rounded-[16px] bg-red-500/10 border border-red-500/20">
-              <p className="text-sm text-red-600 font-medium mb-3">
-                พิมพ์ <span className="font-bold select-all">"{user.displayName || user.email}"</span> เพื่อยืนยันการลบ
-              </p>
-              <input 
-                type="text" 
-                value={deleteAccountText}
-                onChange={(e) => setDeleteAccountText(e.target.value)}
-                className="w-full px-4 py-3 rounded-[12px] bg-white dark:bg-black/20 border border-red-500/30 focus:outline-none focus:border-red-500 text-main mb-3 text-center font-bold"
-                placeholder={user.displayName || user.email}
-              />
-              <div className="flex gap-2">
-                <button 
-                  onClick={() => { setShowDeleteAccount(false); setDeleteAccountText(''); }}
-                  className="flex-1 py-3 text-main font-bold rounded-[12px] bg-black/5 dark:bg-white/5 hover:bg-black/10 transition-colors"
+                {avatarUrl && (
+                  <button
+                    type="button"
+                    onClick={() => { handleRemoveAvatar(); setShowAvatarModal(false); }}
+                    className="flex items-center justify-center gap-3 w-full py-4 bg-red-500/10 hover:bg-red-500/20 text-red-500 font-bold rounded-2xl transition-all active:scale-95 border border-red-500/20"
+                  >
+                    ลบรูปปัจจุบัน
+                  </button>
+                )}
+
+                <button
+                  type="button"
+                  onClick={() => setShowAvatarModal(false)}
+                  className="py-3 text-main/50 font-bold rounded-2xl transition-all hover:text-main/80"
                 >
                   ยกเลิก
                 </button>
-                <button 
-                  disabled={deleteAccountText !== (user.displayName || user.email) || isDeletingAccount}
-                  onClick={handleDeleteAccount}
-                  className="flex-1 py-3 bg-red-500 text-white font-bold rounded-[12px] hover:bg-red-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2 shadow-md shadow-red-500/30"
-                >
-                  {isDeletingAccount ? <RefreshCw size={18} className="animate-spin" /> : <Trash2 size={18} />} 
-                  ยืนยันลบถาวร
-                </button>
               </div>
             </div>
-          ) : (
-            <button 
-              onClick={() => setShowDeleteAccount(true)}
-              className="px-6 py-3 w-full sm:w-auto bg-red-500 text-white font-bold rounded-[16px] hover:bg-red-600 transition-all shadow-md shadow-red-500/30 active:scale-95"
-            >
-              ลบบัญชีถาวร
-            </button>
-          )}
-        </div>
-
-        {/* Logout Section */}
-        <div className="liquid-glass-card p-6 md:p-8 flex flex-col items-center sm:flex-row sm:justify-between sm:items-center gap-4">
-          <div>
-            <h3 className="text-lg font-bold text-main mb-1">ออกจากระบบ (Logout)</h3>
-            <p className="text-sm text-main opacity-70">คุณสามารถเข้าสู่ระบบใหม่ได้ตลอดเวลา</p>
           </div>
-          
-          {showLogoutConfirm ? (
-            <div className="flex items-center gap-2 w-full sm:w-auto">
-              <button 
-                onClick={() => setShowLogoutConfirm(false)}
-                className="flex-1 sm:flex-none px-4 py-3 text-main font-bold rounded-[16px] transition-all active:scale-95"
-                style={{ backgroundColor: 'var(--glass-bg-strong)', border: '1px solid var(--glass-border)' }}
-              >
-                ยกเลิก
-              </button>
-              <button 
-                onClick={handleLogout}
-                className="flex-1 sm:flex-none px-4 py-3 bg-red-500 text-white font-bold rounded-[16px] hover:bg-red-600 transition-all shadow-md active:scale-95 border border-red-500/20 flex items-center justify-center gap-2"
-              >
-                <LogOut size={18} /> ยืนยันออก
-              </button>
-            </div>
-          ) : (
-            <button 
-              onClick={() => setShowLogoutConfirm(true)}
-              className="w-full sm:w-auto px-6 py-3 bg-red-500/10 text-red-600 font-bold rounded-[16px] hover:bg-red-500/20 transition-all active:scale-95 border border-red-500/20 flex items-center justify-center gap-2"
+        )}
+
+        {/* Badge Detail Modal */}
+        {selectedBadge && (
+          <div 
+            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            style={{ backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(8px)' }}
+            onClick={() => setSelectedBadge(null)}
+          >
+            <motion.div 
+              initial={{ opacity: 0, scale: 0.9 }}
+              animate={{ opacity: 1, scale: 1 }}
+              exit={{ opacity: 0, scale: 0.9 }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              className="bg-white dark:bg-[#1e1e2d] w-full max-w-sm rounded-[28px] p-6 text-center shadow-2xl relative"
+              onClick={e => e.stopPropagation()}
             >
-              <LogOut size={18} /> ออกจากระบบ
-            </button>
-          )}
-        </div>
+              <button 
+                onClick={() => setSelectedBadge(null)}
+                className="absolute top-4 right-4 p-2 bg-black/5 dark:bg-white/10 rounded-full hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
+              >
+                <X size={18} className="text-main" />
+              </button>
+              
+              <div className={`w-24 h-24 mx-auto rounded-[24px] flex items-center justify-center text-6xl mb-4 ${selectedBadge.isUnlocked ? selectedBadge.color.split(' ')[0] : 'bg-black/5 dark:bg-white/5 grayscale opacity-50'} shadow-lg ${selectedBadge.isUnlocked && selectedBadge.tier === 'epic' ? 'animate-float shadow-[0_0_30px_rgba(168,85,247,0.5)]' : ''} ${selectedBadge.isUnlocked && selectedBadge.tier === 'legendary' ? 'animate-shimmer shadow-[0_0_40px_rgba(249,115,22,0.6)]' : ''} ${selectedBadge.isUnlocked && selectedBadge.tier === 'mythic' ? 'animate-sparkle shadow-[0_0_50px_rgba(236,72,153,0.7)] bg-gradient-to-br from-indigo-500/40 via-purple-500/40 to-pink-500/40' : ''}`}>
+                <span className="drop-shadow-md">{selectedBadge.icon}</span>
+              </div>
+              
+              <h3 className="text-2xl font-black text-main mb-2">
+                {selectedBadge.name[lang] || selectedBadge.name.th}
+              </h3>
+              
+              <div className="bg-primary-500/10 p-4 rounded-[16px] mb-4 text-left border border-primary-500/20">
+                <p className="text-sm font-bold text-primary-500 mb-1">วิธีได้รับ</p>
+                <p className="text-sm text-main font-medium">{selectedBadge.desc[lang] || selectedBadge.desc.th}</p>
+              </div>
+
+              {selectedBadge.isUnlocked ? (
+                <div className="bg-green-500/10 p-3 rounded-[16px] flex items-center justify-center gap-2 text-green-600 border border-green-500/20">
+                  <CheckCircle2 size={18} />
+                  <span className="text-sm font-bold">
+                    {lang === 'en' ? 'Unlocked on ' : 'ได้รับเมื่อ '}{new Date(selectedBadge.date).toLocaleDateString(lang === 'en' ? 'en-US' : 'th-TH', { year: 'numeric', month: 'short', day: 'numeric' })}
+                  </span>
+                </div>
+              ) : (
+                <div className="bg-black/5 dark:bg-white/5 p-3 rounded-[16px] flex items-center justify-center gap-2 text-main/50 border border-transparent">
+                  <Lock size={18} />
+                  <span className="text-sm font-bold">{lang === 'en' ? 'Not yet unlocked' : 'ยังไม่ได้รับ'}</span>
+                </div>
+              )}
+            </motion.div>
+          </div>
+        )}
 
       </div>
     </motion.div>
