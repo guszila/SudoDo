@@ -233,6 +233,19 @@ export default function TodayPage({ user, lang = 'th' }) {
   useEffect(() => {
     const fetchWeather = async () => {
       if (!selectedWidgets.includes('WEATHER_WIDGET')) return;
+      
+      const cachedStr = localStorage.getItem('weather_cache');
+      if (cachedStr) {
+        try {
+          const cached = JSON.parse(cachedStr);
+          // Use cache if it's less than 30 mins old
+          if (Date.now() - cached.timestamp < 30 * 60 * 1000) {
+            setWeatherData(cached.data);
+            return;
+          }
+        } catch (e) {}
+      }
+      
       setWeatherLoading(true);
       
       const getPosition = () => {
@@ -240,7 +253,8 @@ export default function TodayPage({ user, lang = 'th' }) {
           if (!navigator.geolocation) {
             reject(new Error("Geolocation is not supported"));
           } else {
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+            // Reduce timeout to 3s to fail faster if location is not available
+            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
           }
         });
       };
@@ -283,7 +297,9 @@ export default function TodayPage({ user, lang = 'th' }) {
       try {
         const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
         const data = await res.json();
-        setWeatherData({ ...data.current_weather, isLocal, locationName });
+        const finalData = { ...data.current_weather, isLocal, locationName };
+        setWeatherData(finalData);
+        localStorage.setItem('weather_cache', JSON.stringify({ timestamp: Date.now(), data: finalData }));
       } catch (err) {
         console.error("Weather fetch error", err);
       } finally {
@@ -291,7 +307,7 @@ export default function TodayPage({ user, lang = 'th' }) {
       }
     };
     fetchWeather();
-  }, [selectedWidgets]);
+  }, [selectedWidgets, lang]);
 
   const navigate = useNavigate();
   
