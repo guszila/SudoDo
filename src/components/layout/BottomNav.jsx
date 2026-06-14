@@ -1,5 +1,5 @@
 import React from 'react';
-import { Calendar as CalendarIcon, ListTodo, Home, DollarSign, Settings } from 'lucide-react';
+import { Calendar as CalendarIcon, Users, Home, DollarSign, Settings } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function BottomNav({ lang, currentView, setCurrentView }) {
@@ -30,11 +30,11 @@ export default function BottomNav({ lang, currentView, setCurrentView }) {
         <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/' && 'opacity-60'}`}>{lang === 'en' ? 'Home' : 'หน้าหลัก'}</span>
       </button>
       <button 
-        onClick={() => navigate('/tasks')}
-        className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/tasks' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
+        onClick={() => navigate('/friends')}
+        className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/friends' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
       >
-        <ListTodo size={24} />
-        <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/tasks' && 'opacity-60'}`}>{lang === 'en' ? 'Tasks' : 'งานทั้งหมด'}</span>
+        <Users size={24} />
+        <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/friends' && 'opacity-60'}`}>{lang === 'en' ? 'Friends' : 'เพื่อน'}</span>
       </button>
       <button 
         onClick={() => navigate('/settings')}

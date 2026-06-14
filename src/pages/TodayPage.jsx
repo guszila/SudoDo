@@ -1,9 +1,9 @@
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useCallback } from 'react';
 
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, isBefore, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2, Bell, Edit2, Zap, Briefcase, Settings, GripHorizontal, LayoutGrid, Plus, Calendar, CloudRain, Timer, Play, Pause, RotateCcw, Users, Sun, Cloud, CloudFog, CloudLightning, Droplets } from 'lucide-react';
+import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2, Bell, Edit2, Zap, Briefcase, Settings, GripHorizontal, LayoutGrid, Plus, Calendar, CloudRain, Timer, Play, Pause, RotateCcw, RefreshCw, Users, Sun, Cloud, CloudFog, CloudLightning, Droplets } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -188,6 +188,13 @@ export default function TodayPage({ user, lang = 'th' }) {
   // Weather State
   const [weatherData, setWeatherData] = useState(null);
   const [weatherLoading, setWeatherLoading] = useState(false);
+  const [weatherRefreshKey, setWeatherRefreshKey] = useState(0);
+
+  const refreshWeather = useCallback(() => {
+    localStorage.removeItem('weather_cache');
+    setWeatherData(null);
+    setWeatherRefreshKey(k => k + 1);
+  }, []);
 
   // Pomodoro State
   const [pomodoroState, setPomodoroState] = useState({
@@ -308,7 +315,7 @@ export default function TodayPage({ user, lang = 'th' }) {
       }
     };
     fetchWeather();
-  }, [selectedWidgets, lang]);
+  }, [selectedWidgets, lang, weatherRefreshKey]);
 
   const navigate = useNavigate();
   
@@ -793,12 +800,22 @@ export default function TodayPage({ user, lang = 'th' }) {
                  <CloudRain size={16} className={wInfo ? wInfo.color : "text-blue-500"} />
                  {t.weatherWidget || (lang === 'en' ? 'Weather' : 'สภาพอากาศ')}
                </h3>
-               {weatherData && (
-                 <span className="text-[10px] md:text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full flex items-center gap-1 border border-blue-500/20 shadow-sm backdrop-blur-md">
-                    <Droplets size={12} />
-                    {lang === 'en' ? 'Rain' : 'โอกาสฝน'} {weatherData.rainProb ?? 0}%
-                 </span>
-               )}
+               <div className="flex items-center gap-1.5">
+                 {weatherData && (
+                   <span className="text-[10px] md:text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full flex items-center gap-1 border border-blue-500/20 shadow-sm backdrop-blur-md">
+                      <Droplets size={12} />
+                      {lang === 'en' ? 'Rain' : 'โอกาสฝน'} {weatherData.rainProb ?? 0}%
+                   </span>
+                 )}
+                 <button
+                   onClick={(e) => { e.stopPropagation(); refreshWeather(); }}
+                   disabled={weatherLoading}
+                   title={lang === 'en' ? 'Refresh location' : 'รีเฟรชตำแหน่ง'}
+                   className="p-1.5 rounded-full hover:bg-blue-500/10 text-main/40 hover:text-blue-500 transition-all active:scale-90 disabled:opacity-40"
+                 >
+                   <RefreshCw size={13} className={weatherLoading ? 'animate-spin' : ''} />
+                 </button>
+               </div>
             </div>
 
             <div className="z-10 flex items-center justify-between mt-2 flex-1">
@@ -920,24 +937,7 @@ export default function TodayPage({ user, lang = 'th' }) {
 
           
           <div className="flex items-center gap-2 mt-2">
-            <div className="relative flex items-center">
-              <motion.div
-                 initial={{ opacity: 0, x: 30, scale: 0.5 }}
-                 animate={{ opacity: [0, 1, 1, 0], x: [30, 0, 0, 30], scale: [0.5, 1, 1, 0.5] }}
-                 transition={{ duration: 5, repeat: Infinity, repeatDelay: 3, times: [0, 0.1, 0.9, 1], ease: "easeInOut" }}
-                 className="absolute right-full whitespace-nowrap bg-white text-primary-600 font-bold text-[10px] px-2.5 py-1 rounded-full shadow-lg border border-primary-500/20 mr-2 pointer-events-none origin-right"
-              >
-                 {lang === 'en' ? 'Add Friends!' : 'เพิ่มเพื่อนเลย!'}
-                 <div className="absolute top-1/2 -right-1 -translate-y-1/2 border-[4px] border-transparent border-l-white"></div>
-              </motion.div>
-              <button 
-                 onClick={() => navigate('/friends')}
-                 className="relative z-10 w-10 h-10 rounded-full flex items-center justify-center transition-colors bg-black/20 hover:bg-black/30 backdrop-blur-md text-white shadow-sm"
-                 title={lang === 'en' ? 'Friends' : 'เพื่อน'}
-              >
-                 <Users size={18} />
-              </button>
-            </div>
+
             <button 
                onClick={() => setIsEditWidgetMode(!isEditWidgetMode)} 
                className={`hidden md:flex text-sm px-3 py-1.5 rounded-full transition-colors items-center gap-1 ${isEditWidgetMode ? 'bg-primary-500 text-white shadow-md' : 'bg-black/20 hover:bg-black/30 backdrop-blur-md text-white'}`}
@@ -1209,7 +1209,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                     <div className="flex-1 min-w-0">
                       <h4 className={`font-bold text-main truncate ${task.status === TASK_STATUS.DONE ? 'line-through' : ''}`}>{task.title}</h4>
                       <p className="text-[10px] md:text-xs text-main/60 truncate flex items-center gap-1.5 mt-0.5">
-                         {format(task.start, 'HH:mm')} - {format(task.end, 'HH:mm')}
+                         {format(task.start, 'HH:mm') === format(task.end, 'HH:mm') ? format(task.start, 'HH:mm') : `${format(task.start, 'HH:mm')} - ${format(task.end, 'HH:mm')}`}
                          <span className="opacity-50">•</span>
                          {task.isPartTime ? (
                            <span className="text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5"><DollarSign size={10} /> {t.workShift}</span>

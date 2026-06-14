@@ -14,7 +14,8 @@ export default function TaskCard({
   isSelectionMode = false,
   isSelected = false,
   onToggleSelect,
-  now = new Date()
+  now = new Date(),
+  lang = 'th'
 }) {
   const timerRef = useRef(null);
   const [isPressing, setIsPressing] = useState(false);
@@ -68,7 +69,16 @@ export default function TaskCard({
   if (task.priority === TASK_PRIORITY.HIGH) priorityColor = 'bg-red-500 text-red-600';
   if (task.priority === TASK_PRIORITY.LOW) priorityColor = 'bg-green-500 text-green-600';
 
-  const fDate = (d) => format(new Date(d), 'EE d MMM yyyy', { locale: th });
+  const fDate = (d) => {
+    const dateObj = new Date(d);
+    if (lang === 'th') {
+      const formattedDate = format(dateObj, 'EE d MMM', { locale: th });
+      const yearBE = dateObj.getFullYear() + 543;
+      return `${formattedDate} ${yearBE}`;
+    } else {
+      return format(dateObj, 'EE d MMM yyyy');
+    }
+  };
   const fTime = (d) => format(new Date(d), 'HH:mm');
 
   return (
@@ -114,7 +124,7 @@ export default function TaskCard({
         </h3>
         <div className="flex flex-wrap items-center gap-2 mt-1 text-xs text-main/70">
           <span className="flex items-center gap-1 bg-black/5 dark:bg-white/10 px-2 py-0.5 rounded-md">
-            <Clock size={12} /> {fDate(task.start)} {fTime(task.start)} - {fTime(task.end)}
+            <Clock size={12} /> {fDate(task.start)} {fTime(task.start) === fTime(task.end) ? fTime(task.start) : `${fTime(task.start)} - ${fTime(task.end)}`}
           </span>
           
           {!task.isPartTime && (

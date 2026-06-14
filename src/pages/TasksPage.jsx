@@ -385,6 +385,7 @@ export default function TasksPage({ user, lang = 'en' }) {
               onEdit={(t) => { setEditingTask(t); setIsModalOpen(true); }}
               onDelete={(t) => setDeleteConfirmTask(t)}
               onLongPress={(t) => setActionTask(t)}
+              lang={lang}
             />
           ))}
         </AnimatePresence>

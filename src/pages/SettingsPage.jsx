@@ -8,7 +8,7 @@ import { calcSSO } from '../utils/socialSecurity';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  ArrowLeft, ChevronRight, Moon, Sun, Languages, Calendar,
+  ArrowLeft, ChevronRight, Moon, Sun, Laptop, Languages, Calendar,
   Palette, Lock, Loader2, Mail,
   Bell, Clock, Flame, Globe, Download,
   ShieldCheck, RefreshCw, Database, Info, Star,
@@ -51,7 +51,7 @@ const ActionSheet = ({ isOpen, onClose, title, children }) => {
   );
 };
 
-export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }) {
+export default function SettingsPage({ user, lang, setLang, theme, setThemeMode }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { currentTheme, setTheme, themes } = useTheme();
@@ -64,7 +64,7 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
   const [isCountingStorage, setIsCountingStorage] = useState(true);
 
   // Sheets & Dialogs State
-  const [activeSheet, setActiveSheet] = useState(null); // 'language', 'weekStart', 'resetIncome', 'manageJobs', 'editJob', 'themePicker', 'exportPdf'
+  const [activeSheet, setActiveSheet] = useState(null); // 'themeMode', 'language', 'weekStart', 'resetIncome', 'manageJobs', 'editJob', 'themePicker', 'exportPdf'
   const [showChangelog, setShowChangelog] = useState(false);
   
   // Job Management State
@@ -121,8 +121,11 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
     display: lang === 'en' ? 'Display' : 'การแสดงผล',
     themeColor: lang === 'en' ? 'Color Theme' : 'ธีมสี',
     themeColorSub: lang === 'en' ? 'Select app color theme' : 'เลือกสีที่ชอบ',
-    theme: lang === 'en' ? 'Dark Mode' : 'Dark Mode',
-    themeSub: lang === 'en' ? 'Switch to dark theme' : 'ปรับหน้าจอให้มืดลง',
+    themeMode: lang === 'en' ? 'Theme Mode' : 'โหมดหน้าจอ',
+    themeModeSub: lang === 'en' ? 'Select light, dark, or system mode' : 'เลือกโหมดสว่าง มืด หรือตามระบบ',
+    light: lang === 'en' ? 'Light Mode' : 'โหมดสว่าง',
+    dark: lang === 'en' ? 'Dark Mode' : 'โหมดมืด',
+    system: lang === 'en' ? 'System' : 'ตามระบบ',
     language: lang === 'en' ? 'Language' : 'ภาษา',
     weekStartTitle: lang === 'en' ? 'First Day of Week' : 'วันเริ่มต้นสัปดาห์',
     sunday: lang === 'en' ? 'Sunday' : 'อาทิตย์',
@@ -247,7 +250,8 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
       }
     });
 
-    const ssoDeduct = calcSSO(ssoGross, settings?.ssoPercent);
+    const ssoResult = calcSSO(ssoGross, settings?.ssoPercent);
+    const ssoDeduct = ssoResult?.deduction ?? 0;
     const finalIncome = totalIncome - ssoDeduct;
 
     return {
@@ -312,10 +316,13 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
   }, [user]);
 
   const handleToggle = (key, value) => {
-    // Optimistic UI updates for immediate feedback
-    if (key === 'darkMode') toggleTheme();
-    
     updateSettings({ [key]: value });
+  };
+
+  const handleSetThemeMode = (mode) => {
+    setThemeMode(mode);
+    updateSettings({ themeMode: mode });
+    setActiveSheet(null);
   };
 
   const handleSetLanguage = (newLang) => {
@@ -437,9 +444,47 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
             onClick={() => setActiveSheet('themePicker')}
           />
           <Row 
-            icon={theme === 'dark' ? Moon : Sun} iconBgClass="bg-purple-500/15" iconColorClass="text-purple-600 dark:text-purple-400"
-            title={t.theme} subtitle={t.themeSub}
-            rightElement={<Toggle checked={theme === 'dark'} onChange={(val) => handleToggle('darkMode', val)} />}
+            icon={theme === 'dark' ? Moon : theme === 'light' ? Sun : Laptop} iconBgClass="bg-purple-500/15" iconColorClass="text-purple-600 dark:text-purple-400"
+            title={t.themeMode} subtitle={t.themeModeSub}
+            rightElement={
+              <div className="relative flex p-0.5 bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-full w-[130px] sm:w-[210px] h-[34px] items-center select-none shrink-0">
+                {/* Sliding Indicator */}
+                <div 
+                  className="absolute top-0.5 bottom-0.5 rounded-full bg-white dark:bg-white/10 shadow-[0_2px_6px_rgba(0,0,0,0.15)] transition-all duration-300 ease-out border border-black/[0.03] dark:border-white/[0.05]"
+                  style={{
+                    left: `calc(${['light', 'dark', 'system'].indexOf(theme) * 100 / 3}% + 2px)`,
+                    width: 'calc(100% / 3 - 4px)'
+                  }}
+                />
+                
+                {/* Light Mode Button */}
+                <button 
+                  onClick={() => handleSetThemeMode('light')}
+                  className={`flex-grow h-full z-10 flex items-center justify-center gap-1 rounded-full transition-all duration-200 ${theme === 'light' ? 'text-[var(--theme-accent)] font-bold scale-[1.03]' : 'text-[#888780] dark:text-[#A0A0A0] hover:text-main'}`}
+                >
+                  <Sun size={13} />
+                  <span className="hidden sm:inline text-[10px] md:text-[11px]">{lang === 'en' ? 'Light' : 'สว่าง'}</span>
+                </button>
+
+                {/* Dark Mode Button */}
+                <button 
+                  onClick={() => handleSetThemeMode('dark')}
+                  className={`flex-grow h-full z-10 flex items-center justify-center gap-1 rounded-full transition-all duration-200 ${theme === 'dark' ? 'text-[var(--theme-accent)] font-bold scale-[1.03]' : 'text-[#888780] dark:text-[#A0A0A0] hover:text-main'}`}
+                >
+                  <Moon size={12} />
+                  <span className="hidden sm:inline text-[10px] md:text-[11px]">{lang === 'en' ? 'Dark' : 'มืด'}</span>
+                </button>
+
+                {/* System Mode Button */}
+                <button 
+                  onClick={() => handleSetThemeMode('system')}
+                  className={`flex-grow h-full z-10 flex items-center justify-center gap-1 rounded-full transition-all duration-200 ${theme === 'system' ? 'text-[var(--theme-accent)] font-bold scale-[1.03]' : 'text-[#888780] dark:text-[#A0A0A0] hover:text-main'}`}
+                >
+                  <Laptop size={12} />
+                  <span className="hidden sm:inline text-[10px] md:text-[11px]">{lang === 'en' ? 'System' : 'ระบบ'}</span>
+                </button>
+              </div>
+            }
           />
           <Row 
             icon={Languages} iconBgClass="bg-purple-500/15" iconColorClass="text-purple-600 dark:text-purple-400"
@@ -734,6 +779,7 @@ export default function SettingsPage({ user, lang, setLang, theme, toggleTheme }
           })}
         </div>
       </ActionSheet>
+
 
       {/* Language Sheet */}
       <ActionSheet isOpen={activeSheet === 'language'} onClose={() => setActiveSheet(null)} title={t.selectLang}>

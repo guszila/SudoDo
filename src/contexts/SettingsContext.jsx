@@ -15,6 +15,7 @@ export function SettingsProvider({ children, user }) {
     socialSecurity: false,
     showInIncome: false,
     darkMode: false,
+    themeMode: 'system',
     language: 'th',
     weekStart: 'อาทิตย์',
     notifyTasks: true,
@@ -27,15 +28,16 @@ export function SettingsProvider({ children, user }) {
   useEffect(() => {
     if (!user) {
       setSettings({
-    socialSecurity: false,
-    showInIncome: false,
-    darkMode: false,
-    language: 'th',
-    weekStart: 'อาทิตย์',
-    notifyTasks: true,
-    notifyShifts: true,
-    notifyStreak: false,
-    jobs: []
+        socialSecurity: false,
+        showInIncome: false,
+        darkMode: false,
+        themeMode: 'system',
+        language: 'th',
+        weekStart: 'อาทิตย์',
+        notifyTasks: true,
+        notifyShifts: true,
+        notifyStreak: false,
+        jobs: []
       });
       setIsLoading(false);
       return;
@@ -44,6 +46,9 @@ export function SettingsProvider({ children, user }) {
     const loadSettings = async () => {
       setIsLoading(true);
       const data = await getUserSettings(user.uid);
+      if (data && data.themeMode === undefined && data.darkMode !== undefined) {
+        data.themeMode = data.darkMode ? 'dark' : 'light';
+      }
       setSettings(prev => ({ ...prev, ...data }));
       setIsLoading(false);
     };

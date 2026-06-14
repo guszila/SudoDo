@@ -38,7 +38,7 @@ import { translations } from './i18n';
 import { auth } from './firebase';
 import { TasksProvider, useTasks } from './contexts/TasksContext';
 import { ToastProvider } from './contexts/ToastContext';
-import { SettingsProvider } from './contexts/SettingsContext';
+import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 
 
@@ -69,8 +69,16 @@ const StatusIcon = ({ status, className = "" }) => {
   }
 };
 
-function MainApp({ user, lang, setLang, theme, toggleTheme }) {
+function MainApp({ user, lang, setLang, theme, setThemeMode }) {
   const { currentTheme } = useTheme();
+  const { settings } = useSettings();
+  
+  useEffect(() => {
+    if (settings?.themeMode) {
+      setThemeMode(settings.themeMode);
+    }
+  }, [settings?.themeMode, setThemeMode]);
+
   const navigate = useNavigate();
   const location = useLocation();
   const { tasks, isLoading } = useTasks();
@@ -549,6 +557,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
                           onDelete={handleDeleteTask}
                           onToggleStatus={handleToggleStatus}
                           onLongPress={() => {}}
+                          lang={lang}
                         />
                       ))}
                     </>
@@ -569,7 +578,7 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
           <Route path="/" element={<TodayPage user={user} lang={lang} />} />
           <Route path="/calendar" element={CalendarView} />
           <Route path="/profile" element={<ProfilePage user={user} lang={lang} />} />
-          <Route path="/settings" element={<ErrorBoundary><SettingsPage user={user} lang={lang} setLang={setLang} theme={theme} toggleTheme={toggleTheme} /></ErrorBoundary>} />
+          <Route path="/settings" element={<ErrorBoundary><SettingsPage user={user} lang={lang} setLang={setLang} theme={theme} setThemeMode={setThemeMode} /></ErrorBoundary>} />
           <Route path="/part-time" element={<ErrorBoundary><PartTimePage user={user} lang={lang} /></ErrorBoundary>} />
           <Route path="/income/history" element={<ErrorBoundary><IncomeHistoryPage user={user} lang={lang} /></ErrorBoundary>} />
           <Route path="/social-security" element={<SocialSecurityPage lang={lang} />} />
@@ -668,22 +677,36 @@ export default function App() {
 
   // Theme state
   const [theme, setTheme] = useState(() => {
-    return localStorage.getItem('theme') || 'light';
+    return localStorage.getItem('theme') || 'system';
   });
 
   useEffect(() => {
     const root = document.documentElement;
-    if (theme === 'dark') {
-      root.classList.add('dark');
+    
+    const applyTheme = (currentMode) => {
+      if (currentMode === 'dark') {
+        root.classList.add('dark');
+      } else {
+        root.classList.remove('dark');
+      }
+    };
+
+    if (theme === 'system') {
+      const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
+      applyTheme(mediaQuery.matches ? 'dark' : 'light');
+      
+      const listener = (e) => {
+        applyTheme(e.matches ? 'dark' : 'light');
+      };
+      
+      mediaQuery.addEventListener('change', listener);
+      return () => mediaQuery.removeEventListener('change', listener);
     } else {
-      root.classList.remove('dark');
+      applyTheme(theme);
     }
+    
     localStorage.setItem('theme', theme);
   }, [theme]);
-
-  const toggleTheme = () => {
-    setTheme(prev => prev === 'light' ? 'dark' : 'light');
-  };
 
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
@@ -720,7 +743,7 @@ export default function App() {
               lang={lang} 
               setLang={setLang} 
               theme={theme} 
-              toggleTheme={toggleTheme} 
+              setThemeMode={setTheme} 
             />
           </ThemeProvider>
         </SettingsProvider>

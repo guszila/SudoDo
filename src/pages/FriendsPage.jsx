@@ -3,7 +3,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, Copy, Check, Search, Trash2, Award, Flame, X,
   Clock, MapPin, Briefcase, ChevronRight, Share2, QrCode, Sparkles,
-  Calendar, Activity, ArrowRight, CheckCircle2, Circle, RefreshCw
+  Calendar, Activity, ArrowRight, CheckCircle2, Circle, RefreshCw, Bell, BellOff
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getFriends, addFriendByCode, removeFriend } from '../services/friendService';
@@ -12,12 +12,24 @@ import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../constants';
 import { BADGE_LIST } from '../utils/gamification';
+import ChatView from '../components/social/ChatView';
 
 // ────────────────────────────────────────────────
 // Helpers
 // ────────────────────────────────────────────────
 const formatTime = (timeStr) => {
   if (!timeStr) return '';
+  // Handle Firestore Timestamp objects
+  if (typeof timeStr?.toDate === 'function') {
+    const d = timeStr.toDate();
+    return d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+  }
+  // Handle plain {seconds, nanoseconds} objects (Firestore Timestamp-like)
+  if (typeof timeStr === 'object' && timeStr.seconds !== undefined) {
+    const d = new Date(timeStr.seconds * 1000);
+    return d.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' });
+  }
+  if (typeof timeStr !== 'string') return '';
   // Handle ISO date strings
   try {
     if (timeStr.includes('T')) {
@@ -31,7 +43,7 @@ const formatTime = (timeStr) => {
       return `${hour.toString().padStart(2,'0')}:${m}`;
     }
   } catch {}
-  return timeStr;
+  return '';
 };
 
 const getStatusColor = (status) => {
@@ -102,6 +114,8 @@ export default function FriendsPage({ user, lang = 'th' }) {
   const [friends, setFriends] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const [activeTab, setActiveTab] = useState('friends'); // 'friends' | 'inbox'
+  const [modalTab, setModalTab] = useState('profile'); // 'profile' | 'chat'
 
   const [friendCodeInput, setFriendCodeInput] = useState('');
   const [isAdding, setIsAdding] = useState(false);
@@ -208,13 +222,13 @@ export default function FriendsPage({ user, lang = 'th' }) {
       className="min-h-screen p-4 md:p-8 font-sans pb-28 max-w-2xl mx-auto"
     >
       {/* ── Header ─────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-6">
+      <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-3xl font-black text-main flex items-center gap-2">
             <Users className="text-primary-500" size={30} />
             {lang === 'en' ? 'Friends' : 'เพื่อน'}
           </h1>
-          {friends.length > 0 && (
+          {friends.length > 0 && activeTab === 'friends' && (
             <p className="text-sm text-main/50 mt-0.5 ml-1">
               {activeToday > 0
                 ? (lang === 'en' ? `${activeToday} active today` : `${activeToday} คน ทำงานวันนี้ 🔥`)
@@ -231,18 +245,86 @@ export default function FriendsPage({ user, lang = 'th' }) {
           >
             <RefreshCw size={18} className={isRefreshing ? 'animate-spin' : ''} />
           </button>
-          <button
-            onClick={() => setShowAddPanel(p => !p)}
-            className={`liquid-glass-button px-4 py-2.5 flex items-center gap-2 font-bold text-sm transition-all
-              ${showAddPanel ? 'bg-primary-500 text-white border-primary-600' : 'text-primary-500'}`}
-          >
-            <UserPlus size={18} />
-            {lang === 'en' ? 'Add' : 'เพิ่มเพื่อน'}
-          </button>
+          {activeTab === 'friends' && (
+            <button
+              onClick={() => setShowAddPanel(p => !p)}
+              className={`liquid-glass-button px-4 py-2.5 flex items-center gap-2 font-bold text-sm transition-all
+                ${showAddPanel ? 'bg-primary-500 text-white border-primary-600' : 'text-primary-500'}`}
+            >
+              <UserPlus size={18} />
+              {lang === 'en' ? 'Add' : 'เพิ่มเพื่อน'}
+            </button>
+          )}
         </div>
       </div>
 
-      {/* ── My Friend Code Card ─────────────────────── */}
+      {/* ── Tab Switcher ─────────────────────────────── */}
+      <div className="flex gap-2 mb-4 p-1 liquid-glass-card rounded-2xl">
+        <button
+          onClick={() => setActiveTab('friends')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all ${
+            activeTab === 'friends'
+              ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30'
+              : 'text-main/60 hover:text-main'
+          }`}
+        >
+          <Users size={16} />
+          {lang === 'en' ? 'Friends' : 'เพื่อน'}
+          {friends.length > 0 && (
+            <span className={`text-[10px] font-black px-1.5 py-0.5 rounded-full ${
+              activeTab === 'friends' ? 'bg-white/20 text-white' : 'bg-primary-500/10 text-primary-500'
+            }`}>{friends.length}</span>
+          )}
+        </button>
+        <button
+          onClick={() => setActiveTab('inbox')}
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all ${
+            activeTab === 'inbox'
+              ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30'
+              : 'text-main/60 hover:text-main'
+          }`}
+        >
+          <Bell size={16} />
+          {lang === 'en' ? 'Inbox' : 'การแจ้งเตือน'}
+        </button>
+      </div>
+
+      {/* ── Tab Content ──────────────────────────────── */}
+      {activeTab === 'inbox' ? (
+        <motion.div
+          key="inbox"
+          initial={{ opacity: 0, x: 20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: -20 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        >
+          {/* Inbox Empty State */}
+          <div className="liquid-glass-card rounded-[28px] p-10 text-center">
+            <div className="w-20 h-20 bg-primary-500/10 rounded-full flex items-center justify-center mx-auto mb-5 relative">
+              <Bell size={36} className="text-primary-500/50" />
+              <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                <Check size={11} className="text-white" />
+              </span>
+            </div>
+            <h3 className="font-bold text-main text-lg mb-2">
+              {lang === 'en' ? 'All caught up!' : 'ไม่มีการแจ้งเตือนใหม่'}
+            </h3>
+            <p className="text-main/50 text-sm max-w-xs mx-auto">
+              {lang === 'en'
+                ? 'You will see friend activity, shift reminders, and badge unlocks here.'
+                : 'การแจ้งเตือนกิจกรรมเพื่อน, ริมายน์เดอร์กะงาน และเหรียญใหม่จะแสดงที่นี่'}
+            </p>
+          </div>
+        </motion.div>
+      ) : (
+        <motion.div
+          key="friends"
+          initial={{ opacity: 0, x: -20 }}
+          animate={{ opacity: 1, x: 0 }}
+          exit={{ opacity: 0, x: 20 }}
+          transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+        >
+          {/* ── My Friend Code Card ─────────────────────── */}
       <motion.div
         layout
         className="liquid-glass-card p-5 rounded-[24px] mb-4 relative overflow-hidden"
@@ -385,7 +467,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
                   hover:border-primary-500/30 hover:shadow-lg active:scale-[0.98] transition-all group relative
                   ${removingId === friend.uid ? 'opacity-50 pointer-events-none' : ''}
                   ${friend.hasWorkedToday ? 'border-emerald-500/20' : ''}`}
-                onClick={() => setSelectedFriend(friend)}
+                onClick={() => { setSelectedFriend(friend); setModalTab('profile'); }}
               >
                 <Avatar
                   src={friend.avatarUrl}
@@ -439,6 +521,9 @@ export default function FriendsPage({ user, lang = 'th' }) {
               </motion.div>
             ))}
         </div>
+      )}
+
+        </motion.div>
       )}
 
       {/* ── Friend Detail Modal ─────────────────────── */}
@@ -537,7 +622,41 @@ export default function FriendsPage({ user, lang = 'th' }) {
                 </div>
               </div>
 
-              {/* Scrollable body */}
+              {/* ── Tab Switcher ── */}
+              <div className="flex gap-1.5 px-5 py-3 bg-gray-50 dark:bg-[#111120] border-b border-main/5 flex-shrink-0">
+                <button
+                  onClick={() => setModalTab('profile')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                    modalTab === 'profile'
+                      ? 'bg-primary-500 text-white shadow-sm'
+                      : 'text-main/50 hover:text-main hover:bg-main/5'
+                  }`}
+                >
+                  {lang === 'en' ? '👤 Profile' : '👤 ข้อมูล'}
+                </button>
+                <button
+                  onClick={() => setModalTab('chat')}
+                  className={`flex-1 py-2 rounded-xl text-xs font-bold transition-all ${
+                    modalTab === 'chat'
+                      ? 'bg-primary-500 text-white shadow-sm'
+                      : 'text-main/50 hover:text-main hover:bg-main/5'
+                  }`}
+                >
+                  {lang === 'en' ? '💬 Chat' : '💬 แชท'}
+                </button>
+              </div>
+
+              {/* ── Chat Tab ── */}
+              {modalTab === 'chat' ? (
+                <div className="flex-1 flex flex-col overflow-hidden">
+                  <ChatView
+                    user={user}
+                    friend={selectedFriend}
+                    lang={lang}
+                    onClose={() => setModalTab('profile')}
+                  />
+                </div>
+              ) : (
               <div className="flex-1 overflow-y-auto custom-scrollbar bg-gray-50 dark:bg-[#111120]">
 
                 {/* ── Today's Schedule Section ── */}
@@ -664,8 +783,9 @@ export default function FriendsPage({ user, lang = 'th' }) {
                     <Trash2 size={16} />
                     {lang === 'en' ? 'Remove Friend' : 'ลบออกจากเพื่อน'}
                   </button>
-                </div>
+                  </div>
               </div>
+              )} {/* end profile tab */}
             </motion.div>
           </div>
         )}

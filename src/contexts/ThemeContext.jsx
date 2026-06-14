@@ -58,14 +58,14 @@ export function ThemeProvider({ children }) {
     localStorage.setItem('color_theme', id);
     const updates = { theme: id };
     
-    // Auto-enable dark mode for Midnight, disable if switching away from Midnight
+    // Auto-enable dark theme mode for Midnight, disable if switching away from Midnight
     // and currently in forced dark mode state.
     if (THEMES[id]?.forceDark) {
-      updates.darkMode = true;
+      updates.themeMode = 'dark';
     } else if (settings?.theme === 'midnight' && !THEMES[id]?.forceDark) {
       // If we are leaving midnight theme, we turn off dark mode to be nice.
       // (User can always turn it back on manually)
-      updates.darkMode = false;
+      updates.themeMode = 'light';
     }
 
     updateSettings(updates);
