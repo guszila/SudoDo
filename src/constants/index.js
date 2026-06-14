@@ -9,6 +9,7 @@ export const COLLECTIONS = {
   STREAK: 'streak',
   PUBLIC_PROFILES: 'public_profiles',
   FRIENDS: 'friends',
+  FRIEND_REQUESTS: 'friendRequests',
   CHATS: 'chats',
 };
 

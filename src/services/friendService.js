@@ -1,4 +1,4 @@
-import { collection, doc, getDoc, setDoc, getDocs, query, where, deleteDoc } from 'firebase/firestore';
+import { collection, doc, getDoc, setDoc, getDocs, query, where, deleteDoc, onSnapshot } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../constants';
 import { calculateStreaks, getUnlockedBadges } from '../utils/gamification';
@@ -92,7 +92,7 @@ export const syncPublicProfile = async (user, tasks) => {
   }
 };
 
-export const addFriendByCode = async (userUid, friendCode) => {
+export const addFriendByCode = async (userUid, friendCode, myProfile = null) => {
   if (!userUid || !friendCode) return { success: false, error: 'ข้อมูลไม่ครบถ้วน' };
   
   const code = friendCode.toUpperCase().trim();
@@ -113,9 +113,20 @@ export const addFriendByCode = async (userUid, friendCode) => {
       return { success: false, error: 'ไม่สามารถเพิ่มตัวเองเป็นเพื่อนได้' };
     }
     
-    // 2. Add to friends subcollection
+    // 2. Add to MY friends subcollection (I can see their data)
     const friendRef = doc(db, COLLECTIONS.USERS, userUid, COLLECTIONS.FRIENDS, friendData.uid);
     await setDoc(friendRef, { addedAt: new Date().toISOString() });
+
+    // 3. Write a pending request to the FRIEND's friendRequests collection
+    //    so they can see and accept/decline
+    const requestRef = doc(db, COLLECTIONS.USERS, friendData.uid, COLLECTIONS.FRIEND_REQUESTS, userUid);
+    await setDoc(requestRef, {
+      fromUid: userUid,
+      fromName: myProfile?.displayName || 'ผู้ใช้ SudoDo',
+      fromAvatar: myProfile?.avatarUrl || '',
+      fromCode: myProfile?.friendCode || '',
+      sentAt: new Date().toISOString(),
+    });
     
     return { success: true, friend: friendData };
   } catch (err) {
@@ -195,6 +206,51 @@ export const updatePublicProfileSettings = async (uid, settings) => {
     return true;
   } catch (err) {
     console.error("Error updating public profile settings", err);
+    return false;
+  }
+};
+
+/**
+ * Subscribe to pending friend requests sent TO this user.
+ * Returns an unsubscribe function.
+ */
+export const subscribeToPendingRequests = (uid, callback) => {
+  if (!uid) { callback([]); return () => {}; }
+  const ref = collection(db, COLLECTIONS.USERS, uid, COLLECTIONS.FRIEND_REQUESTS);
+  return onSnapshot(ref, (snap) => {
+    const requests = snap.docs.map(d => ({ id: d.id, ...d.data() }));
+    callback(requests);
+  }, () => callback([]));
+};
+
+/**
+ * Accept a friend request: add reverse friendship + remove request doc.
+ */
+export const acceptFriendRequest = async (myUid, fromUid) => {
+  try {
+    // Add the requester to MY friends list
+    const myFriendRef = doc(db, COLLECTIONS.USERS, myUid, COLLECTIONS.FRIENDS, fromUid);
+    await setDoc(myFriendRef, { addedAt: new Date().toISOString() });
+    // Remove the pending request
+    const requestRef = doc(db, COLLECTIONS.USERS, myUid, COLLECTIONS.FRIEND_REQUESTS, fromUid);
+    await deleteDoc(requestRef);
+    return true;
+  } catch (err) {
+    console.error('acceptFriendRequest error', err);
+    return false;
+  }
+};
+
+/**
+ * Decline a friend request: just remove the request doc.
+ */
+export const declineFriendRequest = async (myUid, fromUid) => {
+  try {
+    const requestRef = doc(db, COLLECTIONS.USERS, myUid, COLLECTIONS.FRIEND_REQUESTS, fromUid);
+    await deleteDoc(requestRef);
+    return true;
+  } catch (err) {
+    console.error('declineFriendRequest error', err);
     return false;
   }
 };

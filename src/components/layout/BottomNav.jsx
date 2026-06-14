@@ -2,7 +2,7 @@ import React from 'react';
 import { Calendar as CalendarIcon, Users, Home, DollarSign, Settings } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-export default function BottomNav({ lang, currentView, setCurrentView }) {
+export default function BottomNav({ lang, currentView, setCurrentView, unreadCount = 0 }) {
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -33,7 +33,17 @@ export default function BottomNav({ lang, currentView, setCurrentView }) {
         onClick={() => navigate('/friends')}
         className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/friends' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
       >
-        <Users size={24} />
+        <div className="relative">
+          <Users size={24} />
+          {unreadCount > 0 && (
+            <span className="absolute -top-1 -right-1 min-w-[14px] h-[14px] bg-red-500 rounded-full flex items-center justify-center shadow-md">
+              <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-60" />
+              {unreadCount <= 9 && (
+                <span className="relative text-[8px] font-black text-white leading-none px-0.5">{unreadCount}</span>
+              )}
+            </span>
+          )}
+        </div>
         <span className={`text-[10px] mt-1 font-medium text-main ${location.pathname !== '/friends' && 'opacity-60'}`}>{lang === 'en' ? 'Friends' : 'เพื่อน'}</span>
       </button>
       <button 

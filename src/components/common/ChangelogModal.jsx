@@ -5,6 +5,16 @@ import pkg from '../../../package.json';
 
 const CHANGELOG_DATA = [
   {
+    version: '1.2.0',
+    date: '14 มิ.ย. 2026',
+    changes: [
+      { type: 'feature', icon: <Rocket size={16} />, text: 'เพิ่มระบบ "คำขอเป็นเพื่อน (Pending Requests)" แยกกลุ่มด้านบน สามารถกด ยอมรับ หรือ ปฏิเสธ ได้ทันที' },
+      { type: 'feature', icon: <Sparkles size={16} />, text: 'ปรับปรุงแถบ "ข้อความ" ใหม่เป็นกล่องแจ้งเตือน (Notification Feed) ที่จัดกลุ่มตามวัน และเพิ่มจุดแจ้งเตือนสีแดงในหน้าเมนูหลัก' },
+      { type: 'bugfix', icon: <Bug size={16} />, text: 'แก้ไขปัญหาข้อความแจ้งเตือนหายไปเมื่อกดย้อนกลับมาจากหน้าอื่น' },
+      { type: 'bugfix', icon: <Bug size={16} />, text: 'แก้ไขข้อผิดพลาดในการโหลดข้อมูลในหน้าเพื่อนทำให้หน้าจอค้าง' }
+    ]
+  },
+  {
     version: '1.0.7',
     date: '14 มิ.ย. 2026',
     changes: [

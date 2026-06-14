@@ -40,6 +40,8 @@ import { TasksProvider, useTasks } from './contexts/TasksContext';
 import { ToastProvider } from './contexts/ToastContext';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
 import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { useNotifications } from './contexts/NotificationsContext';
+import NotificationsProvider from './contexts/NotificationsProvider';
 
 
 
@@ -646,7 +648,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
         </div>
       )}
       {/* Mobile Bottom Navigation */}
-      <BottomNav lang={lang} currentView={currentView} setCurrentView={setCurrentView} />
+      <BottomNavWithBadge lang={lang} currentView={currentView} setCurrentView={setCurrentView} />
       <TaskModal 
         isOpen={isModalOpen}
         onClose={() => setIsModalOpen(false)}
@@ -657,6 +659,12 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       />
     </>
   );
+}
+
+// Thin wrapper that injects unreadCount from context into BottomNav
+function BottomNavWithBadge(props) {
+  const { unreadCount } = useNotifications();
+  return <BottomNav {...props} unreadCount={unreadCount} />;
 }
 
 const hasShownSplash = sessionStorage.getItem('splashShown') === 'true';
@@ -738,13 +746,15 @@ export default function App() {
       <TasksProvider user={user}>
         <SettingsProvider user={user}>
           <ThemeProvider>
-            <MainApp 
-              user={user} 
-              lang={lang} 
-              setLang={setLang} 
-              theme={theme} 
-              setThemeMode={setTheme} 
-            />
+            <NotificationsProvider user={user}>
+              <MainApp 
+                user={user} 
+                lang={lang} 
+                setLang={setLang} 
+                theme={theme} 
+                setThemeMode={setTheme} 
+              />
+            </NotificationsProvider>
           </ThemeProvider>
         </SettingsProvider>
       </TasksProvider>

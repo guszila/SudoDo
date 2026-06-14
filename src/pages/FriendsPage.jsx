@@ -3,11 +3,13 @@ import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, Copy, Check, Search, Trash2, Award, Flame, X,
   Clock, MapPin, Briefcase, ChevronRight, Share2, QrCode, Sparkles,
-  Calendar, Activity, ArrowRight, CheckCircle2, Circle, RefreshCw, Bell, BellOff
+  Calendar, Activity, ArrowRight, CheckCircle2, Circle, RefreshCw, Bell, BellOff,
+  MessageCircle, CalendarDays
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getFriends, addFriendByCode, removeFriend } from '../services/friendService';
+import { getFriends, addFriendByCode, removeFriend, subscribeToPendingRequests, acceptFriendRequest, declineFriendRequest } from '../services/friendService';
 import { useToast } from '../contexts/ToastContext';
+import { useNotifications } from '../contexts/NotificationsContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { COLLECTIONS } from '../constants';
@@ -109,6 +111,7 @@ const TodaySchedulePreview = ({ schedule = [], lang }) => {
 export default function FriendsPage({ user, lang = 'th' }) {
   const navigate = useNavigate();
   const { showToast } = useToast();
+  const { notifications, unreadCount, markAllRead } = useNotifications();
 
   const [myCode, setMyCode] = useState('');
   const [friends, setFriends] = useState([]);
@@ -124,6 +127,11 @@ export default function FriendsPage({ user, lang = 'th' }) {
   const [selectedFriend, setSelectedFriend] = useState(null);
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [removingId, setRemovingId] = useState(null);
+  const [myProfile, setMyProfile] = useState(null);
+
+  // Pending friend requests (realtime)
+  const [pendingRequests, setPendingRequests] = useState([]);
+  const [processingRequest, setProcessingRequest] = useState(null); // uid being processed
 
   const loadData = useCallback(async (quiet = false) => {
     if (!user) return;
@@ -143,6 +151,9 @@ export default function FriendsPage({ user, lang = 'th' }) {
       }
       const friendsList = await getFriends(user.uid);
       setFriends(friendsList);
+      // Cache my profile for pending request metadata
+      const docSnap2 = await getDoc(profileRef);
+      if (docSnap2.exists()) setMyProfile(docSnap2.data());
     } catch (err) {
       console.error(err);
     } finally {
@@ -152,6 +163,13 @@ export default function FriendsPage({ user, lang = 'th' }) {
   }, [user]);
 
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Subscribe to pending friend requests in real-time
+  useEffect(() => {
+    if (!user?.uid) return;
+    const unsub = subscribeToPendingRequests(user.uid, setPendingRequests);
+    return unsub;
+  }, [user?.uid]);
 
   const handleCopyCode = () => {
     if (!myCode) return;
@@ -185,7 +203,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
       return;
     }
     setIsAdding(true);
-    const res = await addFriendByCode(user.uid, code);
+    const res = await addFriendByCode(user.uid, code, myProfile);
     setIsAdding(false);
     if (res.success) {
       showToast(lang === 'en' ? 'Friend added! 🎉' : 'เพิ่มเพื่อนสำเร็จแล้ว! 🎉');
@@ -209,6 +227,25 @@ export default function FriendsPage({ user, lang = 'th' }) {
       if (selectedFriend?.uid === friendUid) setSelectedFriend(null);
       showToast(lang === 'en' ? 'Friend removed' : 'ลบเพื่อนเรียบร้อยแล้ว');
     }
+  };
+
+  const handleAcceptRequest = async (req) => {
+    setProcessingRequest(req.fromUid);
+    const ok = await acceptFriendRequest(user.uid, req.fromUid);
+    setProcessingRequest(null);
+    if (ok) {
+      showToast(lang === 'en' ? `Added ${req.fromName}! 🎉` : `เพิ่ม ${req.fromName} เป็นเพื่อนแล้ว! 🎉`);
+      loadData(true); // reload friends list
+    } else {
+      showToast(lang === 'en' ? 'Something went wrong' : 'เกิดข้อผิดพลาด', { type: 'error' });
+    }
+  };
+
+  const handleDeclineRequest = async (req) => {
+    setProcessingRequest(req.fromUid);
+    await declineFriendRequest(user.uid, req.fromUid);
+    setProcessingRequest(null);
+    showToast(lang === 'en' ? 'Request declined' : 'ปฏิเสธคำขอแล้ว');
   };
 
   const activeToday = friends.filter(f => f.hasWorkedToday).length;
@@ -278,14 +315,22 @@ export default function FriendsPage({ user, lang = 'th' }) {
         </button>
         <button
           onClick={() => setActiveTab('inbox')}
-          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all ${
+          className={`flex-1 flex items-center justify-center gap-2 py-2.5 rounded-xl font-bold text-sm transition-all relative ${
             activeTab === 'inbox'
               ? 'bg-primary-500 text-white shadow-md shadow-primary-500/30'
               : 'text-main/60 hover:text-main'
           }`}
         >
           <Bell size={16} />
-          {lang === 'en' ? 'Inbox' : 'การแจ้งเตือน'}
+          {lang === 'en' ? 'Inbox' : 'ข้อความ'}
+          {unreadCount > 0 && (
+            <span className={`flex items-center justify-center min-w-[18px] h-[18px] rounded-full text-[9px] font-black shadow-md px-1 relative ${
+              activeTab === 'inbox' ? 'bg-white/30 text-white' : 'bg-red-500 text-white'
+            }`}>
+              {activeTab !== 'inbox' && <span className="absolute inset-0 rounded-full bg-red-400 animate-ping opacity-50" />}
+              <span className="relative">{unreadCount > 9 ? '9+' : unreadCount}</span>
+            </span>
+          )}
         </button>
       </div>
 
@@ -293,29 +338,134 @@ export default function FriendsPage({ user, lang = 'th' }) {
       {activeTab === 'inbox' ? (
         <motion.div
           key="inbox"
-          initial={{ opacity: 0, x: 20 }}
-          animate={{ opacity: 1, x: 0 }}
-          exit={{ opacity: 0, x: -20 }}
+          initial={{ opacity: 0, y: 10 }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: -10 }}
           transition={{ type: 'spring', stiffness: 300, damping: 30 }}
         >
-          {/* Inbox Empty State */}
-          <div className="liquid-glass-card rounded-[28px] p-10 text-center">
-            <div className="w-20 h-20 bg-primary-500/10 rounded-full flex items-center justify-center mx-auto mb-5 relative">
-              <Bell size={36} className="text-primary-500/50" />
-              <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
-                <Check size={11} className="text-white" />
-              </span>
+          {notifications.length === 0 ? (
+            /* ── Empty State ── */
+            <div className="liquid-glass-card rounded-[28px] p-10 text-center">
+              <div className="w-20 h-20 bg-primary-500/10 rounded-full flex items-center justify-center mx-auto mb-5 relative">
+                <Bell size={36} className="text-primary-500/50" />
+                <span className="absolute -top-1 -right-1 w-5 h-5 bg-emerald-500 rounded-full flex items-center justify-center">
+                  <Check size={11} className="text-white" />
+                </span>
+              </div>
+              <h3 className="font-bold text-main text-lg mb-2">
+                {lang === 'en' ? 'All caught up!' : 'ไม่มีข้อความใหม่'}
+              </h3>
+              <p className="text-main/50 text-sm max-w-xs mx-auto">
+                {lang === 'en'
+                  ? 'New messages from friends will appear here.'
+                  : 'เมื่อเพื่อนส่งข้อความมาจะปรากฏที่นี่'}
+              </p>
             </div>
-            <h3 className="font-bold text-main text-lg mb-2">
-              {lang === 'en' ? 'All caught up!' : 'ไม่มีการแจ้งเตือนใหม่'}
-            </h3>
-            <p className="text-main/50 text-sm max-w-xs mx-auto">
-              {lang === 'en'
-                ? 'You will see friend activity, shift reminders, and badge unlocks here.'
-                : 'การแจ้งเตือนกิจกรรมเพื่อน, ริมายน์เดอร์กะงาน และเหรียญใหม่จะแสดงที่นี่'}
-            </p>
-          </div>
+          ) : (() => {
+            /* ── Group notifications by date ── */
+            const today = new Date();
+            const todayStr = today.toDateString();
+            const weekAgo = new Date(today); weekAgo.setDate(today.getDate() - 7);
+
+            const todayItems = notifications.filter(n => {
+              const ts = n.createdAt?.seconds ? new Date(n.createdAt.seconds * 1000) : null;
+              return ts && ts.toDateString() === todayStr;
+            });
+            const olderItems = notifications.filter(n => {
+              const ts = n.createdAt?.seconds ? new Date(n.createdAt.seconds * 1000) : null;
+              return ts && ts.toDateString() !== todayStr;
+            });
+
+            const NotifCard = ({ notif, idx }) => {
+              const ts = notif.createdAt?.seconds ? new Date(notif.createdAt.seconds * 1000) : null;
+              const isToday = ts && ts.toDateString() === todayStr;
+              const timeStr = ts
+                ? isToday
+                  ? ts.toLocaleTimeString('th-TH', { hour: '2-digit', minute: '2-digit' })
+                  : ts.toLocaleDateString('th-TH', { day: 'numeric', month: 'short' })
+                : '';
+              const isShift = notif.type === 'shift';
+              const friendObj = friends.find(f => f.uid === notif.friendUid);
+
+              const msgTitle = isShift
+                ? `${notif.friendName} ส่งกะงานให้คุณ`
+                : `${notif.friendName} ส่งข้อความมา`;
+              const msgPreview = isShift
+                ? (notif.shift?.title ? `📅 ${notif.shift.title}` : '📅 แชร์กะงาน')
+                : notif.text;
+
+              return (
+                <motion.div
+                  key={`${notif.chatId}-${notif.id}`}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: idx * 0.04 }}
+                  onClick={() => {
+                    if (friendObj) { setSelectedFriend(friendObj); setModalTab('chat'); }
+                  }}
+                  className="flex items-center gap-3.5 px-1 py-3 cursor-pointer active:scale-[0.98] transition-all group border-b border-main/5 last:border-0"
+                >
+                  {/* Avatar circle */}
+                  <div className="flex-shrink-0 w-[52px] h-[52px] rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center overflow-hidden shadow-md ring-2 ring-white/20">
+                    {notif.friendAvatar
+                      ? <img src={notif.friendAvatar} alt="" className="w-full h-full object-cover" />
+                      : <span className="text-white font-bold text-base">{(notif.friendName || '?').slice(0, 2).toUpperCase()}</span>
+                    }
+                  </div>
+
+                  {/* Text content */}
+                  <div className="flex-1 min-w-0">
+                    <p className="font-bold text-main text-sm leading-snug mb-0.5 truncate">
+                      {msgTitle}
+                    </p>
+                    <p className="text-xs text-main/50 truncate leading-snug">
+                      {isShift ? <span className="text-amber-500 font-medium">{msgPreview}</span> : `"${msgPreview}"`}
+                    </p>
+                    <p className="text-[10px] text-main/35 mt-1 font-medium">{timeStr} {lang === 'en' ? 'ago' : 'ที่แล้ว'}</p>
+                  </div>
+
+                  {/* Unread blue dot */}
+                  <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
+                    <span className="w-2.5 h-2.5 rounded-full bg-primary-500 shadow-md shadow-primary-500/40" />
+                  </div>
+                </motion.div>
+              );
+            };
+
+            return (
+              <div className="liquid-glass-card rounded-[24px] overflow-hidden divide-y divide-main/5">
+                {/* Today section */}
+                {todayItems.length > 0 && (
+                  <div>
+                    <p className="text-xs font-black text-main/40 uppercase tracking-widest px-4 pt-4 pb-2">
+                      {lang === 'en' ? 'Today' : 'วันนี้'}
+                    </p>
+                    <div className="px-3">
+                      {todayItems.map((notif, idx) => (
+                        <NotifCard key={`today-${notif.id}`} notif={notif} idx={idx} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+
+                {/* Older section */}
+                {olderItems.length > 0 && (
+                  <div>
+                    <p className="text-xs font-black text-main/40 uppercase tracking-widest px-4 pt-4 pb-2">
+                      {lang === 'en' ? 'Earlier' : 'ก่อนหน้านี้'}
+                    </p>
+                    <div className="px-3">
+                      {olderItems.map((notif, idx) => (
+                        <NotifCard key={`older-${notif.id}`} notif={notif} idx={todayItems.length + idx} />
+                      ))}
+                    </div>
+                  </div>
+                )}
+              </div>
+            );
+          })()}
         </motion.div>
+
       ) : (
         <motion.div
           key="friends"
@@ -409,6 +559,76 @@ export default function FriendsPage({ user, lang = 'th' }) {
                   }
                 </button>
               </form>
+            </div>
+          </motion.div>
+        )}
+      </AnimatePresence>
+
+      {/* ── Pending Friend Requests ─────────────────── */}
+      <AnimatePresence>
+        {!isLoading && pendingRequests.length > 0 && (
+          <motion.div
+            initial={{ opacity: 0, height: 0, marginBottom: 0 }}
+            animate={{ opacity: 1, height: 'auto', marginBottom: 24 }}
+            exit={{ opacity: 0, height: 0, marginBottom: 0 }}
+            transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+            className="overflow-hidden"
+          >
+            <div className="space-y-3">
+              <p className="text-xs font-bold text-primary-500 uppercase tracking-widest px-1 flex items-center gap-1.5">
+                <UserPlus size={12} />
+                {lang === 'en' ? 'Pending Friend Requests' : 'คำขอเป็นเพื่อน'}
+                <span className="bg-primary-500/10 text-primary-500 px-2 py-0.5 rounded-full text-[10px] font-bold">
+                  {pendingRequests.length}
+                </span>
+              </p>
+              <div className="space-y-2.5">
+                {pendingRequests.map((req) => (
+                  <motion.div
+                    key={req.fromUid}
+                    layout
+                    initial={{ opacity: 0, scale: 0.95 }}
+                    animate={{ opacity: 1, scale: 1 }}
+                    exit={{ opacity: 0, scale: 0.95 }}
+                    className="liquid-glass-card rounded-[20px] p-4 flex items-center gap-3.5"
+                  >
+                    <Avatar
+                      src={req.fromAvatar}
+                      name={req.fromName}
+                      size="md"
+                    />
+                    
+                    <div className="flex-1 min-w-0">
+                      <h4 className="font-bold text-main truncate">
+                        {req.fromName || (lang === 'en' ? 'Unknown' : 'ผู้ใช้งาน')}
+                      </h4>
+                      <p className="text-[10px] text-main/40 mt-0.5">
+                        {lang === 'en' ? `Code: ${req.fromCode}` : `รหัส: ${req.fromCode}`}
+                      </p>
+                    </div>
+                    
+                    <div className="flex gap-2 flex-shrink-0">
+                      <button
+                        onClick={() => handleDeclineRequest(req)}
+                        disabled={processingRequest === req.fromUid}
+                        className="px-3.5 py-2 rounded-xl text-xs font-bold border border-main/15 text-main/70 hover:bg-black/5 dark:hover:bg-white/5 active:scale-95 transition-all disabled:opacity-50"
+                      >
+                        {lang === 'en' ? 'Decline' : 'ปฏิเสธ'}
+                      </button>
+                      <button
+                        onClick={() => handleAcceptRequest(req)}
+                        disabled={processingRequest === req.fromUid}
+                        className="px-4 py-2 rounded-xl text-xs font-bold bg-primary-500 text-white shadow-md shadow-primary-500/25 hover:bg-primary-600 active:scale-95 transition-all disabled:opacity-50 flex items-center gap-1.5"
+                      >
+                        {processingRequest === req.fromUid ? (
+                          <div className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />
+                        ) : null}
+                        {lang === 'en' ? 'Accept' : 'ยอมรับ'}
+                      </button>
+                    </div>
+                  </motion.div>
+                ))}
+              </div>
             </div>
           </motion.div>
         )}
