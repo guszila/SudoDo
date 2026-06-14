@@ -5,6 +5,14 @@ import pkg from '../../../package.json';
 
 const CHANGELOG_DATA = [
   {
+    version: '1.0.7',
+    date: '14 มิ.ย. 2026',
+    changes: [
+      { type: 'ui', icon: <LayoutDashboard size={16} />, text: 'เปิดให้แถบเมนูด้านล่าง (Navigation Bar) สามารถแสดงผลและใช้งานบนหน้าจอแท็บเล็ตและคอมพิวเตอร์ได้แล้ว' },
+      { type: 'ui', icon: <Palette size={16} />, text: 'ซ่อนแถบเลื่อน (Scrollbar) ด้านข้าง เพื่อมอบประสบการณ์การใช้งานที่ราบรื่นและคล้ายแอปพลิเคชัน (Native App) มากยิ่งขึ้น' }
+    ]
+  },
+  {
     version: '1.0.6',
     date: '14 มิ.ย. 2026',
     changes: [
