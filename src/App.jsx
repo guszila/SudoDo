@@ -621,19 +621,21 @@ function MainApp({ user, lang, setLang, theme, toggleTheme }) {
       {/* Changelog Modal Auto-Show */}
       <ChangelogModal isOpen={showChangelog && !showTour} onClose={handleCloseChangelog} lang={lang} />
       
-      {/* Global Add Button */}
-      <div className="fixed bottom-24 right-4 md:bottom-8 md:right-8 z-50">
-        <button 
-          onClick={() => { 
-            setSelectedTask(selectedDateFilter ? { start: selectedDateFilter, end: selectedDateFilter } : null); 
-            setIsModalOpen(true); 
-          }}
-          className="tour-add-btn w-14 h-14 bg-[var(--theme-accent)] text-[var(--theme-accent-light)] rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:scale-105 active:scale-95 transition-all group"
-        >
-          <span className="absolute inset-0 rounded-full bg-[var(--theme-accent)] opacity-20 group-hover:animate-ping"></span>
-          <Plus size={28} className="relative z-10" />
-        </button>
-      </div>
+      {/* Global Add Button — only on calendar pages */}
+      {(location.pathname === '/' || location.pathname === '/calendar') && (
+        <div className="fixed bottom-24 right-4 md:bottom-24 md:right-8 z-50">
+          <button 
+            onClick={() => { 
+              setSelectedTask(selectedDateFilter ? { start: selectedDateFilter, end: selectedDateFilter } : null); 
+              setIsModalOpen(true); 
+            }}
+            className="tour-add-btn w-14 h-14 bg-[var(--theme-accent)] text-[var(--theme-accent-light)] rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:scale-105 active:scale-95 transition-all group"
+          >
+            <span className="absolute inset-0 rounded-full bg-[var(--theme-accent)] opacity-20 group-hover:animate-ping"></span>
+            <Plus size={28} className="relative z-10" />
+          </button>
+        </div>
+      )}
       {/* Mobile Bottom Navigation */}
       <BottomNav lang={lang} currentView={currentView} setCurrentView={setCurrentView} />
       <TaskModal 

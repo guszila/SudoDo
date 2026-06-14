@@ -3,7 +3,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { DollarSign, Clock, CheckCircle2, Check, Plus, ArrowLeft, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, PieChart, GripHorizontal, Flame, ChevronRight, Banknote, Receipt, Calculator } from 'lucide-react';
+import { DollarSign, Clock, CheckCircle2, Check, Plus, ArrowLeft, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, PieChart, GripHorizontal, Flame, ChevronRight, ChevronDown, Banknote, Receipt, Calculator } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -96,6 +96,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
   const [selectedMonth, setSelectedMonth] = useState(new Date().toISOString().slice(0, 7));
   const [viewMode, setViewMode] = useState('list'); // 'list' | 'calendar'
   const [selectedDate, setSelectedDate] = useState(null);
+  const [collapsedWeeks, setCollapsedWeeks] = useState(new Set()); // week keys that are collapsed
   
   const [incomeGoal, setIncomeGoal] = useState(() => {
     const saved = localStorage.getItem('income_goal');
@@ -251,6 +252,67 @@ export default function PartTimePage({ user, lang = 'en' }) {
     });
     return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
   }, [upcomingTasks, historyTasks, activeTab, settings.jobs]);
+
+  // Weekly grouping for list view
+  const weeklyGroupedTasks = useMemo(() => {
+    const sourceTasks = activeTab === 'upcoming' ? upcomingTasks : historyTasks;
+    const weekMap = {};
+
+    sourceTasks.forEach(task => {
+      try {
+        const taskDate = new Date(task.start);
+        const wStart = startOfWeek(taskDate, { weekStartsOn: 1 }); // Monday
+        const wEnd = endOfWeek(taskDate, { weekStartsOn: 1 });
+        const weekKey = format(wStart, 'yyyy-MM-dd');
+
+        if (!weekMap[weekKey]) {
+          weekMap[weekKey] = {
+            weekKey,
+            weekStart: wStart,
+            weekEnd: wEnd,
+            tasks: [],
+            totalEarnings: 0,
+            completedCount: 0,
+          };
+        }
+
+        // Calculate earnings for this task
+        const isCompleted = task.status === TASK_STATUS.DONE || (task.actualStart && task.actualEnd);
+        let hours = 0;
+        if (task.actualStart && task.actualEnd) {
+          hours = (new Date(task.actualEnd) - new Date(task.actualStart)) / 3600000;
+        } else {
+          hours = (new Date(task.end) - new Date(task.start)) / 3600000;
+        }
+        hours = Math.max(0, hours - (Number(task.breakHours) || 0));
+        let earnings = task.rateType === RATE_TYPE.DAILY
+          ? (Number(task.hourlyRate) || 0)
+          : hours * (Number(task.hourlyRate) || 0);
+        if (task.isHolidayPay) earnings *= 2;
+
+        weekMap[weekKey].tasks.push(task);
+        weekMap[weekKey].totalEarnings += task.isExpense
+          ? 0
+          : (task.isExtraIncome ? (Number(task.amount) || 0) : earnings);
+        if (isCompleted && !task.isExpense && !task.isExtraIncome) weekMap[weekKey].completedCount++;
+      } catch {}  
+    });
+
+    return Object.values(weekMap).sort((a, b) =>
+      activeTab === 'upcoming'
+        ? a.weekStart - b.weekStart
+        : b.weekStart - a.weekStart
+    );
+  }, [upcomingTasks, historyTasks, activeTab, settings.jobs]);
+
+  const toggleWeek = (weekKey) => {
+    setCollapsedWeeks(prev => {
+      const next = new Set(prev);
+      if (next.has(weekKey)) next.delete(weekKey);
+      else next.add(weekKey);
+      return next;
+    });
+  };
 
   const monthlyGross = useMemo(() => {
     const earned = {};
@@ -1344,221 +1406,255 @@ export default function PartTimePage({ user, lang = 'en' }) {
           </div>
         )}
 
-        {groupedTasks.map(([groupName, groupData]) => (
-          <div key={groupName} className="mb-6">
-            <h4 className="font-bold text-main text-lg mb-3 flex items-center gap-2 opacity-90 pl-1">
-              {groupData.job ? groupData.job.emoji : '🏢'} {groupName}
-            </h4>
-            <div className="space-y-4">
-            {groupData.tasks.map(task => {
-              const isCompleted = task.status === TASK_STATUS.DONE || (task.actualStart && task.actualEnd);
-              const jobColor = groupData.job ? groupData.job.color : 'primary';
-              
-              if (task.isExpense || task.isExtraIncome) {
-                let expenseAmount = 0;
-                if (task.isPercentage && task.isExpense) {
-                  const d = new Date(task.start);
-                  const monthKey = !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : null;
-                  const monthEarned = monthKey ? (monthlyGross.earned[monthKey] || 0) : 0;
-                  const monthPending = monthKey ? (monthlyGross.pending[monthKey] || 0) : 0;
-                  expenseAmount = (monthEarned + monthPending) * (Number(task.amount) / 100);
-                } else {
-                  expenseAmount = Number(task.amount) || 0;
-                }
-                
-                return (
-                  <motion.div 
-                    key={task.id} 
-                    onPointerDown={() => handlePointerDown(task)}
-                    onPointerUp={handlePointerUp}
-                    onPointerLeave={handlePointerUp}
-                    onPointerCancel={handlePointerUp}
-                    onClick={() => {
-                       if (!timerRef.current) return; 
-                       handleEditExtraItemClick(task);
-                    }}
-                    animate={{ scale: pressingId === task.id ? 0.98 : 1 }}
-                    className={`liquid-glass-card p-5 flex flex-col md:flex-row gap-5 items-start md:items-center relative group transition-colors border-l-4 cursor-pointer touch-none ${task.isExtraIncome ? 'hover:border-green-500/30 border-l-green-500' : 'hover:border-red-500/30 border-l-red-500'}`}
-                  >
-                    {isBulkEditMode && (
-                      <div className="absolute top-4 left-4 z-10">
-                        <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${selectedShifts.includes(task.id) ? 'bg-primary-500 border-primary-500' : 'border-main/30'}`}>
-                          {selectedShifts.includes(task.id) && <Check size={16} className="text-white" />}
-                        </div>
+        {/* ── Calendar view: flat cards grouped by job ── */}
+        {viewMode === 'calendar' && groupedTasks.map(([groupName, groupData]) => {
+          const c = JOB_COLORS[groupData.job?.color || 'primary'] || JOB_COLORS.primary;
+          return (
+            <div key={groupName} className="mb-4">
+              <h4 className="font-bold text-main text-base mb-2 flex items-center gap-2 pl-1">
+                {groupData.job?.emoji || '🏢'} {groupName}
+              </h4>
+              <div className="space-y-3">
+                {groupData.tasks.map(task => {
+                  const isCompleted = task.status === TASK_STATUS.DONE || (task.actualStart && task.actualEnd);
+                  let hours = task.actualStart && task.actualEnd
+                    ? (new Date(task.actualEnd) - new Date(task.actualStart)) / 3600000
+                    : (new Date(task.end) - new Date(task.start)) / 3600000;
+                  hours = Math.max(0, hours - (Number(task.breakHours) || 0));
+                  let earnings = task.rateType === RATE_TYPE.DAILY ? (Number(task.hourlyRate)||0) : hours*(Number(task.hourlyRate)||0);
+                  if (task.isHolidayPay) earnings *= 2;
+                  return (
+                    <motion.div key={task.id} animate={{ scale: pressingId === task.id ? 0.98 : 1 }}
+                      onPointerDown={() => handlePointerDown(task)} onPointerUp={handlePointerUp}
+                      onPointerLeave={handlePointerUp} onPointerCancel={handlePointerUp}
+                      onClick={(e) => { if (e.target.closest('button')) return; if (timerRef.current) setActionTask(task); }}
+                      className={`liquid-glass-card p-3.5 flex items-center gap-3 cursor-pointer touch-none border-l-4 ${c.borderL} ${isCompleted ? 'opacity-70' : ''} group`}
+                    >
+                      <div className="flex-1 min-w-0">
+                        <p className="font-bold text-sm text-main truncate">{task.title}</p>
+                        <p className="text-xs text-main/50">⏱ {fTime(task.start)} – {fTime(task.end)}</p>
                       </div>
+                      <p className={`text-sm font-black flex-shrink-0 ${isCompleted ? 'text-green-500' : 'text-amber-500'}`}>
+                        +฿{earnings.toLocaleString(undefined,{maximumFractionDigits:0})}
+                      </p>
+                    </motion.div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+
+        {/* ── List view: weekly accordion ── */}
+        {viewMode === 'list' && weeklyGroupedTasks.map(weekGroup => {
+          const isCollapsed = collapsedWeeks.has(weekGroup.weekKey);
+          const shiftTasks = weekGroup.tasks.filter(t => !t.isExpense && !t.isExtraIncome);
+          const extraTasks = weekGroup.tasks.filter(t => t.isExpense || t.isExtraIncome);
+          const today = new Date();
+          const isCurrentWeek = weekGroup.weekStart <= today && today <= weekGroup.weekEnd;
+          const weekLabel = `${format(weekGroup.weekStart, 'd', { locale: th })}–${format(weekGroup.weekEnd, 'd MMM', { locale: th })}`;
+
+          return (
+            <div key={weekGroup.weekKey} className="mb-2">
+              {/* Week Header */}
+              <button
+                onClick={() => toggleWeek(weekGroup.weekKey)}
+                className={`w-full flex items-center gap-3 px-4 py-3 rounded-2xl transition-all text-left mb-1.5
+                  ${isCurrentWeek
+                    ? 'bg-primary-500/10 border border-primary-500/25'
+                    : 'bg-black/5 dark:bg-white/5 border border-transparent hover:border-main/10'}`}
+              >
+                <motion.div animate={{ rotate: isCollapsed ? -90 : 0 }} transition={{ type: 'spring', stiffness: 300, damping: 25 }}>
+                  <ChevronDown size={16} className={isCurrentWeek ? 'text-primary-500' : 'text-main/40'} />
+                </motion.div>
+
+                <div className="flex-1 min-w-0">
+                  <div className="flex items-center gap-2">
+                    <span className={`text-sm font-bold ${isCurrentWeek ? 'text-primary-500' : 'text-main'}`}>
+                      สัปดาห์ {weekLabel}
+                    </span>
+                    {isCurrentWeek && (
+                      <span className="text-[9px] font-bold bg-primary-500 text-white px-1.5 py-0.5 rounded-full">สัปดาห์นี้</span>
                     )}
-                    <div className={`absolute top-4 right-4 flex gap-1 transition-opacity ${isBulkEditMode ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
-                      <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }} className={`p-2 rounded-full transition-all ${task.isExtraIncome ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-500/20' : 'text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20'}`}>
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
-                    
-                    <div className={`flex-1 w-full ${isBulkEditMode ? 'pl-8' : ''}`}>
-                      <div className="flex items-center gap-3 mb-2">
-                        <h3 className="font-bold text-main text-lg m-0">{task.title}</h3>
-                        <span className={`px-2 py-1 text-xs rounded-lg font-bold border ${task.isExtraIncome ? 'bg-green-500/10 text-green-600 dark:text-green-400 border-green-500/20' : 'bg-red-500/10 text-red-600 dark:text-red-400 border-red-500/20'}`}>
-                          {task.isExtraIncome ? 'รายได้พิเศษ' : t.expenses}
-                        </span>
+                  </div>
+                  {shiftTasks.length > 0 && (
+                    <div className="flex items-center gap-2 mt-1">
+                      <div className="flex-1 h-1 rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-green-500 transition-all"
+                          style={{ width: `${(weekGroup.completedCount / shiftTasks.length) * 100}%` }}
+                        />
                       </div>
-                      <div className="text-sm text-main opacity-80 space-y-1.5 bg-white/30 dark:bg-black/20 p-3 rounded-xl border border-white/40 dark:border-white/5 w-fit">
-                        <p className="flex items-center gap-2"><span className="w-4">📅</span> {task.isPercentage ? `ประจำเดือน ${fMonth(task.start)}` : fDate(task.start)}</p>
-                      </div>
-                    </div>
-
-                    <div className="flex flex-row md:flex-col items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
-                      <div className={`text-right flex-1 md:flex-none p-3 rounded-xl border ${task.isExtraIncome ? 'bg-green-500/10 border-green-500/20' : 'bg-red-500/10 border-red-500/20'}`}>
-                        <p className={`text-sm font-bold mb-1 flex items-center justify-end gap-1 ${task.isExtraIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {task.isExtraIncome ? 'รายได้พิเศษ' : (task.isPercentage ? `${task.amount}% (${t.expenses})` : t.expenses)}
-                        </p>
-                        <p className={`text-2xl font-bold ${task.isExtraIncome ? 'text-green-600 dark:text-green-400' : 'text-red-600 dark:text-red-400'}`}>
-                          {task.isExtraIncome ? '+' : '-'}฿{expenseAmount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                        </p>
-                      </div>
-                    </div>
-                  </motion.div>
-                );
-              }
-
-              let earnings = 0;
-              let hours = 0;
-              if (task.actualStart && task.actualEnd) {
-                 hours = (new Date(task.actualEnd) - new Date(task.actualStart)) / (1000 * 60 * 60);
-              } else if (isCompleted) {
-                 hours = (new Date(task.end) - new Date(task.start)) / (1000 * 60 * 60);
-              } else {
-                 hours = (new Date(task.end) - new Date(task.start)) / (1000 * 60 * 60);
-              }
-              
-              hours = Math.max(0, hours - (Number(task.breakHours) || 0));
-              
-               if (task.rateType === RATE_TYPE.DAILY) {
-                 earnings = Number(task.hourlyRate) || 0;
-               } else if (hours > 0) {
-                 earnings = hours * (Number(task.hourlyRate) || 0);
-               }
-               if (task.isHolidayPay) earnings *= 2;
-
-              const today = new Date();
-              today.setHours(0, 0, 0, 0);
-              const taskDate = new Date(task.start);
-              taskDate.setHours(0, 0, 0, 0);
-              const isFutureTask = taskDate > today;
-              
-              const c = JOB_COLORS[jobColor] || JOB_COLORS.primary;
-
-              return (
-                <motion.div 
-                  key={task.id} 
-                  onPointerDown={() => handlePointerDown(task)}
-                  onPointerUp={handlePointerUp}
-                  onPointerLeave={handlePointerUp}
-                  onPointerCancel={handlePointerUp}
-                  onClick={(e) => {
-                    if (e.target.closest('button')) return;
-                    if (isBulkEditMode) {
-                      setSelectedShifts(prev => 
-                        prev.includes(task.id) ? prev.filter(id => id !== task.id) : [...prev, task.id]
-                      );
-                      return;
-                    }
-                    if (timerRef.current) {
-                      setActionTask(task);
-                    }
-                  }}
-                  animate={{ scale: pressingId === task.id ? 0.98 : 1 }}
-                  className={`liquid-glass-card p-5 flex flex-col md:flex-row gap-5 items-start md:items-center relative group transition-colors border-l-4 cursor-pointer touch-none ${c.borderL} ${isCompleted ? 'opacity-70' : ''}`}
-                >
-                  {isBulkEditMode && (
-                    <div className="absolute top-4 left-4 z-10">
-                      <div className={`w-6 h-6 rounded-md border-2 flex items-center justify-center transition-colors ${selectedShifts.includes(task.id) ? 'bg-primary-500 border-primary-500' : 'border-main/30'}`}>
-                        {selectedShifts.includes(task.id) && <Check size={16} className="text-white" />}
-                      </div>
+                      <span className="text-[10px] text-main/40 font-medium">{weekGroup.completedCount}/{shiftTasks.length}</span>
                     </div>
                   )}
-                  <div className={`absolute top-4 right-4 flex gap-1 transition-opacity ${isBulkEditMode ? 'opacity-0 pointer-events-none' : 'opacity-0 group-hover:opacity-100'}`}>
-                    <button 
-                      onClick={async (e) => { 
-                        e.stopPropagation(); 
-                        const newStatus = isCompleted ? 'PENDING' : 'DONE';
-                        try {
-                           await saveTask('EDIT', { ...task, status: newStatus }, user?.uid);
-                        } catch (err) {
-                           console.error(err);
-                        }
-                      }} 
-                      className={`p-2 ${isCompleted ? 'text-green-500 hover:bg-green-50 dark:hover:bg-green-500/20' : 'text-main/50 hover:bg-black/5 dark:hover:bg-white/5'} rounded-full transition-all`}
-                      title={isCompleted ? 'ยกเลิกสถานะสำเร็จ' : 'ทำเครื่องหมายว่าสำเร็จ'}
-                    >
-                      {isCompleted ? <CheckCircle2 size={16} /> : <Check size={16} />}
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); setEditingTask(task); setIsModalOpen(true); }} className={`p-2 ${c.button} rounded-full transition-all`}>
-                      <Edit size={16} />
-                    </button>
-                    <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }} className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full transition-all">
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                  
-                  <div className={`flex-1 w-full ${isBulkEditMode ? 'pl-8' : ''}`}>
-                    <div className="flex items-center gap-3 mb-2">
-                      <h3 className="font-bold text-main text-lg m-0">{task.title}</h3>
-                      <span className={`px-2 py-1 ${c.bg} ${c.text} text-xs rounded-lg font-bold border ${c.border}`}>
-                        ฿{task.hourlyRate}{task.rateType === RATE_TYPE.DAILY ? '/วัน' : '/ชม.'}
-                      </span>
-                    </div>
-                    <div className="text-sm text-main opacity-80 space-y-1.5 bg-white/30 dark:bg-black/20 p-3 rounded-xl border border-white/40 dark:border-white/5 w-fit">
-                      <p className="flex items-center gap-2"><span className="w-4">📅</span> {fDate(task.start)}</p>
-                      <p className="flex items-center gap-2"><span className="w-4">⏱️</span> ตาราง: {fTime(task.start)} - {fTime(task.end)}</p>
-                      {task.description && (
-                        <p className={`flex items-start gap-2 ${c.text} font-medium mt-1`}>
-                          <span className="w-4 mt-0.5">📝</span>
-                          <span className="flex-1">หมายเหตุ: {task.description}</span>
-                        </p>
-                      )}
-                    </div>
-                  </div>
+                </div>
 
-                  <div className="flex flex-row md:flex-col items-center gap-3 w-full md:w-auto mt-2 md:mt-0">
-                    {isCompleted ? (
-                      <div className="text-right flex-1 md:flex-none p-3 bg-green-500/10 rounded-xl border border-green-500/20">
-                        <div className="flex justify-between items-center mb-1 gap-4">
-                          <span className="text-xs font-bold bg-green-500/20 text-green-700 dark:text-green-300 px-2 py-0.5 rounded-md">
-                            {hours} ชม.
-                          </span>
-                          <p className="text-sm text-green-600 dark:text-green-400 font-bold flex items-center justify-end gap-1"><CheckCircle2 size={16}/> {t.completed}</p>
-                        </div>
-                        <p className="text-2xl font-bold text-green-600 dark:text-green-400">+฿{earnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                      </div>
-                    ) : (
-                      <div className="flex flex-col gap-2 w-full">
-                        <div className="text-right text-amber-500 mb-1 flex-1 md:flex-none p-2 bg-amber-500/10 rounded-xl border border-amber-500/20">
-                           <div className="flex justify-between items-center mb-0.5 gap-4">
-                             <span className="text-[10px] font-bold bg-amber-500/20 text-amber-700 dark:text-amber-300 px-1.5 py-0.5 rounded-md">
-                               {hours} ชม.
-                             </span>
-                             <p className="text-xs font-bold">{t.expected}</p>
-                           </div>
-                           <p className="text-lg font-bold">+฿{earnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-                        </div>
-                        <div className="flex gap-2">
-                          <button 
-                            onClick={(e) => { e.stopPropagation(); !isFutureTask && handleMarkDone(task); }} 
-                            disabled={isFutureTask}
-                            className={`flex-1 md:w-36 flex items-center justify-center gap-2 py-2 text-white font-bold rounded-xl transition-all ${isFutureTask ? 'bg-slate-400 cursor-not-allowed opacity-50 dark:opacity-30' : 'bg-green-500 hover:bg-green-600 active:scale-95'}`}
+                <div className="text-right flex-shrink-0">
+                  <p className={`text-sm font-black ${activeTab === 'upcoming' ? 'text-amber-500' : 'text-green-500'}`}>
+                    ฿{weekGroup.totalEarnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                  </p>
+                  <p className="text-[10px] text-main/40">{weekGroup.tasks.length} รายการ</p>
+                </div>
+              </button>
+
+              {/* Collapsible content */}
+              <AnimatePresence initial={false}>
+                {!isCollapsed && (
+                  <motion.div
+                    initial={{ height: 0, opacity: 0 }}
+                    animate={{ height: 'auto', opacity: 1 }}
+                    exit={{ height: 0, opacity: 0 }}
+                    transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+                    className="overflow-hidden"
+                  >
+                    <div className="space-y-2 pb-1 pl-1">
+                      {/* Shift tasks */}
+                      {shiftTasks.map(task => {
+                        const isCompleted = task.status === TASK_STATUS.DONE || (task.actualStart && task.actualEnd);
+                        const job = (settings.jobs || []).find(j => j.name === task.title);
+                        const c = JOB_COLORS[job?.color || 'primary'] || JOB_COLORS.primary;
+                        let hours = task.actualStart && task.actualEnd
+                          ? (new Date(task.actualEnd) - new Date(task.actualStart)) / 3600000
+                          : (new Date(task.end) - new Date(task.start)) / 3600000;
+                        hours = Math.max(0, hours - (Number(task.breakHours) || 0));
+                        let earnings = task.rateType === RATE_TYPE.DAILY ? (Number(task.hourlyRate)||0) : hours*(Number(task.hourlyRate)||0);
+                        if (task.isHolidayPay) earnings *= 2;
+                        const todayD = new Date(); todayD.setHours(0,0,0,0);
+                        const taskDateD = new Date(task.start); taskDateD.setHours(0,0,0,0);
+                        const isFutureTask = taskDateD > todayD;
+
+                        return (
+                          <motion.div
+                            key={task.id}
+                            onPointerDown={() => handlePointerDown(task)}
+                            onPointerUp={handlePointerUp}
+                            onPointerLeave={handlePointerUp}
+                            onPointerCancel={handlePointerUp}
+                            onClick={(e) => {
+                              if (e.target.closest('button')) return;
+                              if (isBulkEditMode) {
+                                setSelectedShifts(prev =>
+                                  prev.includes(task.id) ? prev.filter(id => id !== task.id) : [...prev, task.id]
+                                );
+                                return;
+                              }
+                              if (timerRef.current) setActionTask(task);
+                            }}
+                            animate={{ scale: pressingId === task.id ? 0.98 : 1 }}
+                            className={`liquid-glass-card relative group cursor-pointer touch-none border-l-4 ${c.borderL} ${isCompleted ? 'opacity-75' : ''}`}
                           >
-                            {isFutureTask ? <Clock size={16} /> : <CheckCircle2 size={16} />} 
-                            {isFutureTask ? t.notReached : t.markDone}
-                          </button>
-                        </div>
-                      </div>
-                    )}
-                  </div>
-                </motion.div>
-              );
-            })}
+                            {isBulkEditMode && (
+                              <div className="absolute top-1/2 -translate-y-1/2 left-3 z-10">
+                                <div className={`w-5 h-5 rounded border-2 flex items-center justify-center ${selectedShifts.includes(task.id) ? 'bg-primary-500 border-primary-500' : 'border-main/30'}`}>
+                                  {selectedShifts.includes(task.id) && <Check size={11} className="text-white" />}
+                                </div>
+                              </div>
+                            )}
+
+                            <div className={`flex items-center gap-3 p-3 ${isBulkEditMode ? 'pl-10' : ''}`}>
+                              {/* Date column */}
+                              <div className="flex-shrink-0 text-center w-10">
+                                <p className="text-[10px] font-bold text-main/40 uppercase">{format(new Date(task.start), 'EEE', { locale: th })}</p>
+                                <p className="text-xl font-black text-main leading-tight">{format(new Date(task.start), 'd')}</p>
+                              </div>
+
+                              <div className={`w-px h-10 rounded-full mx-0.5 ${isCompleted ? 'bg-green-500/30' : 'bg-amber-400/30'}`} />
+
+                              {/* Job + time + hours + note */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-1.5 flex-wrap">
+                                  <p className="font-bold text-main text-sm truncate">
+                                    {job?.emoji || ''} {task.title}
+                                  </p>
+                                  {/* Hours pill */}
+                                  <span className={`flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full
+                                    ${isCompleted
+                                      ? 'bg-green-500/15 text-green-600 dark:text-green-400'
+                                      : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'}`}>
+                                    {hours % 1 === 0 ? hours : hours.toFixed(1)} ชม.
+                                  </span>
+                                </div>
+                                <p className="text-xs text-main/50 mt-0.5">
+                                  {fTime(task.start)} – {fTime(task.end)}{task.breakHours > 0 ? ` · พัก ${task.breakHours}ชม.` : ''}
+                                </p>
+                                {task.description && (
+                                  <p className="text-xs text-main/40 mt-0.5 truncate">
+                                    📝 {task.description}
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Earnings + action */}
+                              <div className="flex-shrink-0 text-right">
+                                <p className={`text-sm font-black ${isCompleted ? 'text-green-500' : 'text-amber-500'}`}>
+                                  +฿{earnings.toLocaleString(undefined,{maximumFractionDigits:0})}
+                                </p>
+                                {isCompleted ? (
+                                  <p className="text-[10px] text-green-500/70">{hours.toFixed(1)} ชม.</p>
+                                ) : !isFutureTask ? (
+                                  <button
+                                    onClick={async (e) => { e.stopPropagation(); await handleMarkDone(task); }}
+                                    className="text-[10px] font-bold bg-green-500 text-white px-2 py-0.5 rounded-full hover:bg-green-600 active:scale-95 transition-all mt-0.5"
+                                  >
+                                    ✓ เสร็จ
+                                  </button>
+                                ) : (
+                                  <p className="text-[10px] text-main/30">ยังไม่ถึงวัน</p>
+                                )}
+                              </div>
+
+                              {/* Hover actions */}
+                              {!isBulkEditMode && (
+                                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                  <button onClick={(e) => { e.stopPropagation(); setEditingTask(task); setIsModalOpen(true); }}
+                                    className={`p-1.5 ${c.button} rounded-full`}><Edit size={12} /></button>
+                                  <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }}
+                                    className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-full"><Trash2 size={12} /></button>
+                                </div>
+                              )}
+                            </div>
+                          </motion.div>
+                        );
+                      })}
+
+                      {/* Extra income / expense rows */}
+                      {extraTasks.map(task => {
+                        let expenseAmount = 0;
+                        if (task.isPercentage && task.isExpense) {
+                          const d = new Date(task.start);
+                          const mk = !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` : null;
+                          expenseAmount = mk ? ((monthlyGross.earned[mk]||0)+(monthlyGross.pending[mk]||0))*(Number(task.amount)/100) : 0;
+                        } else { expenseAmount = Number(task.amount)||0; }
+                        return (
+                          <motion.div key={task.id}
+                            onClick={() => handleEditExtraItemClick(task)}
+                            className={`liquid-glass-card p-3 flex items-center gap-3 cursor-pointer border-l-4 group
+                              ${task.isExtraIncome ? 'border-l-green-500' : 'border-l-red-500'}`}
+                          >
+                            <div className="flex-1 min-w-0">
+                              <p className="font-bold text-sm text-main truncate">{task.title}</p>
+                              <p className="text-[10px] text-main/40">{task.isExtraIncome ? 'รายได้พิเศษ' : 'รายจ่าย'} · {fDate(task.start)}</p>
+                            </div>
+                            <p className={`text-sm font-black flex-shrink-0 ${task.isExtraIncome ? 'text-green-500' : 'text-red-500'}`}>
+                              {task.isExtraIncome ? '+' : '-'}฿{expenseAmount.toLocaleString(undefined,{maximumFractionDigits:0})}
+                            </p>
+                            <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }}
+                              className="p-1.5 text-red-400/40 hover:text-red-500 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+                              <Trash2 size={12} />
+                            </button>
+                          </motion.div>
+                        );
+                      })}
+                    </div>
+                  </motion.div>
+                )}
+              </AnimatePresence>
             </div>
-          </div>
-        ))}
+          );
+        })}
+
+
 
         <ActionSheet 
           isOpen={!!actionTask}

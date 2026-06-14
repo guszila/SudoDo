@@ -47,6 +47,30 @@ export const syncPublicProfile = async (user, tasks) => {
       return false;
     });
 
+    // Build today's schedule (part-time shifts or tasks due today)
+    const todaySchedule = tasks
+      .filter(t => {
+        if (t.isPartTime && !t.isExpense && !t.isExtraIncome) {
+          // Part-time shift: check if it's scheduled for today
+          return isSameDay(new Date(t.start), today);
+        } else if (!t.isPartTime) {
+          // Regular task: due today
+          return isSameDay(new Date(t.end), today);
+        }
+        return false;
+      })
+      .map(t => ({
+        id: t.id,
+        title: t.title || '',
+        // For part-time: use actualStart/End (what was actually worked) or scheduled start/end
+        startTime: t.isPartTime ? (t.actualStart || t.start || '') : t.start || '',
+        endTime: t.isPartTime ? (t.actualEnd || t.end || '') : t.end || '',
+        status: t.status || '',
+        isPartTime: !!t.isPartTime,
+        isCompleted: t.status === 'Done' || (!!t.actualStart && !!t.actualEnd),
+      }))
+      .slice(0, 5); // max 5 items to keep doc size small
+
     const publicData = {
       uid: user.uid,
       friendCode,
@@ -56,6 +80,7 @@ export const syncPublicProfile = async (user, tasks) => {
       totalBadges: unlockedBadges.length || 0,
       unlockedBadges: unlockedBadges.map(b => b.id), // Just save IDs to save space
       hasWorkedToday,
+      todaySchedule,
       lastSync: new Date().toISOString()
     };
     

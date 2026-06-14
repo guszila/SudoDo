@@ -76,6 +76,12 @@
   --glass-border-strong: rgba(255, 255, 255, 0.4);
   --glass-shadow: rgba(108, 99, 255, 0.15);
   --overlay-bg: rgba(15, 23, 42, 0.1); /* slate-900/10 */
+
+  /* Default theme accent colors before login */
+  --theme-accent: #7F77DD;
+  --theme-accent-dark: #3C3489;
+  --theme-accent-light: #EEEDFE;
+  --theme-accent-border: rgba(127, 119, 221, 0.4);
 }
 
 .dark {
@@ -89,6 +95,12 @@
   --glass-border-strong: rgba(255, 255, 255, 0.1);
   --glass-shadow: rgba(0, 0, 0, 0.4);
   --overlay-bg: rgba(0, 0, 0, 0.6);
+
+  /* Default theme accent colors in dark mode before login */
+  --theme-accent: #AFA9EC;
+  --theme-accent-dark: #7870D1;
+  --theme-accent-light: #E6E4FA;
+  --theme-accent-border: rgba(175, 169, 236, 0.4);
 }
 
 @layer utilities {
@@ -154,8 +166,18 @@ body {
   position: relative;
   overflow-x: hidden;
   color: var(--color-text-main);
-  min-height: 100vh;
   transition: color 0.3s ease, background 0.3s ease;
+}
+
+/* Hide global scrollbar for app-like feel */
+html::-webkit-scrollbar,
+body::-webkit-scrollbar {
+  display: none;
+}
+
+html, body {
+  -ms-overflow-style: none; /* IE and Edge */
+  scrollbar-width: none; /* Firefox */
 }
 
 /* --- Animations --- */

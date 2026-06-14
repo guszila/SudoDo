@@ -7,7 +7,7 @@ export default function BottomNav({ lang, currentView, setCurrentView }) {
   const location = useLocation();
 
   return (
-    <nav className="tour-nav-bar md:hidden fixed bottom-0 left-0 right-0 liquid-glass border-x-0 border-b-0 rounded-t-[28px] rounded-b-none p-2 pb-safe flex justify-around items-center z-40 h-[calc(72px+env(safe-area-inset-bottom))]">
+    <nav className="tour-nav-bar fixed bottom-0 left-0 right-0 liquid-glass border-x-0 border-b-0 rounded-t-[28px] rounded-b-none p-2 pb-safe flex justify-around items-center z-40 h-[calc(72px+env(safe-area-inset-bottom))]">
       <button 
         onClick={() => { navigate('/calendar'); setCurrentView('month'); }}
         className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/calendar' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}
