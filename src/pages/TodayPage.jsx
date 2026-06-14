@@ -238,8 +238,8 @@ export default function TodayPage({ user, lang = 'th' }) {
       if (cachedStr) {
         try {
           const cached = JSON.parse(cachedStr);
-          // Use cache if it's less than 30 mins old
-          if (Date.now() - cached.timestamp < 30 * 60 * 1000) {
+          // Use cache if it's less than 30 mins old and has rain probability defined
+          if (Date.now() - cached.timestamp < 30 * 60 * 1000 && cached.data && cached.data.rainProb !== undefined) {
             setWeatherData(cached.data);
             return;
           }
@@ -817,7 +817,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                         <span className="text-sm md:text-base font-bold text-main/80">{wInfo.text}</span>
                      </div>
                   </div>
-                  <div className="flex flex-col items-end justify-end text-right ml-4 max-w-[45%]">
+                  <div className="flex flex-col items-end justify-end text-right ml-4 max-w-[60%]">
                      <span className="text-[11px] md:text-xs font-medium text-main/70 bg-black/5 dark:bg-white/5 px-2.5 py-1.5 rounded-xl line-clamp-2 leading-snug">
                         {weatherData.locationName}
                      </span>
@@ -1065,7 +1065,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                 } : { opacity: 1, scale: 1, rotate: 0 }}
                 exit={{ opacity: 0, scale: 0.5 }}
                 dragListener={isEditWidgetMode}
-                className={`relative ${['INCOME_GOAL'].includes(id) ? 'col-span-2' : 'col-span-1'} ${isEditWidgetMode ? 'cursor-grab active:cursor-grabbing z-50' : ''}`}
+                className={`relative ${AVAILABLE_WIDGETS.find(w => w.id === id)?.size === 2 ? 'col-span-2' : 'col-span-1'} ${isEditWidgetMode ? 'cursor-grab active:cursor-grabbing z-50' : ''}`}
               >
                 {isEditWidgetMode && (
                   <>
