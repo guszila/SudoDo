@@ -211,6 +211,53 @@ export const updatePublicProfileSettings = async (uid, settings) => {
 };
 
 /**
+ * Subscribe to the user's friends list in real-time, fetching their public profiles.
+ * Returns an unsubscribe function.
+ */
+export const subscribeToFriends = (userUid, callback) => {
+  if (!userUid) { callback([]); return () => {}; }
+  
+  const friendsRef = collection(db, COLLECTIONS.USERS, userUid, COLLECTIONS.FRIENDS);
+  
+  return onSnapshot(friendsRef, async (snapshot) => {
+    if (snapshot.empty) {
+      callback([]);
+      return;
+    }
+    
+    const friendUids = [];
+    snapshot.forEach(doc => {
+      friendUids.push(doc.id);
+    });
+    
+    try {
+      const friendsList = [];
+      const chunks = [];
+      for (let i = 0; i < friendUids.length; i += 10) {
+        chunks.push(friendUids.slice(i, i + 10));
+      }
+      
+      for (const chunk of chunks) {
+        const profilesRef = collection(db, COLLECTIONS.PUBLIC_PROFILES);
+        const q = query(profilesRef, where("uid", "in", chunk));
+        const profilesSnap = await getDocs(q);
+        profilesSnap.forEach(doc => {
+          friendsList.push(doc.data());
+        });
+      }
+      
+      callback(friendsList);
+    } catch (err) {
+      console.error("Error fetching friends profiles in real-time", err);
+      callback([]);
+    }
+  }, (err) => {
+    console.error("Error subscribing to friends collection", err);
+    callback([]);
+  });
+};
+
+/**
  * Subscribe to pending friend requests sent TO this user.
  * Returns an unsubscribe function.
  */

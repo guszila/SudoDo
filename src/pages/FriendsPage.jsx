@@ -7,7 +7,7 @@ import {
   MessageCircle, CalendarDays
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
-import { getFriends, addFriendByCode, removeFriend, subscribeToPendingRequests, acceptFriendRequest, declineFriendRequest } from '../services/friendService';
+import { getFriends, subscribeToFriends, addFriendByCode, removeFriend, subscribeToPendingRequests, acceptFriendRequest, declineFriendRequest } from '../services/friendService';
 import { useToast } from '../contexts/ToastContext';
 import { useNotifications } from '../contexts/NotificationsContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -172,20 +172,30 @@ export default function FriendsPage({ user, lang = 'th' }) {
         await setDoc(profileRef, { friendCode: code, uid: user.uid }, { merge: true });
         setMyCode(code);
       }
-      const friendsList = await getFriends(user.uid);
-      setFriends(friendsList);
       // Cache my profile for pending request metadata
       const docSnap2 = await getDoc(profileRef);
       if (docSnap2.exists()) setMyProfile(docSnap2.data());
     } catch (err) {
       console.error(err);
     } finally {
-      setIsLoading(false);
       setIsRefreshing(false);
     }
   }, [user]);
 
+  // Load profile metadata
   useEffect(() => { loadData(); }, [loadData]);
+
+  // Subscribe to friends list in real-time
+  useEffect(() => {
+    if (!user?.uid) return;
+    setIsLoading(true);
+    const unsub = subscribeToFriends(user.uid, (list) => {
+      setFriends(list);
+      setIsLoading(false);
+      setIsRefreshing(false);
+    });
+    return unsub;
+  }, [user?.uid]);
 
   // Subscribe to pending friend requests in real-time
   useEffect(() => {
@@ -752,12 +762,6 @@ export default function FriendsPage({ user, lang = 'th' }) {
                 </div>
 
                 <div className="flex items-center gap-1 flex-shrink-0">
-                  <button
-                    onClick={e => { e.stopPropagation(); handleRemoveFriend(friend.uid, friend.displayName); }}
-                    className="p-2 text-main/20 hover:text-red-500 hover:bg-red-500/10 rounded-full transition-colors opacity-0 group-hover:opacity-100"
-                  >
-                    <Trash2 size={16} />
-                  </button>
                   <ChevronRight size={16} className="text-main/30 group-hover:text-primary-500 transition-colors" />
                 </div>
               </motion.div>

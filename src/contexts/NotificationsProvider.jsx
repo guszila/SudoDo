@@ -14,7 +14,7 @@ import { writeBatch, doc } from 'firebase/firestore';
 import { db } from '../firebase';
 import { NotificationsContext } from './NotificationsContext';
 import { subscribeToFriendNotifications } from '../services/notificationService';
-import { getFriends } from '../services/friendService';
+import { getFriends, subscribeToFriends } from '../services/friendService';
 
 export default function NotificationsProvider({ children, user }) {
   // null = not loaded yet, [] = loaded but empty
@@ -27,13 +27,16 @@ export default function NotificationsProvider({ children, user }) {
     notificationsRef.current = notifications;
   }, [notifications]);
 
-  // Load friends list once per user session
+  // Subscribe to friends list in real-time
   useEffect(() => {
     if (!user?.uid) {
       setFriends(null);
       return;
     }
-    getFriends(user.uid).then(setFriends).catch(() => setFriends([]));
+    const unsub = subscribeToFriends(user.uid, (list) => {
+      setFriends(list);
+    });
+    return unsub;
   }, [user?.uid]);
 
   // Subscribe to unread messages across all friends.

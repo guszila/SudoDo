@@ -316,19 +316,19 @@ export default function ProfilePage({ user, lang = 'th' }) {
         <div className="flex bg-black/5 dark:bg-white/5 p-1 rounded-2xl mb-8 border border-main/10 shadow-inner overflow-x-auto hide-scrollbar snap-x">
           <button 
             onClick={() => setActiveTab('private')}
-            className={`flex-1 min-w-[110px] snap-center py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === 'private' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+            className={`flex-1 min-w-[110px] snap-center py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0 ${activeTab === 'private' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
           >
             <User size={18} /> {lang === 'en' ? 'Private' : 'ข้อมูลส่วนตัว'}
           </button>
           <button 
             onClick={() => setActiveTab('public')}
-            className={`flex-1 min-w-[110px] snap-center py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === 'public' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+            className={`flex-1 min-w-[110px] snap-center py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0 ${activeTab === 'public' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
           >
             <Users size={18} /> {lang === 'en' ? 'Public' : 'สาธารณะ'}
           </button>
           <button 
             onClick={() => setActiveTab('achievements')}
-            className={`flex-1 min-w-[110px] snap-center py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 ${activeTab === 'achievements' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+            className={`flex-1 min-w-[110px] snap-center py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0 ${activeTab === 'achievements' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
           >
             <Award size={18} /> {lang === 'en' ? 'Stats' : 'ความสำเร็จ'}
           </button>
