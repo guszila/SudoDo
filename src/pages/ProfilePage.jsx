@@ -4,7 +4,8 @@ import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, User, Loader2, Check, Lock, AlertTriangle, Camera, Mail, 
-  Send, Calendar, Flame, Award, Medal, CheckCircle2, X, Users, Settings 
+  Send, Calendar, Flame, Award, Medal, CheckCircle2, X, Users, Settings,
+  ZoomIn, ZoomOut
 } from 'lucide-react';
 
 import { useTasks } from '../contexts/TasksContext';
@@ -53,6 +54,15 @@ export default function ProfilePage({ user, lang = 'th' }) {
     }
   }, [user]);
 
+  const [showCropModal, setShowCropModal] = useState(false);
+  const [tempImageSrc, setTempImageSrc] = useState('');
+  const [cropImageSize, setCropImageSize] = useState({ width: 260, height: 260 });
+  const [cropOffset, setCropOffset] = useState({ x: 0, y: 0 });
+  const [cropZoom, setCropZoom] = useState(1);
+  const [isDraggingCrop, setIsDraggingCrop] = useState(false);
+  const [cropDragStart, setCropDragStart] = useState({ x: 0, y: 0 });
+  const [isSavingCrop, setIsSavingCrop] = useState(false);
+
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
     if (!file) return;
@@ -63,12 +73,100 @@ export default function ProfilePage({ user, lang = 'th' }) {
     const reader = new FileReader();
     reader.onload = (ev) => {
       const dataUrl = ev.target.result;
-      localStorage.setItem(`avatar_${user.uid}`, dataUrl);
-      setAvatarUrl(dataUrl);
-      setSuccessMsg('เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว!');
-      setTimeout(() => setSuccessMsg(''), 3000);
+      const img = new Image();
+      img.onload = () => {
+        const aspect = img.width / img.height;
+        let w = 260;
+        let h = 260;
+        if (aspect > 1) {
+          w = 260 * aspect;
+        } else {
+          h = 260 / aspect;
+        }
+        setCropImageSize({ width: w, height: h });
+        setCropOffset({ x: 0, y: 0 });
+        setCropZoom(1);
+        setTempImageSrc(dataUrl);
+        setShowCropModal(true);
+      };
+      img.src = dataUrl;
     };
     reader.readAsDataURL(file);
+  };
+
+  const handleMouseDown = (e) => {
+    setIsDraggingCrop(true);
+    setCropDragStart({ x: e.clientX - cropOffset.x, y: e.clientY - cropOffset.y });
+  };
+
+  const handleMouseMove = (e) => {
+    if (!isDraggingCrop) return;
+    setCropOffset({
+      x: e.clientX - cropDragStart.x,
+      y: e.clientY - cropDragStart.y
+    });
+  };
+
+  const handleMouseUp = () => {
+    setIsDraggingCrop(false);
+  };
+
+  const handleTouchStart = (e) => {
+    if (e.touches.length !== 1) return;
+    setIsDraggingCrop(true);
+    const touch = e.touches[0];
+    setCropDragStart({ x: touch.clientX - cropOffset.x, y: touch.clientY - cropOffset.y });
+  };
+
+  const handleTouchMove = (e) => {
+    if (!isDraggingCrop || e.touches.length !== 1) return;
+    const touch = e.touches[0];
+    setCropOffset({
+      x: touch.clientX - cropDragStart.x,
+      y: touch.clientY - cropDragStart.y
+    });
+  };
+
+  const handleTouchEnd = () => {
+    setIsDraggingCrop(false);
+  };
+
+  const handleSaveCrop = () => {
+    setIsSavingCrop(true);
+    const img = new Image();
+    img.onload = () => {
+      const canvas = document.createElement('canvas');
+      canvas.width = 256;
+      canvas.height = 256;
+      const ctx = canvas.getContext('2d');
+      ctx.clearRect(0, 0, 256, 256);
+      
+      const scaleToCanvas = 256 / 200;
+      const w_canvas = cropImageSize.width * cropZoom * scaleToCanvas;
+      const h_canvas = cropImageSize.height * cropZoom * scaleToCanvas;
+      const cx_canvas = 128 + cropOffset.x * scaleToCanvas;
+      const cy_canvas = 128 + cropOffset.y * scaleToCanvas;
+      
+      const x_canvas = cx_canvas - w_canvas / 2;
+      const y_canvas = cy_canvas - h_canvas / 2;
+      
+      ctx.drawImage(img, x_canvas, y_canvas, w_canvas, h_canvas);
+      
+      try {
+        const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
+        localStorage.setItem(`avatar_${user.uid}`, croppedDataUrl);
+        setAvatarUrl(croppedDataUrl);
+        setSuccessMsg('เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว!');
+        setTimeout(() => setSuccessMsg(''), 3000);
+      } catch (err) {
+        console.error("Cropping error", err);
+        setErrorMsg('เกิดข้อผิดพลาดในการตัดครอบรูปภาพ');
+      } finally {
+        setIsSavingCrop(false);
+        setShowCropModal(false);
+      }
+    };
+    img.src = tempImageSrc;
   };
 
   const handleRemoveAvatar = () => {
@@ -513,6 +611,87 @@ export default function ProfilePage({ user, lang = 'th' }) {
                   className="py-3 text-main/50 font-bold rounded-2xl transition-all hover:text-main/80"
                 >
                   ยกเลิก
+                </button>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Crop Modal */}
+        {showCropModal && (
+          <div 
+            className="fixed inset-0 z-[110] flex items-center justify-center p-4"
+            style={{ backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(12px)' }}
+          >
+            <div 
+              className="bg-white dark:bg-[#1e1e2d] w-full max-w-sm rounded-[28px] p-6 text-center shadow-2xl border border-white/20"
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold text-main mb-2">ปรับแต่งรูปโปรไฟล์</h3>
+              <p className="text-sm text-main/60 mb-6">ลากเพื่อย้ายตำแหน่ง และเลื่อนเพื่อซูม</p>
+              
+              <div className="flex justify-center mb-6">
+                <div 
+                  className="w-[260px] h-[260px] relative overflow-hidden rounded-2xl bg-slate-100 dark:bg-slate-900 border border-main/10 cursor-move select-none touch-none"
+                  onMouseDown={handleMouseDown}
+                  onMouseMove={handleMouseMove}
+                  onMouseUp={handleMouseUp}
+                  onMouseLeave={handleMouseUp}
+                  onTouchStart={handleTouchStart}
+                  onTouchMove={handleTouchMove}
+                  onTouchEnd={handleTouchEnd}
+                >
+                  <img 
+                    src={tempImageSrc} 
+                    alt="Crop Preview" 
+                    className="absolute pointer-events-none max-w-none origin-center"
+                    style={{
+                      width: `${cropImageSize.width}px`,
+                      height: `${cropImageSize.height}px`,
+                      transform: `translate(${cropOffset.x}px, ${cropOffset.y}px) scale(${cropZoom})`,
+                      left: '50%',
+                      top: '50%',
+                      marginLeft: `-${cropImageSize.width / 2}px`,
+                      marginTop: `-${cropImageSize.height / 2}px`
+                    }}
+                  />
+                  {/* Circular Crop Overlay Ring */}
+                  <div className="absolute inset-0 rounded-2xl pointer-events-none shadow-[0_0_0_9999px_rgba(0,0,0,0.6)]" />
+                  <div className="absolute top-[30px] left-[30px] w-[200px] h-[200px] rounded-full border-2 border-white pointer-events-none shadow-[0_0_0_1px_rgba(255,255,255,0.3)]" />
+                </div>
+              </div>
+              
+              {/* Zoom Slider Controls */}
+              <div className="flex items-center gap-3 mb-6 px-2">
+                <span className="text-main/40"><ZoomOut size={16} /></span>
+                <input 
+                  type="range" 
+                  min="1" 
+                  max="3" 
+                  step="0.05"
+                  value={cropZoom} 
+                  onChange={(e) => setCropZoom(parseFloat(e.target.value))}
+                  className="flex-1 accent-primary-500 h-1 bg-black/10 dark:bg-white/10 rounded-lg appearance-none cursor-pointer"
+                />
+                <span className="text-main/40"><ZoomIn size={16} /></span>
+              </div>
+              
+              {/* Action Buttons */}
+              <div className="flex gap-3">
+                <button 
+                  type="button"
+                  onClick={() => { setShowCropModal(false); setTempImageSrc(''); }}
+                  className="flex-1 py-3.5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-main font-bold rounded-2xl transition-all active:scale-95"
+                >
+                  ยกเลิก
+                </button>
+                <button 
+                  type="button"
+                  onClick={handleSaveCrop}
+                  disabled={isSavingCrop}
+                  className="flex-1 py-3.5 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-2xl transition-all active:scale-95 shadow-lg shadow-primary-500/20 flex items-center justify-center gap-2"
+                >
+                  {isSavingCrop ? <Loader2 size={18} className="animate-spin" /> : 'บันทึกรูปภาพ'}
                 </button>
               </div>
             </div>
