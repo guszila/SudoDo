@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, isBefore, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2, Bell, Edit2, Zap, Briefcase, Settings, GripHorizontal, LayoutGrid, Plus, Calendar, CloudRain, Timer, Play, Pause, RotateCcw, Users } from 'lucide-react';
+import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2, Bell, Edit2, Zap, Briefcase, Settings, GripHorizontal, LayoutGrid, Plus, Calendar, CloudRain, Timer, Play, Pause, RotateCcw, Users, Sun, Cloud, CloudFog, CloudLightning, Droplets } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -23,7 +23,7 @@ const AVAILABLE_WIDGETS = [
   { id: 'APP_STREAK', labelKey: 'appStreak', size: 1 },
   { id: 'WORK_STREAK', labelKey: 'workStreak', size: 1 },
   { id: 'DDAY_WIDGET', labelKey: 'ddayWidget', size: 1 },
-  { id: 'WEATHER_WIDGET', labelKey: 'weatherWidget', size: 1 },
+  { id: 'WEATHER_WIDGET', labelKey: 'weatherWidget', size: 2 },
   { id: 'POMODORO_WIDGET', labelKey: 'pomodoroWidget', size: 1 },
   { id: 'INCOME_GOAL', labelKey: 'incomeGoal', size: 2 },
   { id: 'TODAY_WORK_WIDGET', labelKey: 'todayWorkWidget', size: 1 }
@@ -295,9 +295,10 @@ export default function TodayPage({ user, lang = 'th' }) {
       }
 
       try {
-        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true`);
+        const res = await fetch(`https://api.open-meteo.com/v1/forecast?latitude=${lat}&longitude=${lon}&current_weather=true&daily=precipitation_probability_max&timezone=auto`);
         const data = await res.json();
-        const finalData = { ...data.current_weather, isLocal, locationName };
+        const rainProb = data.daily?.precipitation_probability_max?.[0] || 0;
+        const finalData = { ...data.current_weather, isLocal, locationName, rainProb };
         setWeatherData(finalData);
         localStorage.setItem('weather_cache', JSON.stringify({ timestamp: Date.now(), data: finalData }));
       } catch (err) {
@@ -774,29 +775,64 @@ export default function TodayPage({ user, lang = 'th' }) {
           </div>
         );
       case 'WEATHER_WIDGET':
+        const getWeatherInfo = (code, lang) => {
+          if (code === 0) return { Icon: Sun, text: lang === 'en' ? 'Clear' : 'แจ่มใส', color: 'text-orange-500' };
+          if (code >= 1 && code <= 3) return { Icon: Cloud, text: lang === 'en' ? 'Cloudy' : 'มีเมฆบางส่วน', color: 'text-sky-500' };
+          if (code === 45 || code === 48) return { Icon: CloudFog, text: lang === 'en' ? 'Foggy' : 'มีหมอก', color: 'text-gray-500' };
+          if ((code >= 51 && code <= 67) || (code >= 80 && code <= 82)) return { Icon: CloudRain, text: lang === 'en' ? 'Rain' : 'ฝนตก', color: 'text-blue-500' };
+          if (code >= 95) return { Icon: CloudLightning, text: lang === 'en' ? 'Thunderstorm' : 'ฝนฟ้าคะนอง', color: 'text-purple-500' };
+          return { Icon: Cloud, text: lang === 'en' ? 'Unknown' : 'ไม่ทราบ', color: 'text-sky-500' };
+        };
+
+        const wInfo = weatherData ? getWeatherInfo(weatherData.weathercode, lang) : null;
+
         return (
-          <div key={id} className="liquid-glass-card p-4 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all group col-span-1 min-h-[120px] relative overflow-hidden">
-            <h3 className="text-sm font-bold text-main/80 mb-2 truncate group-hover:text-primary-500 transition-colors z-10 flex items-center gap-1.5">
-              <CloudRain size={16} className="text-blue-500" />
-              {t.weatherWidget || (lang === 'en' ? 'Weather' : 'สภาพอากาศ')}
-            </h3>
-            <div className="z-10 flex flex-col items-center justify-center flex-1">
+          <div key={id} className="col-span-2 liquid-glass-card p-4 md:p-5 rounded-[20px] flex flex-col justify-between hover:border-primary-500/30 transition-all group min-h-[120px] relative overflow-hidden">
+            <div className="flex justify-between items-center z-10 mb-2">
+               <h3 className="text-sm font-bold text-main/80 flex items-center gap-1.5 group-hover:text-primary-500 transition-colors">
+                 <CloudRain size={16} className={wInfo ? wInfo.color : "text-blue-500"} />
+                 {t.weatherWidget || (lang === 'en' ? 'Weather' : 'สภาพอากาศ')}
+               </h3>
+               {weatherData && (
+                 <span className="text-[10px] md:text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full flex items-center gap-1 border border-blue-500/20 shadow-sm backdrop-blur-md">
+                    <Droplets size={12} />
+                    {lang === 'en' ? 'Rain' : 'โอกาสฝน'} {weatherData.rainProb}%
+                 </span>
+               )}
+            </div>
+
+            <div className="z-10 flex items-center justify-between mt-2 flex-1">
               {weatherLoading ? (
-                <div className="w-5 h-5 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div>
+                <div className="w-full flex justify-center"><div className="w-6 h-6 border-2 border-blue-500 border-t-transparent rounded-full animate-spin"></div></div>
               ) : weatherData ? (
-                <div className="flex flex-col items-center">
-                  <span className="text-3xl md:text-4xl font-black text-blue-500">{Math.round(weatherData.temperature)}°C</span>
-                  <span className="text-[10px] md:text-xs font-medium text-main/60 mt-1 text-center px-1 truncate w-full">
-                     {weatherData.locationName}
-                  </span>
-                </div>
+                <>
+                  <div className="flex items-center gap-3 md:gap-4">
+                     <div className="p-2.5 bg-white/50 dark:bg-black/20 rounded-[18px] shadow-inner border border-white/20 dark:border-white/5">
+                        <wInfo.Icon size={38} className={`${wInfo.color} drop-shadow-md`} />
+                     </div>
+                     <div className="flex flex-col">
+                        <div className="flex items-baseline gap-1">
+                           <span className={`text-4xl md:text-5xl font-black tracking-tighter ${wInfo.color}`}>{Math.round(weatherData.temperature)}°</span>
+                        </div>
+                        <span className="text-sm md:text-base font-bold text-main/80">{wInfo.text}</span>
+                     </div>
+                  </div>
+                  <div className="flex flex-col items-end justify-end text-right ml-4 max-w-[45%]">
+                     <span className="text-[11px] md:text-xs font-medium text-main/70 bg-black/5 dark:bg-white/5 px-2.5 py-1.5 rounded-xl line-clamp-2 leading-snug">
+                        {weatherData.locationName}
+                     </span>
+                  </div>
+                </>
               ) : (
                 <span className="text-xs font-medium text-main/50">Unavailable</span>
               )}
             </div>
-            <div className="absolute -bottom-4 -right-4 text-blue-500/5 group-hover:text-blue-500/10 transition-colors group-hover:scale-110 duration-500 pointer-events-none">
-              <CloudRain size={80} strokeWidth={1.5} />
-            </div>
+            
+            {wInfo && (
+               <div className={`absolute -bottom-8 -right-4 opacity-5 group-hover:opacity-10 transition-opacity duration-500 pointer-events-none ${wInfo.color}`}>
+                 <wInfo.Icon size={120} strokeWidth={1.5} />
+               </div>
+            )}
           </div>
         );
       case 'POMODORO_WIDGET':
