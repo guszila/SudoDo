@@ -5,13 +5,22 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { 
   ArrowLeft, User, Loader2, Check, Lock, AlertTriangle, Camera, Mail, 
   Send, Calendar, Flame, Award, Medal, CheckCircle2, X, Users, Settings,
-  ZoomIn, ZoomOut
+  ZoomIn, ZoomOut, Palette
 } from 'lucide-react';
 
 import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
 import { calculateStreaks, BADGE_LIST, getUnlockedBadges } from '../utils/gamification';
-import { getPublicProfile, updatePublicProfileSettings } from '../services/friendService';
+import { getPublicProfile, updatePublicProfileSettings, syncPublicProfile } from '../services/friendService';
+
+const PRESET_BANNERS = [
+  { id: 'cyberpunk', name: 'Cyberpunk', value: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)' },
+  { id: 'indigo', name: 'Deep Indigo', value: 'linear-gradient(135deg, #6366f1 0%, #3b82f6 100%)' },
+  { id: 'sunset', name: 'Sunset Glow', value: 'linear-gradient(135deg, #f97316 0%, #ec4899 100%)' },
+  { id: 'emerald', name: 'Emerald Breeze', value: 'linear-gradient(135deg, #10b981 0%, #3b82f6 100%)' },
+  { id: 'golden', name: 'Golden Aura', value: 'linear-gradient(135deg, #eab308 0%, #f97316 100%)' },
+  { id: 'midnight', name: 'Midnight Mist', value: 'linear-gradient(135deg, #1e293b 0%, #0f172a 100%)' }
+];
 
 export default function ProfilePage({ user, lang = 'th' }) {
   const navigate = useNavigate();
@@ -23,6 +32,11 @@ export default function ProfilePage({ user, lang = 'th' }) {
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem(`avatar_${user?.uid}`) || '');
   const [showAvatarModal, setShowAvatarModal] = useState(false);
   const [selectedBadge, setSelectedBadge] = useState(null);
+
+  const [bannerColor, setBannerColor] = useState(() => 
+    localStorage.getItem(`profile_banner_${user?.uid}`) || 'linear-gradient(135deg, #a855f7 0%, #6366f1 100%)'
+  );
+  const [showBannerPicker, setShowBannerPicker] = useState(false);
   
   const [statusMessage, setStatusMessage] = useState('');
   const [featuredBadgeId, setFeaturedBadgeId] = useState('');
@@ -156,6 +170,10 @@ export default function ProfilePage({ user, lang = 'th' }) {
         const croppedDataUrl = canvas.toDataURL('image/jpeg', 0.85);
         localStorage.setItem(`avatar_${user.uid}`, croppedDataUrl);
         setAvatarUrl(croppedDataUrl);
+        
+        // Sync public profile immediately to Firestore
+        syncPublicProfile(user, tasks).catch(err => console.error("Error syncing profile on avatar change", err));
+
         setSuccessMsg('เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว!');
         setTimeout(() => setSuccessMsg(''), 3000);
       } catch (err) {
@@ -172,6 +190,8 @@ export default function ProfilePage({ user, lang = 'th' }) {
   const handleRemoveAvatar = () => {
     localStorage.removeItem(`avatar_${user.uid}`);
     setAvatarUrl('');
+    // Sync public profile immediately to Firestore
+    syncPublicProfile(user, tasks).catch(err => console.error("Error syncing profile on avatar remove", err));
   };
 
   if (!user) return null;
@@ -322,56 +342,78 @@ export default function ProfilePage({ user, lang = 'th' }) {
               initial={{ opacity: 0, y: 10 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: -10 }}
               className="space-y-6"
             >
-              <div className="liquid-glass-card p-6 md:p-8 flex flex-col md:flex-row items-center gap-6 relative">
-                <div className="relative flex-shrink-0">
-                  <button
+              <div className="liquid-glass-card overflow-hidden p-0 rounded-[28px] relative">
+                {/* Banner Background */}
+                <div 
+                  className="w-full h-32 md:h-40 relative transition-all duration-500"
+                  style={{ background: bannerColor }}
+                >
+                  {/* Edit Banner Button */}
+                  <button 
                     type="button"
-                    onClick={() => setShowAvatarModal(true)}
-                    className="w-28 h-28 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg overflow-hidden relative group active:scale-95 transition-transform"
-                    style={{ border: '4px solid var(--glass-border)' }}
+                    onClick={() => setShowBannerPicker(true)}
+                    className="absolute top-4 right-4 bg-black/30 hover:bg-black/50 text-white p-2.5 rounded-full backdrop-blur-md transition-colors border border-white/10 flex items-center justify-center cursor-pointer shadow-md"
+                    title={lang === 'en' ? 'Customize Banner' : 'ปรับแต่งแบนเนอร์'}
                   >
-                    {avatarUrl
-                      ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
-                      : getInitials()
-                    }
-                    <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full">
-                      <Camera size={28} className="text-white" />
-                    </div>
+                    <Palette size={16} />
                   </button>
-                  <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={(e) => { handleAvatarChange(e); setShowAvatarModal(false); }} />
                 </div>
 
-                <div className="text-center md:text-left flex-1">
-                  <h2 className="text-2xl font-bold text-main mb-2">{user.displayName || 'ผู้ใช้ SudoDo'}</h2>
-                  
-                  <div className="flex flex-col gap-1 items-center md:items-start text-sm text-main opacity-80">
-                    <p className="flex items-center gap-2">
-                      <Mail size={16} /> {user.email}
-                      {user.emailVerified ? (
-                        <span className="bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-green-500/20">
-                          <Check size={12} /> ยืนยันแล้ว
-                        </span>
-                      ) : (
-                        <span className="bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-amber-500/20">
-                          <AlertTriangle size={12} /> ยังไม่ยืนยัน
-                        </span>
-                      )}
-                    </p>
-                    <p className="flex items-center gap-2 mt-1">
-                      <Calendar size={16} /> {getMemberSince()}
-                    </p>
+                {/* Profile Details Container */}
+                <div className="p-6 pt-0 flex flex-col md:flex-row items-center md:items-end gap-6 relative z-10 text-center md:text-left mt-[-48px] md:mt-[-56px]">
+                  {/* Avatar with animated rotating border */}
+                  <div className="relative flex-shrink-0 group">
+                    <div className="absolute inset-[-4px] rounded-full bg-gradient-to-tr from-primary-500 via-indigo-500 to-pink-500 opacity-80 blur-[1px] animate-[spin_6s_linear_infinite] group-hover:opacity-100 group-hover:blur-[4px] transition-all duration-500 shadow-lg" />
+                    <button
+                      type="button"
+                      onClick={() => setShowAvatarModal(true)}
+                      className="w-28 h-28 rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center text-white text-4xl font-bold shadow-lg overflow-hidden relative active:scale-95 transition-transform border-[4px] border-white dark:border-[#1e1e2d] z-10"
+                    >
+                      {avatarUrl
+                        ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
+                        : getInitials()
+                      }
+                      <div className="absolute inset-0 bg-black/40 flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity rounded-full z-20">
+                        <Camera size={28} className="text-white" />
+                      </div>
+                    </button>
+                    <input id="avatar-upload" type="file" accept="image/*" className="hidden" onChange={(e) => { handleAvatarChange(e); setShowAvatarModal(false); }} />
                   </div>
 
-                  {!user.emailVerified && (
-                    <button 
-                      onClick={handleVerifyEmail}
-                      disabled={sendingVerification}
-                      className="mt-4 text-sm flex items-center gap-2 text-primary-500 font-bold hover:text-primary-600 transition-colors mx-auto md:mx-0"
-                    >
-                      {sendingVerification ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
-                      ส่งลิงก์ยืนยันอีเมล
-                    </button>
-                  )}
+                  <div className="flex-1 md:pb-2">
+                    <h2 className="text-2xl font-bold text-main mb-2 flex items-center justify-center md:justify-start gap-2">
+                      {user.displayName || 'ผู้ใช้ SudoDo'}
+                    </h2>
+                    
+                    <div className="flex flex-col gap-1 items-center md:items-start text-sm text-main opacity-80">
+                      <p className="flex items-center gap-2 flex-wrap justify-center md:justify-start">
+                        <span className="flex items-center gap-1"><Mail size={16} /> {user.email}</span>
+                        {user.emailVerified ? (
+                          <span className="bg-green-500/10 text-green-600 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-green-500/20">
+                            <Check size={12} /> ยืนยันแล้ว
+                          </span>
+                        ) : (
+                          <span className="bg-amber-500/10 text-amber-600 px-2 py-0.5 rounded-full text-xs font-bold flex items-center gap-1 border border-amber-500/20">
+                            <AlertTriangle size={12} /> ยังไม่ยืนยัน
+                          </span>
+                        )}
+                      </p>
+                      <p className="flex items-center gap-2 mt-1">
+                        <Calendar size={16} /> {getMemberSince()}
+                      </p>
+                    </div>
+
+                    {!user.emailVerified && (
+                      <button 
+                        onClick={handleVerifyEmail}
+                        disabled={sendingVerification}
+                        className="mt-3 text-sm flex items-center gap-2 text-primary-500 font-bold hover:text-primary-600 transition-colors mx-auto md:mx-0"
+                      >
+                        {sendingVerification ? <Loader2 size={16} className="animate-spin" /> : <Send size={16} />}
+                        ส่งลิงก์ยืนยันอีเมล
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -694,6 +736,51 @@ export default function ProfilePage({ user, lang = 'th' }) {
                   {isSavingCrop ? <Loader2 size={18} className="animate-spin" /> : 'บันทึกรูปภาพ'}
                 </button>
               </div>
+            </div>
+          </div>
+        )}
+
+        {/* Banner Picker Modal */}
+        {showBannerPicker && (
+          <div 
+            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            onClick={() => setShowBannerPicker(false)}
+          >
+            <div 
+              className="bg-white dark:bg-[#1e1e2d] w-full max-w-sm rounded-[28px] p-6 text-center shadow-2xl border border-white/20"
+              onClick={e => e.stopPropagation()}
+            >
+              <h3 className="text-xl font-bold text-main mb-2">ปรับแต่งแบนเนอร์โปรไฟล์</h3>
+              <p className="text-sm text-main/60 mb-6">เลือกชุดสีไล่เฉดสีที่ต้องการใช้งาน</p>
+              
+              <div className="grid grid-cols-2 gap-3 mb-6">
+                {PRESET_BANNERS.map(banner => (
+                  <button
+                    key={banner.id}
+                    type="button"
+                    onClick={() => {
+                      setBannerColor(banner.value);
+                      localStorage.setItem(`profile_banner_${user.uid}`, banner.value);
+                      // Sync immediately to Firestore
+                      syncPublicProfile(user, tasks).catch(err => console.error(err));
+                    }}
+                    className={`h-16 rounded-2xl relative overflow-hidden transition-all duration-300 border-2 ${bannerColor === banner.value ? 'border-primary-500 scale-[1.03] shadow-md shadow-primary-500/10' : 'border-transparent opacity-80 hover:opacity-100 hover:scale-[1.02]'}`}
+                    style={{ background: banner.value }}
+                  >
+                    <span className="absolute inset-0 bg-black/10 dark:bg-black/20 flex items-center justify-center text-xs font-black text-white drop-shadow-md">
+                      {banner.name}
+                    </span>
+                  </button>
+                ))}
+              </div>
+              
+              <button
+                type="button"
+                onClick={() => setShowBannerPicker(false)}
+                className="w-full py-3.5 bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10 text-main font-bold rounded-2xl transition-all active:scale-95"
+              >
+                เสร็จสิ้น
+              </button>
             </div>
           </div>
         )}
