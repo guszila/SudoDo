@@ -238,8 +238,8 @@ export default function TodayPage({ user, lang = 'th' }) {
       if (cachedStr) {
         try {
           const cached = JSON.parse(cachedStr);
-          // Use cache if it's less than 30 mins old and has rain probability defined
-          if (Date.now() - cached.timestamp < 30 * 60 * 1000 && cached.data && cached.data.rainProb !== undefined) {
+          // Use cache if it's less than 30 mins old and has rain probability as a number
+          if (Date.now() - cached.timestamp < 30 * 60 * 1000 && cached.data && typeof cached.data.rainProb === 'number') {
             setWeatherData(cached.data);
             return;
           }
@@ -796,7 +796,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                {weatherData && (
                  <span className="text-[10px] md:text-xs font-bold bg-blue-500/10 text-blue-600 dark:text-blue-400 px-2 py-1 rounded-full flex items-center gap-1 border border-blue-500/20 shadow-sm backdrop-blur-md">
                     <Droplets size={12} />
-                    {lang === 'en' ? 'Rain' : 'โอกาสฝน'} {weatherData.rainProb}%
+                    {lang === 'en' ? 'Rain' : 'โอกาสฝน'} {weatherData.rainProb ?? 0}%
                  </span>
                )}
             </div>
