@@ -60,6 +60,29 @@ const getStatusLabel = (status, lang) => {
   return lang === 'en' ? 'To-Do' : 'รอทำ';
 };
 
+const extractFriendCode = (text) => {
+  if (!text) return '';
+  const trimmed = text.trim();
+  
+  if (trimmed.length === 6 && /^[A-Za-z0-9]{6}$/.test(trimmed)) {
+    if (trimmed.toLowerCase() !== 'sudodo') {
+      return trimmed.toUpperCase();
+    }
+  }
+
+  const words = trimmed.split(/[\s:!?,.。，：\n\r\(\)\[\]\{\}]+/);
+  for (const word of words) {
+    const cleanWord = word.replace(/[^A-Za-z0-9]/g, '');
+    if (cleanWord.length === 6 && /^[A-Za-z0-9]{6}$/.test(cleanWord)) {
+      if (cleanWord.toLowerCase() !== 'sudodo') {
+        return cleanWord.toUpperCase();
+      }
+    }
+  }
+  
+  return trimmed.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
+};
+
 // Avatar component with gradient fallback
 const Avatar = ({ src, name, size = 'md', pulse = false }) => {
   const sizeMap = { sm: 'w-10 h-10 text-sm', md: 'w-14 h-14 text-lg', lg: 'w-20 h-20 text-2xl' };
@@ -534,8 +557,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
                     autoFocus
                     placeholder={lang === 'en' ? 'e.g. AB1234' : 'เช่น AB1234'}
                     value={friendCodeInput}
-                    onChange={e => setFriendCodeInput(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
-                    maxLength={6}
+                    onChange={e => setFriendCodeInput(extractFriendCode(e.target.value))}
                     className="w-full bg-black/5 dark:bg-white/8 border border-main/10 rounded-[14px] px-4 py-3.5 text-main font-black tracking-[0.3em] text-lg focus:outline-none focus:ring-2 focus:ring-primary-500/50 uppercase text-center transition-all placeholder:tracking-normal placeholder:font-normal placeholder:text-main/30"
                   />
                   {/* Character dots */}
