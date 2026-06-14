@@ -48,6 +48,7 @@ export default function TasksPage({ user, lang = 'en' }) {
     const gd = [];
     tasks.forEach(t => {
       if (t.isPartTime) return; // Part-Time tasks belong to PartTimePage
+      if (t.isNote) return; // Notes are not tasks
       const isCompleted = t.status === TASK_STATUS.DONE;
       if (isCompleted) gd.push(t);
       else gp.push(t);

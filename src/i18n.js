@@ -77,7 +77,22 @@ export const translations = {
       allDay: "All Day",
       priority: "Priority",
       quickDone: "Done! Click to undo",
-      quickMarkDone: "Click to mark as done ✅"
+      quickMarkDone: "Click to mark as done ✅",
+      editNote: "Edit Note",
+      newNote: "New Note",
+      editShift: "Edit Shift",
+      newShift: "New Shift",
+      itemType: "Item Type",
+      generalTask: "General Task",
+      note: "Note",
+      shift: "Shift",
+      noteCategory: "Note Category",
+      noteTitle: "Note Title",
+      noteCategories: {
+        general: "General",
+        payday: "Payday",
+        reminder: "Reminder"
+      }
     },
     status: {
       "To-Do": "To-Do",
@@ -163,7 +178,22 @@ export const translations = {
       allDay: "ทั้งวัน (All Day)",
       priority: "ระดับความสำคัญ",
       quickDone: "เสร็จแล้ว! กดเพื่อยกเลิก",
-      quickMarkDone: "กดเพื่อทำเครื่องหมายเสร็จ ✅"
+      quickMarkDone: "กดเพื่อทำเครื่องหมายเสร็จ ✅",
+      editNote: "แก้ไขบันทึก",
+      newNote: "เพิ่มบันทึก",
+      editShift: "แก้ไขกะงาน",
+      newShift: "เพิ่มกะงาน",
+      itemType: "ประเภทรายการ",
+      generalTask: "งานทั่วไป",
+      note: "โน้ต",
+      shift: "กะงาน",
+      noteCategory: "หมวดหมู่บันทึก",
+      noteTitle: "หัวข้อบันทึก",
+      noteCategories: {
+        general: "ทั่วไป",
+        payday: "เงินออก",
+        reminder: "แจ้งเตือน"
+      }
     },
     status: {
       "To-Do": "รอทำ",

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 import { motion, AnimatePresence, useDragControls } from 'framer-motion';
-import { X, Trash2, CheckCircle2, Circle } from 'lucide-react';
+import { X, Trash2, CheckCircle2, Circle, FileText, Coins, Bell } from 'lucide-react';
 
 import { translations } from '../../i18n';
 import { TASK_STATUS, TASK_PRIORITY, DEFAULT_TASK_VALUES } from '../../constants';
@@ -42,7 +42,9 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
     priority: TASK_PRIORITY.MEDIUM,
     subtasks: [],
     tags: [],
-    recurring: 'none'
+    recurring: 'none',
+    isNote: false,
+    noteType: 'general'
   });
 
   useEffect(() => {
@@ -62,7 +64,9 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         isAllDay: task.isAllDay || false,
         subtasks: task.subtasks || [],
         tags: task.tags || [],
-        recurring: task.recurring || 'none'
+        recurring: task.recurring || 'none',
+        isNote: task.isNote || false,
+        noteType: task.noteType || 'general'
       });
     } else {
       const now = new Date();
@@ -82,7 +86,9 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         isAllDay: false,
         subtasks: [],
         tags: [],
-        recurring: 'none'
+        recurring: 'none',
+        isNote: false,
+        noteType: 'general'
       });
     }
   }, [task, isOpen]);
@@ -192,12 +198,12 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
         
         <h2 className="text-2xl font-bold mb-4 text-main">
           {task?.id 
-            ? (formData.isPartTime ? 'แก้ไขกะงาน' : t.editTask) 
-            : (formData.isPartTime ? 'เพิ่มกะงาน' : t.newTask)}
+            ? (formData.isNote ? t.editNote : (formData.isPartTime ? t.editShift : t.editTask)) 
+            : (formData.isNote ? t.newNote : (formData.isPartTime ? t.newShift : t.newTask))}
         </h2>
 
         {/* Quick Done Toggle - big and easy to tap on mobile */}
-        {task?.id && (
+        {task?.id && !formData.isNote && (
           <button
             type="button"
             onClick={() => {
@@ -211,17 +217,88 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             style={{ border: formData.status === TASK_STATUS.DONE ? '2px solid rgba(34,197,94,0.4)' : '2px dashed var(--glass-border-strong)' }}
           >
             {formData.status === TASK_STATUS.DONE ? (
-              <><CheckCircle2 size={24} /> {formData.isPartTime ? 'ทำเครื่องหมายว่าจบกะแล้ว' : t.quickDone}</>
+              <><CheckCircle2 size={24} /> {formData.isPartTime ? (lang === 'th' ? 'ทำเครื่องหมายว่าจบกะแล้ว' : 'Mark shift as completed') : t.quickDone}</>
             ) : (
-              <><Circle size={24} /> {formData.isPartTime ? 'กดเพื่อทำเครื่องหมายว่าจบกะ' : t.quickMarkDone}</>
+              <><Circle size={24} /> {formData.isPartTime ? (lang === 'th' ? 'กดเพื่อทำเครื่องหมายว่าจบกะ' : 'Click to mark shift as completed') : t.quickMarkDone}</>
             )}
           </button>
         )}
         
         <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Type Selector */}
+          <div>
+            <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.itemType}</label>
+            <div className="flex bg-black/5 dark:bg-white/5 rounded-2xl p-1 gap-1 border border-main/5">
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, isNote: false, isPartTime: false }))}
+                className={`flex-grow py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  !formData.isNote && !formData.isPartTime
+                    ? 'bg-primary-500 text-white shadow-sm'
+                    : 'text-main/60 hover:text-main'
+                }`}
+              >
+                📋 {t.generalTask}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, isNote: true, isPartTime: false, noteType: prev.noteType || 'general' }))}
+                className={`flex-grow py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  formData.isNote
+                    ? 'bg-primary-500 text-white shadow-sm'
+                    : 'text-main/60 hover:text-main'
+                }`}
+              >
+                📝 {t.note}
+              </button>
+              <button
+                type="button"
+                onClick={() => setFormData(prev => ({ ...prev, isNote: false, isPartTime: true }))}
+                className={`flex-grow py-2.5 rounded-xl text-xs sm:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
+                  formData.isPartTime
+                    ? 'bg-primary-500 text-white shadow-sm'
+                    : 'text-main/60 hover:text-main'
+                }`}
+              >
+                💰 {t.shift}
+              </button>
+            </div>
+          </div>
+
+          {formData.isNote && (
+            <div className="animate-slide-up">
+              <label className="block text-sm font-medium text-main mb-2 opacity-80">{t.noteCategory}</label>
+              <div className="grid grid-cols-3 gap-2 p-1 bg-black/5 dark:bg-white/5 rounded-2xl border border-main/5">
+                {[
+                  { id: 'general', label: t.noteCategories?.general || 'ทั่วไป', icon: FileText, colorClass: 'text-violet-500', activeClass: 'border-violet-500/30 text-violet-600 dark:text-violet-400 bg-violet-500/10' },
+                  { id: 'payday', label: t.noteCategories?.payday || 'เงินออก', icon: Coins, colorClass: 'text-amber-500', activeClass: 'border-amber-500/30 text-amber-600 dark:text-amber-400 bg-amber-500/10' },
+                  { id: 'reminder', label: t.noteCategories?.reminder || 'แจ้งเตือน', icon: Bell, colorClass: 'text-rose-500', activeClass: 'border-rose-500/30 text-rose-600 dark:text-rose-400 bg-rose-500/10' },
+                ].map(cat => {
+                  const Icon = cat.icon;
+                  const isActive = formData.noteType === cat.id;
+                  return (
+                    <button
+                      key={cat.id}
+                      type="button"
+                      onClick={() => setFormData(prev => ({ ...prev, noteType: cat.id }))}
+                      className={`flex flex-col items-center justify-center py-2.5 rounded-xl border transition-all text-xs font-bold ${
+                        isActive
+                          ? `${cat.activeClass} scale-105 border-2`
+                          : 'border-transparent text-main/60 hover:text-main'
+                      }`}
+                    >
+                      <Icon size={18} className={`mb-1 ${isActive ? '' : cat.colorClass}`} />
+                      {cat.label}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          )}
+
           <div>
             <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
-              {formData.isPartTime ? 'ชื่องาน / สถานที่' : t.title}
+              {formData.isNote ? t.noteTitle : (formData.isPartTime ? translations[lang].partTime.jobTitle : t.title)}
             </label>
             
             {formData.isPartTime && (
@@ -257,12 +334,12 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                 required
                 className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow"
                 style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                placeholder={formData.isPartTime ? "ระบุชื่อบริษัท..." : t.titlePlaceholder}
+                placeholder={formData.isNote ? (lang === 'th' ? "เช่น วันเงินออก หรือ ค่าไฟล่วงหน้า..." : "e.g. Payday or bills...") : (formData.isPartTime ? (lang === 'th' ? "ระบุชื่อบริษัท..." : "e.g. Cafe Shop...") : t.titlePlaceholder)}
               />
             )}
           </div>
 
-          {!formData.isPartTime && (
+          {!formData.isPartTime && !formData.isNote && (
             <div className="space-y-4">
               <div>
                 <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.status}</label>
@@ -326,7 +403,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           
           <div>
             <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
-              {formData.isPartTime ? 'หมายเหตุ (เช่น ทำกะแทนใคร)' : t.description}
+              {formData.isPartTime ? 'หมายเหตุ (เช่น ทำกะแทนใคร)' : (formData.isNote ? 'รายละเอียดบันทึก' : t.description)}
             </label>
             <textarea 
               name="description" 
@@ -335,12 +412,12 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
               rows={3}
               className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow"
               style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-              placeholder={t.descriptionPlaceholder}
+              placeholder={formData.isNote ? "รายละเอียดเพิ่มเติม..." : t.descriptionPlaceholder}
             />
           </div>
 
           {/* Tags */}
-          {!formData.isPartTime && (
+          {!formData.isPartTime && !formData.isNote && (
             <div>
               <label className="block text-sm font-medium text-main mb-1.5 opacity-80">Tags / หมวดหมู่</label>
               {formData.tags.length > 0 && (
@@ -369,7 +446,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           )}
 
           {/* Subtasks */}
-          {!formData.isPartTime && (
+          {!formData.isPartTime && !formData.isNote && (
             <div>
               <label className="block text-sm font-medium text-main mb-1.5 opacity-80">Checklist งานย่อย</label>
               {formData.subtasks.length > 0 && (
@@ -401,7 +478,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           )}
 
           {/* Recurring */}
-          {!formData.isPartTime && (
+          {!formData.isPartTime && !formData.isNote && (
             <div>
               <label className="block text-sm font-medium text-main mb-1.5 opacity-80">ตั้งเวลาทำซ้ำ (Recurring)</label>
               <select 
@@ -598,7 +675,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                 className="px-6 py-3 text-sm font-bold text-white bg-primary-500 rounded-[16px] hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all shadow-md active:scale-95 border"
                 style={{ borderColor: 'var(--glass-border)' }}
               >
-                {t.saveTask}
+                {formData.isNote ? 'บันทึก' : t.saveTask}
               </button>
             </div>
           </div>

@@ -5,7 +5,7 @@ import withDragAndDropLib from 'react-big-calendar/lib/addons/dragAndDrop';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { format, parse, startOfWeek, getDay, isBefore, startOfDay, endOfDay, differenceInDays, isSameDay } from 'date-fns';
 import { enUS, th } from 'date-fns/locale';
-import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Home, Settings, ListTodo, User, DollarSign, ChevronLeft, ChevronRight, X } from 'lucide-react';
+import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Home, Settings, ListTodo, User, DollarSign, ChevronLeft, ChevronRight, X, FileText, Coins, Bell } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
@@ -151,6 +151,24 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
   };
 
   const EventComponent = ({ event }) => {
+    if (event.isNote) {
+      let NoteIcon = FileText;
+      let iconColor = 'text-violet-500 dark:text-violet-400';
+      if (event.noteType === 'payday') {
+        NoteIcon = Coins;
+        iconColor = 'text-amber-500 dark:text-amber-400';
+      } else if (event.noteType === 'reminder') {
+        NoteIcon = Bell;
+        iconColor = 'text-rose-500 dark:text-rose-400';
+      }
+      return (
+        <div className="flex items-center gap-1.5 px-1 py-0.5 md:px-2 md:py-1 overflow-hidden h-full">
+          <NoteIcon className={`w-3.5 h-3.5 flex-shrink-0 ${iconColor}`} />
+          <span className="truncate text-main text-[10px] md:text-xs font-bold flex-1">{event.title}</span>
+        </div>
+      );
+    }
+
     const isDone = event.status === TASK_STATUS.DONE;
     let priorityColor = 'bg-amber-500';
     if (event.priority === TASK_PRIORITY.HIGH) priorityColor = 'bg-red-500';
@@ -186,6 +204,42 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
   };
 
   const eventPropGetter = (event) => {
+    if (currentView === 'month') {
+      return {
+        style: {
+          display: 'none'
+        }
+      };
+    }
+
+    if (event.isNote) {
+      let bgColor = 'rgba(139, 92, 246, 0.12)';
+      let borderColor = 'rgba(139, 92, 246, 0.8)';
+      let glowColor = 'rgba(139, 92, 246, 0.2)';
+      
+      if (event.noteType === 'payday') {
+        bgColor = 'rgba(245, 158, 11, 0.12)';
+        borderColor = 'rgba(245, 158, 11, 0.8)';
+        glowColor = 'rgba(245, 158, 11, 0.2)';
+      } else if (event.noteType === 'reminder') {
+        bgColor = 'rgba(244, 63, 94, 0.12)';
+        borderColor = 'rgba(244, 63, 94, 0.8)';
+        glowColor = 'rgba(244, 63, 94, 0.2)';
+      }
+      
+      return {
+        style: {
+          backgroundColor: bgColor,
+          borderLeft: `4px solid ${borderColor}`,
+          borderRight: '1px solid rgba(255,255,255,0.15)',
+          borderTop: '1px solid rgba(255,255,255,0.15)',
+          borderBottom: '1px solid rgba(255,255,255,0.15)',
+          color: 'var(--color-text-main)',
+          boxShadow: `0 2px 6px ${glowColor}`
+        }
+      };
+    }
+
     let borderColor = 'var(--color-status-todo)';
     
     if (event.status === TASK_STATUS.DONE) {
@@ -238,10 +292,41 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
     });
 
     const dayTasks = tasks.filter(t => startOfDay(new Date(t.start)).getTime() === startOfDay(date).getTime());
-    const doneTasks = dayTasks.filter(t => t.status === TASK_STATUS.DONE || (t.isPartTime && t.actualStart && t.actualEnd));
-    const hasTasks = dayTasks.length > 0;
-    const allDone = hasTasks && doneTasks.length === dayTasks.length;
-    const someDone = hasTasks && doneTasks.length > 0 && !allDone;
+
+    // Helper to determine dot/pill color
+    const getPillColor = (t) => {
+      if (t.isNote) {
+        if (t.noteType === 'payday') return 'bg-amber-400 dark:bg-amber-500 shadow-[0_0_4px_rgba(245,158,11,0.4)]';
+        if (t.noteType === 'reminder') return 'bg-rose-400 dark:bg-rose-500 shadow-[0_0_4px_rgba(244,63,94,0.4)]';
+        return 'bg-violet-400 dark:bg-violet-500 shadow-[0_0_4px_rgba(139,92,246,0.4)]';
+      }
+      if (t.isPartTime) {
+        return 'bg-green-400 dark:bg-green-500 shadow-[0_0_4px_rgba(34,197,94,0.4)]';
+      }
+      if (t.status === TASK_STATUS.DONE) {
+        return 'bg-slate-300 dark:bg-slate-600';
+      }
+      if (t.status === TASK_STATUS.IN_PROGRESS) {
+        return 'bg-orange-400 dark:bg-orange-500 shadow-[0_0_4px_rgba(249,115,22,0.4)]';
+      }
+      return 'bg-blue-400 dark:bg-blue-500 shadow-[0_0_4px_rgba(59,130,246,0.4)]';
+    };
+
+    // Sort items so dots display consistently: Shifts, then Notes, then Tasks
+    const sortedTasks = [...dayTasks].sort((a, b) => {
+      const getOrder = (item) => {
+        if (item.isPartTime) return 1;
+        if (item.isNote) {
+          if (item.noteType === 'payday') return 2;
+          if (item.noteType === 'reminder') return 3;
+          return 4;
+        }
+        if (item.status === TASK_STATUS.TODO) return 5;
+        if (item.status === TASK_STATUS.IN_PROGRESS) return 6;
+        return 7;
+      };
+      return getOrder(a) - getOrder(b);
+    });
 
     const holidayName = getThaiHoliday(date);
     const dayOfWeek = date.getDay();
@@ -258,26 +343,28 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       textColorStyle = { color: 'var(--color-primary-500)' };
     }
 
+    const isToday = isSameDay(date, now);
+
     return (
-      <button onClick={() => handleSelectSlot({ start: date })} className="w-full text-center relative flex flex-col items-center justify-center pb-1 font-medium hover:bg-white/10 rounded-t-lg transition-colors pt-2 h-full min-h-[30px]">
-        <span className={textClass} style={textColorStyle}>{label}</span>
-        <div className="flex items-center gap-0.5 mt-0.5">
+      <button onClick={() => handleSelectSlot({ start: date })} className="w-full text-center relative flex flex-col items-center justify-between pb-1.5 font-medium hover:bg-white/10 rounded-t-lg transition-colors pt-2 h-full min-h-[44px]">
+        {isToday ? (
+          <span className="bg-primary-500 text-white text-xs md:text-sm font-bold rounded-full w-6 h-6 md:w-7 md:h-7 flex items-center justify-center shadow-[0_0_8px_rgba(127,119,221,0.5)]">
+            {label}
+          </span>
+        ) : (
+          <span className={`${textClass} text-sm md:text-base`} style={textColorStyle}>{label}</span>
+        )}
+        <div className="flex flex-wrap justify-center gap-0.5 md:gap-1 mt-1 max-w-full px-1">
           {holidayName && (
-            <div className="w-1 h-1 bg-red-500 rounded-full opacity-80" title={holidayName}></div>
+            <div className="w-1.5 h-1.5 bg-red-500 rounded-full opacity-80" title={holidayName}></div>
           )}
-          {!hasOverdue && allDone && (
-            <div className="w-2.5 h-2.5 rounded-full bg-green-500 flex items-center justify-center shadow-[0_0_6px_rgba(34,197,94,0.5)]" title="ทำงานเสร็จทั้งหมด">
-              <svg className="w-1.5 h-1.5 text-white" fill="none" viewBox="0 0 12 12" stroke="currentColor" strokeWidth="2.5">
-                <path strokeLinecap="round" strokeLinejoin="round" d="M2 6l3 3 5-5" />
-              </svg>
-            </div>
-          )}
-          {!hasOverdue && someDone && (
-            <div className="w-2 h-2 rounded-full bg-blue-400 opacity-80" title="มีงานบางส่วนเสร็จแล้ว" />
-          )}
-          {!hasOverdue && hasTasks && doneTasks.length === 0 && (
-            <div className="w-1.5 h-1.5 rounded-full bg-primary-400 opacity-60" title="มีงาน" />
-          )}
+          {sortedTasks.map((t, idx) => (
+            <div 
+              key={t.id || idx} 
+              className={`w-3.5 h-1 rounded-full ${getPillColor(t)}`} 
+              title={t.title}
+            />
+          ))}
         </div>
         {hasOverdue && <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />}
       </button>
@@ -402,6 +489,26 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       if (task.description) {
         icsContent += `DESCRIPTION:${task.description.replace(/\n/g, '\\n')}\n`;
       }
+      
+      // VALARM mobile reminder notifications based on settings
+      if (task.isPartTime) {
+        if (settings?.notifyShifts !== false) {
+          icsContent += "BEGIN:VALARM\n";
+          icsContent += "TRIGGER:-PT30M\n";
+          icsContent += "ACTION:DISPLAY\n";
+          icsContent += `DESCRIPTION:เข้ากะงาน: ${task.title}\n`;
+          icsContent += "END:VALARM\n";
+        }
+      } else {
+        if (settings?.notifyTasks !== false) {
+          icsContent += "BEGIN:VALARM\n";
+          icsContent += "TRIGGER:-PT15M\n";
+          icsContent += "ACTION:DISPLAY\n";
+          icsContent += `DESCRIPTION:แจ้งเตือน: ${task.title}\n`;
+          icsContent += "END:VALARM\n";
+        }
+      }
+
       icsContent += "END:VEVENT\n";
     });
     
@@ -425,7 +532,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
     
     tasks.forEach(t => {
       const d = new Date(t.start);
-      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear && !t.isExpense && !t.isExtraIncome) {
+      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear && !t.isExpense && !t.isExtraIncome && !t.isNote) {
         total++;
         if (t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd)) {
           completed++;

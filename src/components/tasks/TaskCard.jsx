@@ -2,7 +2,7 @@ import React, { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { format, isBefore, endOfDay, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { CheckCircle2, CircleDashed, Clock, Edit, Trash2, ListTodo, Repeat } from 'lucide-react';
+import { CheckCircle2, CircleDashed, Clock, Edit, Trash2, ListTodo, Repeat, FileText, Coins, Bell } from 'lucide-react';
 import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE } from '../../constants';
 
 export default function TaskCard({ 
@@ -93,7 +93,15 @@ export default function TaskCard({
       onPointerLeave={handlePointerUpOrLeave}
       onPointerCancel={handlePointerUpOrLeave}
       onClick={handleClick}
-      className={`liquid-glass-card p-4 flex items-center gap-4 rounded-[20px] cursor-pointer group hover:border-primary-500/30 transition-all ${isCompleted ? 'opacity-60' : ''} ${isSelected ? 'border-primary-500/50 bg-primary-500/5' : ''}`}
+      className={`liquid-glass-card p-4 flex items-center gap-4 rounded-[20px] cursor-pointer group hover:border-primary-500/30 transition-all ${isCompleted ? 'opacity-60' : ''} ${isSelected ? 'border-primary-500/50 bg-primary-500/5' : ''} ${
+        task.isNote
+          ? task.noteType === 'payday'
+            ? 'border-amber-500/10 hover:border-amber-500/35 bg-amber-500/5'
+            : task.noteType === 'reminder'
+            ? 'border-rose-500/10 hover:border-rose-500/35 bg-rose-500/5'
+            : 'border-violet-500/10 hover:border-violet-500/35 bg-violet-500/5'
+          : ''
+      }`}
       style={{ userSelect: 'none', WebkitUserSelect: 'none' }}
     >
       {isSelectionMode && (
@@ -104,7 +112,24 @@ export default function TaskCard({
         </div>
       )}
 
-      {!isSelectionMode && (
+      {!isSelectionMode && task.isNote && (() => {
+        let NoteIcon = FileText;
+        let noteBg = 'bg-violet-500/15 text-violet-500 border-violet-500/30';
+        if (task.noteType === 'payday') {
+          NoteIcon = Coins;
+          noteBg = 'bg-amber-500/15 text-amber-500 border-amber-500/30';
+        } else if (task.noteType === 'reminder') {
+          NoteIcon = Bell;
+          noteBg = 'bg-rose-500/15 text-rose-500 border-rose-500/30';
+        }
+        return (
+          <div className={`w-10 h-10 rounded-xl border flex items-center justify-center shrink-0 shadow-sm ${noteBg}`}>
+            <NoteIcon size={20} />
+          </div>
+        );
+      })()}
+
+      {!isSelectionMode && !task.isNote && (
         <button 
           onClick={(e) => {
              e.stopPropagation();
@@ -127,7 +152,7 @@ export default function TaskCard({
             <Clock size={12} /> {fDate(task.start)} {fTime(task.start) === fTime(task.end) ? fTime(task.start) : `${fTime(task.start)} - ${fTime(task.end)}`}
           </span>
           
-          {!task.isPartTime && (
+          {!task.isPartTime && !task.isNote && (
             <span className={`px-2 py-0.5 rounded-md bg-opacity-20 font-bold ${priorityColor.split(' ')[0]}/10 ${priorityColor.split(' ')[1]}`}>
               {task.priority}
             </span>
@@ -142,14 +167,14 @@ export default function TaskCard({
           
           {task.description && (
             <span className="bg-main/10 dark:bg-white/10 px-2 py-0.5 rounded-md flex items-center gap-1 font-medium max-w-xs truncate" title={task.description}>
-              📝 {task.description}
+              <FileText size={12} className="opacity-70" /> {task.description}
             </span>
           )}
           
           {isOverdue && <span className="text-red-500 font-bold bg-red-500/10 px-2 py-0.5 rounded-md">เลยกำหนด</span>}
         </div>
 
-        {!task.isPartTime && ((task.tags && task.tags.length > 0) || (task.subtasks && task.subtasks.length > 0)) && (
+        {!task.isPartTime && !task.isNote && ((task.tags && task.tags.length > 0) || (task.subtasks && task.subtasks.length > 0)) && (
           <div className="mt-2.5 space-y-2">
             {task.tags && task.tags.length > 0 && (
               <div className="flex gap-1.5 flex-wrap">

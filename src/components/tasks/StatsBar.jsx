@@ -9,6 +9,7 @@ export default function StatsBar({ tasks = [] }) {
     const currentYear = new Date().getFullYear();
 
     const monthTasks = tasks.filter(t => {
+      if (t.isNote) return false;
       const d = new Date(t.start);
       return d.getMonth() === currentMonth && d.getFullYear() === currentYear;
     });
