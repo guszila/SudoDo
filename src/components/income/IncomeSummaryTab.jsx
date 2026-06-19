@@ -47,9 +47,7 @@ export default function IncomeSummaryTab({ user, lang = 'th' }) {
     if (!deleteConfirmTask) return;
     const taskToDelete = { ...deleteConfirmTask };
     setDeleteConfirmTask(null);
-    setIsDeleting(true);
     await saveTask('DELETE', { id: taskToDelete.id }, user.uid);
-    setIsDeleting(false);
     showToast('ลบเรียบร้อยแล้ว', {
       duration: 5000,
       onUndo: async () => { await saveTask('ADD', taskToDelete, user.uid); }
@@ -212,14 +210,6 @@ export default function IncomeSummaryTab({ user, lang = 'th' }) {
 
   const avgPerShift = summary.shiftCount > 0 ? summary.totalGross / summary.shiftCount : 0;
   const avgPerHour = summary.totalHours > 0 ? summary.totalGross / summary.totalHours : 0;
-
-  if (isDeleting) {
-    return (
-      <div className="flex items-center justify-center py-20">
-        <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin" />
-      </div>
-    );
-  }
 
   return (
     <motion.div

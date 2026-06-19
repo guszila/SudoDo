@@ -109,8 +109,8 @@ export default function TasksPage({ user, lang = 'en' }) {
     const isNowDone = task.status !== TASK_STATUS.DONE;
     const updated = {
       ...task,
-      start: task.start.toISOString(),
-      end: task.end.toISOString(),
+      start: task.start instanceof Date ? task.start.toISOString() : task.start,
+      end: task.end instanceof Date ? task.end.toISOString() : task.end,
       status: isNowDone ? TASK_STATUS.DONE : TASK_STATUS.TODO
     };
     setIsMutating(true);
@@ -202,7 +202,7 @@ export default function TasksPage({ user, lang = 'en' }) {
 
   const now = new Date();
 
-  if (isLoading || isMutating) {
+  if (isLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#121212]">
         <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>

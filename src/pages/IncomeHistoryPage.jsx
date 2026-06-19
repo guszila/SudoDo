@@ -61,10 +61,8 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
     if (!deleteConfirmTask) return;
     const taskToDelete = { ...deleteConfirmTask };
     setDeleteConfirmTask(null);
-    setIsDeleting(true);
     
     await saveTask('DELETE', { id: taskToDelete.id }, user.uid);
-    setIsDeleting(false);
     
     showToast('ลบเรียบร้อยแล้ว', {
       duration: 5000,
@@ -307,13 +305,7 @@ export default function IncomeHistoryPage({ user, lang = 'th' }) {
     );
   }
 
-  if (isDeleting) {
-    return (
-      <div className="min-h-screen flex items-center justify-center">
-        <div className="w-10 h-10 border-4 border-red-500 border-t-transparent rounded-full animate-spin"></div>
-      </div>
-    );
-  }
+  // Removed full-screen isDeleting loading check
 
   return (
     <motion.div 

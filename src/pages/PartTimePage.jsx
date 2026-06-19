@@ -874,8 +874,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
   const handleMarkDone = async (task) => {
     const updated = {
       ...task,
-      start: task.start.toISOString(),
-      end: task.end.toISOString(),
+      start: task.start instanceof Date ? task.start.toISOString() : task.start,
+      end: task.end instanceof Date ? task.end.toISOString() : task.end,
       status: TASK_STATUS.DONE
     };
     setIsMutating(true);
@@ -902,6 +902,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
   };
 
   const handleEditSave = async (taskData) => {
+    setIsModalOpen(false);
+    setEditingTask(null);
     setIsMutating(true);
     if (editingTask) {
       await saveTask('EDIT', { ...taskData, id: editingTask.id }, user.uid);
@@ -909,8 +911,6 @@ export default function PartTimePage({ user, lang = 'en' }) {
       await saveTask('ADD', taskData, user.uid);
     }
     setIsMutating(false);
-    setIsModalOpen(false);
-    setEditingTask(null);
   };
 
   const handleDelete = async (taskData) => {
@@ -938,7 +938,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
   const fTime = (d) => format(d, 'HH:mm');
   const activeTasks = activeTab === 'upcoming' ? upcomingTasks : historyTasks;
 
-  if (isTasksLoading || isMutating) {
+  if (isTasksLoading) {
     return (
       <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#121212]">
         <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
