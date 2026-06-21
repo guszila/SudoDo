@@ -1,11 +1,11 @@
 import React, { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { format, subMonths, getDaysInMonth } from 'date-fns';
+import { format, subMonths, getDaysInMonth, getWeekOfMonth, startOfWeek, endOfWeek } from 'date-fns';
 import { th } from 'date-fns/locale';
 import {
   CheckCircle2, Clock, Calendar as CalendarIcon,
   ArrowDown, ArrowUp, CalendarOff, Banknote, SlidersHorizontal, X,
-  TrendingUp, TrendingDown, Minus
+  TrendingUp, TrendingDown, Minus, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 
@@ -30,6 +30,7 @@ export default function IncomeSummaryTab({ user, lang = 'th' }) {
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null); // null = all
+  const [isShiftListCollapsed, setIsShiftListCollapsed] = useState(false);
 
   const partTimeTasks = useMemo(() =>
     allTasks.filter(t => t.isPartTime).sort((a, b) => new Date(b.start) - new Date(a.start)),
@@ -190,6 +191,62 @@ export default function IncomeSummaryTab({ user, lang = 'th' }) {
     return shiftsList.filter(t => t.title === selectedCompany);
   }, [shiftsList, selectedCompany]);
 
+  // Grouped shifts by week
+  const groupedShifts = useMemo(() => {
+    if (filteredShifts.length === 0) return [];
+    
+    const groupsMap = new Map();
+
+    filteredShifts.forEach(task => {
+      const taskDate = new Date(task.start);
+      const weekNum = getWeekOfMonth(taskDate, { weekStartsOn: 1 });
+      
+      const startD = startOfWeek(taskDate, { weekStartsOn: 1 });
+      const endD = endOfWeek(taskDate, { weekStartsOn: 1 });
+      const startStr = format(startD, 'd MMM', { locale: th });
+      const endStr = format(endD, 'd MMM', { locale: th });
+      const yearStr = (endD.getFullYear() + 543).toString().slice(-2);
+      
+      const label = startD.getMonth() === endD.getMonth() 
+        ? `${format(startD, 'd')} - ${format(endD, 'd MMM')} ${yearStr}`
+        : `${startStr} - ${endStr} ${yearStr}`;
+      
+      if (!groupsMap.has(label)) {
+        groupsMap.set(label, {
+          label,
+          weekNum,
+          tasks: [],
+          totalEarnings: 0
+        });
+      }
+      
+      const group = groupsMap.get(label);
+      group.tasks.push(task);
+      
+      const isCompleted = task.status === TASK_STATUS.DONE || (task.actualStart && task.actualEnd);
+      let earnings = 0;
+      if (task.isExpense) {
+        earnings = -(Number(task.amount) || 0);
+      } else if (task.isExtraIncome) {
+        earnings = Number(task.amount) || 0;
+      } else {
+        let hours = task.actualStart && task.actualEnd
+          ? (new Date(task.actualEnd) - new Date(task.actualStart)) / 3600000
+          : (new Date(task.end) - new Date(task.start)) / 3600000;
+        hours = Math.max(0, hours - (Number(task.breakHours) || 0));
+        if (task.rateType === RATE_TYPE.DAILY) earnings = Number(task.hourlyRate) || 0;
+        else if (hours > 0) earnings = hours * (Number(task.hourlyRate) || 0);
+        if (task.isHolidayPay) earnings *= 2;
+      }
+      
+      if (isCompleted || task.isExtraIncome || task.isExpense) {
+        group.totalEarnings += earnings;
+      }
+    });
+
+    return Array.from(groupsMap.values()).sort((a, b) => b.weekNum - a.weekNum);
+  }, [filteredShifts]);
+
   const formatThMonth = (s) => {
     const d = new Date(`${s}-01`);
     return `${format(d, 'MMM', { locale: th })} ${(d.getFullYear() + 543).toString().slice(-2)}`;
@@ -266,16 +323,16 @@ export default function IncomeSummaryTab({ user, lang = 'th' }) {
           )}
 
           {/* 4-stat grid */}
-          <div className="grid grid-cols-4 gap-2 mt-4">
+          <div className="grid grid-cols-4 gap-1.5 mt-5">
             {[
               { label: 'กะงาน', value: `${summary.shiftCount}` },
               { label: 'ชั่วโมง', value: `${summary.totalHours % 1 === 0 ? summary.totalHours : summary.totalHours.toFixed(1)}` },
               { label: '฿/กะ', value: `${avgPerShift.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
               { label: '฿/ชม.', value: `${avgPerHour.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
             ].map(item => (
-              <div key={item.label} className="bg-white/15 backdrop-blur-sm rounded-2xl p-3 text-center border border-white/20">
-                <p className="text-white font-black text-base leading-tight">{item.value}</p>
-                <p className="text-white/60 text-[10px] font-bold mt-0.5">{item.label}</p>
+              <div key={item.label} className="bg-black/20 backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/10 shadow-inner">
+                <p className="text-white font-black text-[16px] sm:text-[17px] leading-tight">{item.value}</p>
+                <p className="text-white/80 text-[10px] sm:text-[11px] font-bold mt-1">{item.label}</p>
               </div>
             ))}
           </div>
@@ -390,10 +447,16 @@ export default function IncomeSummaryTab({ user, lang = 'th' }) {
       {/* ── Shift List Header + Filter ── */}
       <div>
         <div className="flex items-center justify-between mb-3 px-1">
-          <div className="flex items-center gap-2">
+          <button 
+            onClick={() => setIsShiftListCollapsed(!isShiftListCollapsed)}
+            className="flex items-center gap-2 active:scale-[0.98] transition-transform text-left"
+          >
             <h3 className="text-main/80 font-bold text-sm">รายการกะงาน</h3>
             <span className="text-main/40 text-xs">{filteredShifts.length} รายการ</span>
-          </div>
+            <div className="p-1 rounded-full bg-black/5 dark:bg-white/5 ml-1">
+              {isShiftListCollapsed ? <ChevronDown size={14} className="text-main/60" /> : <ChevronUp size={14} className="text-main/60" />}
+            </div>
+          </button>
           {selectedCompany && (
             <button
               onClick={() => setSelectedCompany(null)}
@@ -405,126 +468,151 @@ export default function IncomeSummaryTab({ user, lang = 'th' }) {
           )}
         </div>
 
-        {/* Company Filter Pills */}
-        {companies.length > 1 && (
-          <div className="flex gap-2 overflow-x-auto pb-2 mb-3 snap-x hide-scrollbar -mx-1 px-1">
-            {companies.map((name, i) => {
-              const job = (settings.jobs || []).find(j => j.name === name);
-              const isActive = selectedCompany === name;
-              return (
-                <button
-                  key={name}
-                  onClick={() => setSelectedCompany(isActive ? null : name)}
-                  className={`snap-start flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all
-                    ${isActive
-                      ? `${COMPANY_BG_CLASSES[i % COMPANY_BG_CLASSES.length]} text-white border-transparent shadow-md scale-105`
-                      : 'bg-white/30 dark:bg-white/5 border-white/30 dark:border-white/10 text-main/60 hover:bg-white/50 dark:hover:bg-white/10'}`}
-                >
-                  <span>{job?.emoji || '🏢'}</span>
-                  {name}
-                </button>
-              );
-            })}
-          </div>
-        )}
+        <AnimatePresence initial={false}>
+          {!isShiftListCollapsed && (
+            <motion.div
+              initial={{ height: 0, opacity: 0 }}
+              animate={{ height: 'auto', opacity: 1 }}
+              exit={{ height: 0, opacity: 0 }}
+              transition={{ duration: 0.25, ease: 'easeInOut' }}
+              className="overflow-hidden"
+            >
+              {/* Company Filter Pills */}
+              {companies.length > 1 && (
+                <div className="flex gap-2 overflow-x-auto pb-2 mb-3 snap-x hide-scrollbar -mx-1 px-1">
+                  {companies.map((name, i) => {
+                    const job = (settings.jobs || []).find(j => j.name === name);
+                    const isActive = selectedCompany === name;
+                    return (
+                      <button
+                        key={name}
+                        onClick={() => setSelectedCompany(isActive ? null : name)}
+                        className={`snap-start flex-shrink-0 flex items-center gap-1.5 px-3 py-1.5 rounded-full text-xs font-bold border transition-all
+                          ${isActive
+                            ? `${COMPANY_BG_CLASSES[i % COMPANY_BG_CLASSES.length]} text-white border-transparent shadow-md scale-105`
+                            : 'bg-white/30 dark:bg-white/5 border-white/30 dark:border-white/10 text-main/60 hover:bg-white/50 dark:hover:bg-white/10'}`}
+                      >
+                        <span>{job?.emoji || '🏢'}</span>
+                        {name}
+                      </button>
+                    );
+                  })}
+                </div>
+              )}
 
-        {/* Shift cards */}
-        <div className="space-y-2.5">
-          {filteredShifts.length === 0 ? (
-            <div className="liquid-glass-card rounded-[24px] p-8 text-center flex flex-col items-center">
-              <CalendarIcon className="w-12 h-12 text-main/20 mb-3" />
-              <p className="text-main/60 font-bold text-sm">ไม่มีข้อมูลเดือนนี้</p>
-            </div>
-          ) : (
-            filteredShifts.map(task => {
-              const isCompleted = task.status === TASK_STATUS.DONE || (task.actualStart && task.actualEnd);
-              let earnings = 0, hours = 0;
-              if (task.isExpense) {
-                earnings = -(Number(task.amount) || 0);
-              } else if (task.isExtraIncome) {
-                earnings = Number(task.amount) || 0;
-              } else {
-                hours = task.actualStart && task.actualEnd
-                  ? (new Date(task.actualEnd) - new Date(task.actualStart)) / 3600000
-                  : (new Date(task.end) - new Date(task.start)) / 3600000;
-                hours = Math.max(0, hours - (Number(task.breakHours) || 0));
-                if (task.rateType === RATE_TYPE.DAILY) earnings = Number(task.hourlyRate) || 0;
-                else if (hours > 0) earnings = hours * (Number(task.hourlyRate) || 0);
-                if (task.isHolidayPay) earnings *= 2;
-              }
-              const taskDate = new Date(task.start);
-              const isFuture = taskDate > new Date() && !isCompleted;
-              const job = (settings.jobs || []).find(j => j.name === task.title);
-              const jobColorIdx = companyChartData.findIndex(c => c.name === task.title);
-              const dotColor = COMPANY_COLORS[jobColorIdx >= 0 ? jobColorIdx % COMPANY_COLORS.length : 0];
-
-              return (
-                <SwipeableRow key={task.id} onDelete={() => setDeleteConfirmTask(task)}>
-                  <motion.div
-                    initial={{ opacity: 0, y: 4 }}
-                    animate={{ opacity: 1, y: 0 }}
-                    className={`liquid-glass-card rounded-[20px] p-4 flex items-start gap-3.5 transition-all ${isFuture ? 'opacity-50' : ''}`}
-                  >
-                    {/* Left icon */}
-                    <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
-                      task.isExpense ? 'bg-red-500/10 text-red-500' :
-                      task.isExtraIncome ? 'bg-green-500/10 text-green-500' :
-                      isCompleted ? 'bg-green-500/10 text-green-500' : 'bg-primary-500/15 text-primary-500'
-                    }`}>
-                      {task.isExtraIncome ? <Banknote size={18} /> : (isCompleted || task.isExpense ? <CheckCircle2 size={18} /> : <Clock size={18} />)}
-                    </div>
-
-                    {/* Content */}
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-2 mb-0.5">
-                        <h4 className="font-bold text-main text-sm truncate">{task.title}</h4>
-                        {/* Status badge */}
-                        {!task.isExpense && !task.isExtraIncome && (
-                          <span className={`flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full
-                            ${isCompleted ? 'bg-green-500/15 text-green-600 dark:text-green-400'
-                              : isFuture ? 'bg-main/10 text-main/40'
-                              : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'}`}>
-                            {isCompleted ? '✓ เสร็จ' : isFuture ? 'รอทำ' : 'ค้างอยู่'}
+              {/* Shift cards */}
+              <div className="space-y-4">
+                {groupedShifts.length === 0 ? (
+                  <div className="liquid-glass-card rounded-[24px] p-8 text-center flex flex-col items-center">
+                    <CalendarIcon className="w-12 h-12 text-main/20 mb-3" />
+                    <p className="text-main/60 font-bold text-sm">ไม่มีข้อมูลเดือนนี้</p>
+                  </div>
+                ) : (
+                  groupedShifts.map(group => (
+                    <div key={group.weekNum} className="space-y-2.5">
+                      {/* Group Header */}
+                      <div className="flex items-center justify-between px-2 pt-1 pb-1">
+                        <h4 className="text-main/60 font-bold text-xs">{group.label}</h4>
+                        {group.totalEarnings > 0 && (
+                          <span className="text-main/50 font-bold text-xs">
+                            ฿{group.totalEarnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
                           </span>
                         )}
                       </div>
+                      {group.tasks.map(task => {
+                        const isCompleted = task.status === TASK_STATUS.DONE || (task.actualStart && task.actualEnd);
+                        let earnings = 0, hours = 0;
+                        if (task.isExpense) {
+                          earnings = -(Number(task.amount) || 0);
+                        } else if (task.isExtraIncome) {
+                          earnings = Number(task.amount) || 0;
+                        } else {
+                          hours = task.actualStart && task.actualEnd
+                            ? (new Date(task.actualEnd) - new Date(task.actualStart)) / 3600000
+                            : (new Date(task.end) - new Date(task.start)) / 3600000;
+                          hours = Math.max(0, hours - (Number(task.breakHours) || 0));
+                          if (task.rateType === RATE_TYPE.DAILY) earnings = Number(task.hourlyRate) || 0;
+                          else if (hours > 0) earnings = hours * (Number(task.hourlyRate) || 0);
+                          if (task.isHolidayPay) earnings *= 2;
+                        }
+                        const taskDate = new Date(task.start);
+                        const isFuture = taskDate > new Date() && !isCompleted;
+                        const job = (settings.jobs || []).find(j => j.name === task.title);
+                        const jobColorIdx = companyChartData.findIndex(c => c.name === task.title);
+                        const dotColor = COMPANY_COLORS[jobColorIdx >= 0 ? jobColorIdx % COMPANY_COLORS.length : 0];
 
-                      <p className="text-xs text-main/50">
-                        {format(taskDate, 'EEEEที่ d MMMM', { locale: th })}
-                      </p>
+                        return (
+                          <SwipeableRow key={task.id} onDelete={() => setDeleteConfirmTask(task)}>
+                            <motion.div
+                              initial={{ opacity: 0, y: 4 }}
+                              animate={{ opacity: 1, y: 0 }}
+                              className={`liquid-glass-card rounded-[20px] p-4 flex items-start gap-3.5 transition-all ${isFuture ? 'opacity-50' : ''}`}
+                            >
+                              {/* Left icon */}
+                              <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${
+                                task.isExpense ? 'bg-red-500/10 text-red-500' :
+                                task.isExtraIncome ? 'bg-green-500/10 text-green-500' :
+                                isCompleted ? 'bg-green-500/10 text-green-500' : 'bg-primary-500/15 text-primary-500'
+                              }`}>
+                                {task.isExtraIncome ? <Banknote size={18} /> : (isCompleted || task.isExpense ? <CheckCircle2 size={18} /> : <Clock size={18} />)}
+                              </div>
 
-                      {!task.isExpense && !task.isExtraIncome && (
-                        <p className="text-xs text-main/40 mt-0.5">
-                          ⏱ {format(taskDate, 'HH:mm')}–{format(new Date(task.end), 'HH:mm')}
-                          {hours > 0 && ` · ${hours % 1 === 0 ? hours : hours.toFixed(1)} ชม.`}
-                          {task.isHolidayPay && ' · วันหยุด x2 🎉'}
-                        </p>
-                      )}
+                              {/* Content */}
+                              <div className="flex-1 min-w-0">
+                                <div className="flex items-center gap-2 mb-0.5">
+                                  <h4 className="font-bold text-main text-sm truncate">{task.title}</h4>
+                                  {/* Status badge */}
+                                  {!task.isExpense && !task.isExtraIncome && (
+                                    <span className={`flex-shrink-0 text-[10px] font-bold px-1.5 py-0.5 rounded-full
+                                      ${isCompleted ? 'bg-green-500/15 text-green-600 dark:text-green-400'
+                                        : isFuture ? 'bg-main/10 text-main/40'
+                                        : 'bg-amber-500/15 text-amber-600 dark:text-amber-400'}`}>
+                                      {isCompleted ? '✓ เสร็จ' : isFuture ? 'รอทำ' : 'ค้างอยู่'}
+                                    </span>
+                                  )}
+                                </div>
 
-                      {/* Notes */}
-                      {task.description && (
-                        <p className="text-xs text-main/40 mt-1 flex items-start gap-1">
-                          <span className="mt-0.5">📝</span>
-                          <span className="truncate">{task.description}</span>
-                        </p>
-                      )}
+                                <p className="text-xs text-main/50">
+                                  {format(taskDate, 'EEEEที่ d MMMM', { locale: th })}
+                                </p>
+
+                                {!task.isExpense && !task.isExtraIncome && (
+                                  <p className="text-xs text-main/40 mt-0.5">
+                                    ⏱ {format(taskDate, 'HH:mm')}–{format(new Date(task.end), 'HH:mm')}
+                                    {hours > 0 && ` · ${hours % 1 === 0 ? hours : hours.toFixed(1)} ชม.`}
+                                    {task.isHolidayPay && ' · วันหยุด x2 🎉'}
+                                  </p>
+                                )}
+
+                                {/* Notes */}
+                                {task.description && (
+                                  <p className="text-xs text-main/40 mt-1 flex items-start gap-1">
+                                    <span className="mt-0.5">📝</span>
+                                    <span className="truncate">{task.description}</span>
+                                  </p>
+                                )}
+                              </div>
+
+                              {/* Earnings */}
+                              <div className="shrink-0 text-right mt-0.5">
+                                <p className={`font-black text-sm ${
+                                  task.isExpense ? 'text-red-500' :
+                                  isCompleted ? 'text-green-500' : 'text-amber-500'
+                                }`}>
+                                  {task.isExpense ? '-' : '+'}฿{Math.abs(earnings).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                </p>
+                              </div>
+                            </motion.div>
+                          </SwipeableRow>
+                        );
+                      })}
                     </div>
-
-                    {/* Earnings */}
-                    <div className="shrink-0 text-right mt-0.5">
-                      <p className={`font-black text-sm ${
-                        task.isExpense ? 'text-red-500' :
-                        isCompleted ? 'text-green-500' : 'text-amber-500'
-                      }`}>
-                        {task.isExpense ? '-' : '+'}฿{Math.abs(earnings).toLocaleString(undefined, { maximumFractionDigits: 0 })}
-                      </p>
-                    </div>
-                  </motion.div>
-                </SwipeableRow>
-              );
-            })
+                  ))
+                )}
+              </div>
+            </motion.div>
           )}
-        </div>
+        </AnimatePresence>
       </div>
 
       <ConfirmDialog

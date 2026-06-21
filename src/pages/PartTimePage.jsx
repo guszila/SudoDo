@@ -12,6 +12,7 @@ import ActionSheet from '../components/common/ActionSheet';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import CalculatorWidget from '../components/common/CalculatorWidget';
 import IncomeSummaryTab from '../components/income/IncomeSummaryTab';
+import ShiftSuccessModal from '../components/income/ShiftSuccessModal';
 import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -85,6 +86,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
     startTime: DEFAULT_TASK_VALUES.START_TIME,
     endTime: DEFAULT_TASK_VALUES.END_TIME
   });
+  const [successShiftData, setSuccessShiftData] = useState(null);
   
   const [enabledWidgets, setEnabledWidgets] = useState(() => {
     const saved = localStorage.getItem('income_dashboard');
@@ -821,8 +823,22 @@ export default function PartTimePage({ user, lang = 'en' }) {
        }
     }
 
+    const successData = {
+      title: formData.title,
+      startDate: formData.startDate,
+      endDate: formData.endDate,
+      startTime: formData.startTime,
+      endTime: formData.endTime,
+      hourlyRate: formData.hourlyRate,
+      rateType: formData.rateType,
+      isHolidayPay: formData.isHolidayPay,
+      breakHours: (formData.rateType === RATE_TYPE.HOURLY) ? (Number(formData.breakHours) || 0) : 0,
+      shiftCount: shiftsToAdd.length
+    };
+
     await Promise.all(shiftsToAdd.map(task => saveTask('ADD', task, user.uid)));
     setShowAddForm(false);
+    setSuccessShiftData(successData);
     setIsMutating(false);
   };
   const handleAddExtraItem = async (e) => {
@@ -1920,6 +1936,13 @@ export default function PartTimePage({ user, lang = 'en' }) {
         isOpen={showCalculator} 
         onClose={() => setShowCalculator(false)} 
         lang={lang} 
+      />
+
+      <ShiftSuccessModal
+        isOpen={!!successShiftData}
+        onClose={() => setSuccessShiftData(null)}
+        data={successShiftData}
+        lang={lang}
       />
 
       {/* End of Shifts tab wrapper */}

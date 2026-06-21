@@ -141,7 +141,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
     syncGoogle: lang === 'en' ? 'Sync Google Calendar' : 'ซิงค์ Google Calendar',
     notConnected: lang === 'en' ? 'Not connected' : 'ยังไม่ได้เชื่อมต่อ',
     new: lang === 'en' ? 'NEW' : 'ใหม่',
-    exportPdf: lang === 'en' ? 'Export Shifts to PDF' : 'Export ตารางเวร PDF',
+    exportPdf: lang === 'en' ? 'Export Monthly Income Summary' : 'Export สรุปรายได้ต่อเดือน',
     data: lang === 'en' ? 'Data' : 'ข้อมูล',
     socialSecurity: lang === 'en' ? 'Social Security' : 'ประกันสังคม',
     ssoSub: lang === 'en' ? 'Auto calculate 5% deduction' : 'คำนวณหัก 5% อัตโนมัติ',
@@ -273,7 +273,21 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
       const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
-      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pdfHeight);
+      const pageHeight = pdf.internal.pageSize.getHeight();
+      
+      let heightLeft = pdfHeight;
+      let position = 0;
+
+      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+      heightLeft -= pageHeight;
+
+      while (heightLeft > 0) {
+        position = heightLeft - pdfHeight;
+        pdf.addPage();
+        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
+        heightLeft -= pageHeight;
+      }
+
       pdf.save(`Statement_${exportMonth}.pdf`);
       showToast(lang === 'en' ? 'PDF Exported Successfully' : 'บันทึก PDF สำเร็จ!');
       setActiveSheet(null);
