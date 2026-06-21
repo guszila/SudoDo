@@ -13,6 +13,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import CalculatorWidget from '../components/common/CalculatorWidget';
 import IncomeSummaryTab from '../components/income/IncomeSummaryTab';
 import ShiftSuccessModal from '../components/income/ShiftSuccessModal';
+import ExtraSuccessModal from '../components/income/ExtraSuccessModal';
 import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -87,6 +88,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
     endTime: DEFAULT_TASK_VALUES.END_TIME
   });
   const [successShiftData, setSuccessShiftData] = useState(null);
+  const [successExtraData, setSuccessExtraData] = useState(null);
   
   const [enabledWidgets, setEnabledWidgets] = useState(() => {
     const saved = localStorage.getItem('income_dashboard');
@@ -723,7 +725,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                      amt = Number(exp.amount) || 0;
                    }
                    return (
-                     <div key={exp.id} onClick={() => handleEditExpenseClick(exp)} className="flex justify-between items-center p-2 bg-main/5 rounded-lg cursor-pointer hover:bg-main/10 transition-colors">
+                     <div key={exp.id} onClick={() => handleEditExtraItemClick(exp)} className="flex justify-between items-center p-2 bg-main/5 rounded-lg cursor-pointer hover:bg-main/10 transition-colors">
                        <div>
                          <p className="text-sm font-medium">{exp.title}</p>
                          <p className="text-[10px] opacity-60">{exp.isPercentage ? `${exp.amount}% ของรายได้` : fDate(exp.start)}</p>
@@ -864,8 +866,15 @@ export default function PartTimePage({ user, lang = 'en' }) {
     
     if (extraFormData.id) {
       await saveTask('EDIT', { ...extraTask, id: extraFormData.id }, user.uid);
+      showToast('บันทึกการแก้ไขเรียบร้อยแล้ว');
     } else {
       await saveTask('ADD', extraTask, user.uid);
+      setSuccessExtraData({
+        title: extraTask.title,
+        amount: extraTask.amount,
+        month: extraFormData.month,
+        type: extraFormType
+      });
     }
     setShowAddExtraForm(false);
     setExtraFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10), month: new Date().toISOString().slice(0, 7), isPercentage: false });
@@ -884,7 +893,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       month: isNaN(startD.getTime()) ? new Date().toISOString().slice(0, 7) : startD.toISOString().slice(0, 7),
       isPercentage: false
     });
-    setShowAddExpenseForm(true);
+    setShowAddExtraForm(true);
   };
 
   const handleMarkDone = async (task) => {
@@ -1011,7 +1020,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
       {/* Income Summary Tab */}
       {mainTab === 'summary' && (
-        <IncomeSummaryTab user={user} lang={lang} />
+        <IncomeSummaryTab user={user} lang={lang} onEditExtraItem={handleEditExtraItemClick} />
       )}
 
       {/* Shifts Tab wrapper — hidden when on summary */}
@@ -1152,43 +1161,77 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
       <AnimatePresence>
         {showAddExtraForm && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-6">
-            <form onSubmit={handleAddExtraItem} className={`liquid-glass-card p-6 space-y-5 border-2 ${extraFormType === 'income' ? 'border-green-500/30 bg-green-500/5' : 'border-red-500/30 bg-red-500/5'}`}>
-              <h3 className="font-bold text-main">
-                {extraFormType === 'income' ? 'เพิ่มรายได้พิเศษ (ทิป, ค่าคอม)' : t.addExpenseTitle}
+          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+            <motion.div 
+              initial={{ opacity: 0 }} 
+              animate={{ opacity: 1 }} 
+              exit={{ opacity: 0 }} 
+              className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+              onClick={() => setShowAddExtraForm(false)} 
+            />
+            <motion.div 
+              initial={{ scale: 0.95, opacity: 0, y: 15 }} 
+              animate={{ scale: 1, opacity: 1, y: 0 }} 
+              exit={{ scale: 0.95, opacity: 0, y: 15 }} 
+              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
+              className={`relative w-full max-w-md liquid-glass-card p-6 md:p-8 space-y-5 border border-white/20 dark:border-white/10 shadow-2xl z-10 rounded-3xl ${extraFormType === 'income' ? 'bg-white/90 dark:bg-zinc-900/90 border-t-4 border-t-green-500' : 'bg-white/90 dark:bg-zinc-900/90 border-t-4 border-t-red-500'}`}
+            >
+              <button 
+                onClick={() => setShowAddExtraForm(false)} 
+                className="absolute top-4 right-4 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main/50 hover:text-main"
+                type="button"
+              >
+                <X size={20} />
+              </button>
+              
+              <h3 className="font-bold text-xl text-main pr-8 flex items-center gap-2">
+                {extraFormType === 'income' ? <><Banknote className="text-green-500"/> {extraFormData.id ? 'แก้ไขรายได้พิเศษ' : 'เพิ่มรายได้พิเศษ'}</> : <><Receipt className="text-red-500"/> {extraFormData.id ? 'แก้ไขรายจ่าย' : t.addExpenseTitle}</>}
               </h3>
               
-              <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
-                    {extraFormType === 'income' ? 'ชื่อรายการ' : t.expenseTitle}
-                  </label>
-                  <input type="text" value={extraFormData.title} onChange={e => setExtraFormData({...extraFormData, title: e.target.value})} required className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder={extraFormType === 'income' ? 'เช่น ทิป, ค่าคอมมิชชัน' : t.expenseTitlePlaceholder} />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.amount}</label>
-                  <div className="relative">
-                    <input type="number" step="any" value={extraFormData.amount} onChange={e => setExtraFormData({...extraFormData, amount: e.target.value})} required min="0" className={`w-full pl-4 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} />
-                    <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold opacity-50">฿</span>
+              <form onSubmit={handleAddExtraItem} className="space-y-4">
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
+                      {extraFormType === 'income' ? 'ชื่อรายการ' : t.expenseTitle}
+                    </label>
+                    <input type="text" value={extraFormData.title} onChange={e => setExtraFormData({...extraFormData, title: e.target.value})} required className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder={extraFormType === 'income' ? 'เช่น ทิป, ค่าคอมมิชชัน' : t.expenseTitlePlaceholder} />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.amount}</label>
+                    <div className="relative">
+                      <input type="number" step="any" value={extraFormData.amount} onChange={e => setExtraFormData({...extraFormData, amount: e.target.value})} required min="0" className={`w-full pl-4 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                      <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold opacity-50">฿</span>
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
+                      ประจำเดือน
+                    </label>
+                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="month" value={extraFormData.month} onChange={e => setExtraFormData({...extraFormData, month: e.target.value})} required className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} />
                   </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
-                    ประจำเดือน
-                  </label>
-                  <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="month" value={extraFormData.month} onChange={e => setExtraFormData({...extraFormData, month: e.target.value})} required className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                
+                <div className="pt-4 flex gap-3">
+                  {extraFormData.id && (
+                    <button 
+                      type="button" 
+                      onClick={() => {
+                        setDeleteConfirmTask({ id: extraFormData.id, title: extraFormData.title });
+                        setShowAddExtraForm(false);
+                      }}
+                      className="py-3 px-4 text-red-500 font-bold rounded-xl transition-colors hover:bg-red-500/10 border border-red-500/20"
+                    >
+                      <Trash2 size={20} />
+                    </button>
+                  )}
+                  <button type="submit" disabled={isMutating || isTasksLoading} className={`flex-1 py-4 text-white font-bold rounded-xl transition-colors shadow-lg active:scale-[0.98] ${extraFormType === 'income' ? 'bg-green-500 hover:bg-green-600 shadow-green-500/25' : 'bg-red-500 hover:bg-red-600 shadow-red-500/25'}`}>
+                    {extraFormData.id ? 'บันทึกการแก้ไข' : (extraFormType === 'income' ? 'บันทึกรายได้พิเศษ' : t.createExpense)}
+                  </button>
                 </div>
-              </div>
-              
-              <div className="pt-2">
-                <button type="submit" disabled={isMutating || isTasksLoading} className={`w-full py-4 text-white font-bold rounded-xl transition-colors shadow-lg active:scale-[0.98] ${extraFormType === 'income' ? 'bg-green-500 hover:bg-green-600' : 'bg-red-500 hover:bg-red-600'}`}>
-                  {extraFormType === 'income' ? 'บันทึกรายได้พิเศษ' : t.createExpense}
-                </button>
-              </div>
-            </form>
-          </motion.div>
+              </form>
+            </motion.div>
+          </div>
         )}
-
         {showAddForm && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-6">
             <form onSubmit={handleAddShift} className="liquid-glass-card p-6 space-y-5 border-2 border-primary-500/30 bg-primary-500/5">
@@ -1943,6 +1986,22 @@ export default function PartTimePage({ user, lang = 'en' }) {
         onClose={() => setSuccessShiftData(null)}
         data={successShiftData}
         lang={lang}
+      />
+      <ExtraSuccessModal
+        isOpen={!!successExtraData}
+        onClose={() => setSuccessExtraData(null)}
+        data={successExtraData}
+        lang={lang}
+      />
+
+      <ConfirmDialog
+        isOpen={!!deleteConfirmTask}
+        title="ยืนยันการลบ"
+        message={`คุณแน่ใจหรือไม่ว่าต้องการลบ '${deleteConfirmTask?.title || 'รายการนี้'}'?`}
+        confirmText="ลบ"
+        isDanger={true}
+        onConfirm={() => confirmDelete(deleteConfirmTask)}
+        onCancel={() => setDeleteConfirmTask(null)}
       />
 
       {/* End of Shifts tab wrapper */}

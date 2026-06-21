@@ -21,7 +21,7 @@ import { calcSSO } from '../../utils/socialSecurity';
 const COMPANY_COLORS = ['#6C63FF', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6', '#3B82F6'];
 const COMPANY_BG_CLASSES = ['bg-violet-500', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-blue-500'];
 
-export default function IncomeSummaryTab({ user, lang = 'th' }) {
+export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem }) {
   const { tasks: allTasks } = useTasks();
   const { showToast } = useToast();
   const { settings } = useSettings();
@@ -55,12 +55,13 @@ export default function IncomeSummaryTab({ user, lang = 'th' }) {
     });
   };
 
-  const { summary, chartData, shiftsList, comparison, companyChartData, companyStatsMap } = useMemo(() => {
+  const { summary, chartData, shiftsList, comparison, companyChartData, companyStatsMap, expensesList } = useMemo(() => {
     const targetDate = new Date(`${selectedMonth}-01T00:00:00`);
     const daysInMonth = getDaysInMonth(targetDate);
 
     let totalIncome = 0, ssoGross = 0, shiftCount = 0, totalHours = 0;
     const shiftsInMonth = [];
+    const expensesList = [];
     const companyIncomeMap = {};
     const companyStatsMap = {};
     const dailyIncomeMap = {};
@@ -77,6 +78,7 @@ export default function IncomeSummaryTab({ user, lang = 'th' }) {
       if (t.isExpense) {
         earnings = -(Number(t.amount) || 0);
         if (isDone) totalIncome += earnings;
+        expensesList.push(t);
       } else if (t.isExtraIncome) {
         earnings = Number(t.amount) || 0;
         if (isDone) {
@@ -167,6 +169,7 @@ export default function IncomeSummaryTab({ user, lang = 'th' }) {
       companyChartData, companyStatsMap,
       chartData: chartArr,
       shiftsList: shiftsInMonth,
+      expensesList,
       comparison: {
         lastMonth: lastMonthIncome,
         lastMonthChange: getChange(netIncome, lastMonthIncome),
@@ -421,6 +424,35 @@ export default function IncomeSummaryTab({ user, lang = 'th' }) {
         </div>
       )}
 
+      {/* ── Expenses Summary Box ── */}
+      {expensesList.length > 0 && (
+        <div className="liquid-glass-card p-5 rounded-[24px]">
+          <div className="flex justify-between items-center mb-4">
+            <h3 className="text-main/80 font-bold text-sm">รวมรายจ่ายเดือนนี้</h3>
+            <span className="text-sm font-bold text-red-500">
+              -฿{expensesList.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+            </span>
+          </div>
+          <div className="space-y-2">
+            {expensesList.map(exp => (
+              <div 
+                key={exp.id} 
+                onClick={() => onEditExtraItem && onEditExtraItem(exp)}
+                className="flex justify-between items-center p-3 bg-red-500/5 border border-red-500/10 rounded-xl cursor-pointer hover:bg-red-500/10 transition-colors"
+              >
+                <div>
+                  <p className="text-sm font-bold text-main">{exp.title}</p>
+                  <p className="text-[10px] text-main/50 mt-0.5">{format(new Date(exp.start), 'd MMM yyyy', { locale: th })}</p>
+                </div>
+                <span className="text-sm font-bold text-red-500">
+                  -฿{(Number(exp.amount) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                </span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
+
       {/* ── Comparison Cards ── */}
       <div className="grid grid-cols-2 gap-3">
         {[
@@ -544,9 +576,14 @@ export default function IncomeSummaryTab({ user, lang = 'th' }) {
                         return (
                           <SwipeableRow key={task.id} onDelete={() => setDeleteConfirmTask(task)}>
                             <motion.div
+                              onClick={() => {
+                                if ((task.isExpense || task.isExtraIncome) && onEditExtraItem) {
+                                  onEditExtraItem(task);
+                                }
+                              }}
                               initial={{ opacity: 0, y: 4 }}
                               animate={{ opacity: 1, y: 0 }}
-                              className={`liquid-glass-card rounded-[20px] p-4 flex items-start gap-3.5 transition-all ${isFuture ? 'opacity-50' : ''}`}
+                              className={`liquid-glass-card rounded-[20px] p-4 flex items-start gap-3.5 transition-all ${(task.isExpense || task.isExtraIncome) ? 'cursor-pointer hover:bg-black/5 dark:hover:bg-white/5' : ''} ${isFuture ? 'opacity-50' : ''}`}
                             >
                               {/* Left icon */}
                               <div className={`w-10 h-10 rounded-xl flex items-center justify-center shrink-0 mt-0.5 ${

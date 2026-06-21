@@ -274,7 +274,7 @@ export default function ShiftSuccessModal({ isOpen, onClose, data, lang = 'th' }
                 <span className="text-main font-bold text-base">
                   {data.shiftCount > 1 ? t.totalEstPayLabel : t.estPayLabel}
                 </span>
-                <span className="text-green-600 dark:text-green-400 font-black text-lg flex items-center gap-0.5">
+                <span className="text-green-600 dark:text-green-400 font-bold text-lg flex items-center gap-0.5">
                   <DollarSign size={16} className="text-green-500" />
                   <span>
                     ฿{totalEstPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}

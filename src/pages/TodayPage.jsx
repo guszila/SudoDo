@@ -1154,7 +1154,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                 <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.6 }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.6 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.6 }} tickFormatter={(value) => { if (value === 0) return '0'; const abs = Math.abs(value); return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000)+'k' : abs); }} />
                   <Tooltip 
                     cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.4 }}
                     contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
@@ -1162,7 +1162,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                     formatter={(value) => [`฿${(value || 0).toLocaleString()}`, t.incomeLabel]}
                     labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
                   />
-                  <Bar dataKey="income" radius={[6, 6, 6, 6]}>
+                  <Bar dataKey="income" radius={[6, 6, 0, 0]}>
                     {chartData.map((entry, index) => (
                       <Cell key={`cell-${index}`} fill={index === chartData.length - 1 ? 'var(--color-primary-500)' : 'var(--color-primary-300)'} />
                     ))}
@@ -1172,7 +1172,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                 <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
                   <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
                   <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.6 }} dy={10} />
-                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.6 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
+                  <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.6 }} tickFormatter={(value) => { if (value === 0) return '0'; const abs = Math.abs(value); return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000)+'k' : abs); }} />
                   <Tooltip 
                     contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
                     itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
@@ -1330,7 +1330,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                       <BarChart data={fullChartData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} interval={0} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => { if (value === 0) return '0'; const abs = Math.abs(value); return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000)+'k' : abs); }} />
                         <Tooltip 
                           cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.4 }}
                           contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
@@ -1338,7 +1338,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                           formatter={(value) => [`฿${(value || 0).toLocaleString()}`, 'รายได้']}
                           labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
                         />
-                        <Bar dataKey="income" radius={[8, 8, 8, 8]}>
+                        <Bar dataKey="income" radius={[8, 8, 0, 0]}>
                           {fullChartData.map((entry, index) => (
                             <Cell key={`cell-${index}`} fill={index === fullChartData.length - 1 ? 'var(--color-primary-500)' : 'var(--color-primary-300)'} />
                           ))}
@@ -1348,7 +1348,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                       <LineChart data={fullChartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
                         <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} interval={0} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000)+'k' : value}` : '0'} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => { if (value === 0) return '0'; const abs = Math.abs(value); return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000)+'k' : abs); }} />
                         <Tooltip 
                           contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
                           itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
