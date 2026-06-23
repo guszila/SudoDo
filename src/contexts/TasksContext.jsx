@@ -1,9 +1,10 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
 
-import { subscribeToTasks } from '../services/taskService';
+import { subscribeToTasks, saveTask } from '../services/taskService';
 import { syncTasksToGAS } from '../services/syncService';
 import { syncPublicProfile } from '../services/friendService';
-import { TASK_PRIORITY, PRIORITY_WEIGHT } from '../constants';
+import { addSystemNotification } from '../services/notificationService';
+import { TASK_PRIORITY, PRIORITY_WEIGHT, TASK_STATUS } from '../constants';
 
 const TasksContext = createContext({
   tasks: [],
@@ -56,6 +57,39 @@ export const TasksProvider = ({ children, user }) => {
 
     return () => unsubscribe();
   }, [user]);
+
+  // Auto-complete shifts 15 minutes after end time
+  useEffect(() => {
+    if (!user || tasks.length === 0) return;
+
+    const checkAndAutoComplete = () => {
+      const now = new Date();
+      tasks.forEach(async (t) => {
+        if (t.isPartTime && t.status !== TASK_STATUS.DONE && t.end) {
+          const endTime = new Date(t.end);
+          const autoCompleteTime = new Date(endTime.getTime() + 15 * 60000); // +15 mins
+          
+          if (now >= autoCompleteTime) {
+            try {
+              const updatedTask = { ...t, status: TASK_STATUS.DONE };
+              await saveTask('EDIT', updatedTask, user.uid);
+              await addSystemNotification(
+                user.uid, 
+                `กะทำงาน "${t.title}" ถูกบันทึกว่าสำเร็จอัตโนมัติแล้ว ✅`,
+                'system_success'
+              );
+            } catch (err) {
+              console.error("Auto-complete failed", err);
+            }
+          }
+        }
+      });
+    };
+
+    checkAndAutoComplete(); // Run immediately on mount or task update
+    const interval = setInterval(checkAndAutoComplete, 60000);
+    return () => clearInterval(interval);
+  }, [user, tasks]);
 
   return (
     <TasksContext.Provider value={{ tasks, isLoading, error }}>

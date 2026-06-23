@@ -14,6 +14,9 @@ import {
   orderBy,
   limit,
   onSnapshot,
+  doc,
+  setDoc,
+  writeBatch
 } from 'firebase/firestore';
 import { getChatId } from './chatService';
 import { db } from '../firebase';
@@ -79,6 +82,42 @@ export const subscribeToFriendNotifications = (userUid, friends, callback) => {
   });
 
   return () => unsubscribers.forEach((fn) => fn());
+};
+
+export const addSystemNotification = async (uid, message, type = 'system') => {
+  if (!uid) return;
+  try {
+    const notifRef = collection(db, 'users', uid, 'notifications');
+    await setDoc(doc(notifRef), {
+      message,
+      type,
+      createdAt: new Date(),
+      read: false
+    });
+  } catch (err) {
+    console.error('Error adding system notification:', err);
+  }
+};
+
+export const subscribeToSystemNotifications = (uid, callback) => {
+  if (!uid) {
+    callback([]);
+    return () => {};
+  }
+  const q = query(
+    collection(db, 'users', uid, 'notifications'),
+    orderBy('createdAt', 'desc'),
+    limit(50)
+  );
+  return onSnapshot(q, (snap) => {
+    const notifs = snap.docs
+      .map(d => ({ id: d.id, isSystem: true, ...d.data() }))
+      .filter(n => n.read === false);
+    callback(notifs);
+  }, (err) => {
+    console.error("System notifications error:", err);
+    callback([]);
+  });
 };
 
 

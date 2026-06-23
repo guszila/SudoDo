@@ -71,37 +71,74 @@ export const calculateStreaks = (tasks) => {
 
 export const BADGE_LIST = [
   // หมวดหมู่ที่ 1: วินัยการทำงานต่อเนื่อง (Streaks)
-  { id: 'streak_3', category: 'streak', tier: 'common', icon: '🔥', name: { th: 'ไฟแรง 3 วัน', en: 'On Fire (3 Days)' }, desc: { th: 'ทำเป้าหมายต่อเนื่อง 3 วันติด', en: '3-day streak' }, color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
-  { id: 'streak_7', category: 'streak', tier: 'rare', icon: '⚡', name: { th: 'ไม่ยอมแพ้ (7 วัน)', en: 'Unstoppable (7 Days)' }, desc: { th: 'ทำเป้าหมายต่อเนื่อง 7 วันติด', en: '7-day streak' }, color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
-  { id: 'streak_30', category: 'streak', tier: 'epic', icon: '👑', name: { th: 'วินัยเหล็ก (30 วัน)', en: 'Master (30 Days)' }, desc: { th: 'ทำเป้าหมายต่อเนื่อง 30 วันติด', en: '30-day streak' }, color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
-  { id: 'streak_100', category: 'streak', tier: 'legendary', icon: '💎', name: { th: 'ผู้ไม่เคยหยุดพัก (100 วัน)', en: 'Iron Will (100 Days)' }, desc: { th: 'ทำเป้าหมายต่อเนื่อง 100 วันติด', en: '100-day streak' }, color: 'bg-pink-500/10 text-pink-500 border-pink-500/20' },
-  { id: 'streak_365', category: 'streak', tier: 'mythic', icon: '🌠', name: { th: 'ตำนานแห่งปี (365 วัน)', en: 'Legend (365 Days)' }, desc: { th: 'ทำเป้าหมายต่อเนื่อง 365 วันติด', en: '365-day streak' }, color: 'bg-rose-500/10 text-rose-500 border-rose-500/20' },
+  { id: 'streak_3', category: 'streak', tier: 'common', target: 3, icon: '🔥', name: { th: 'ไฟแรง 3 วัน', en: 'On Fire (3 Days)' }, desc: { th: 'ทำเป้าหมายต่อเนื่อง 3 วันติด', en: '3-day streak' }, color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
+  { id: 'streak_7', category: 'streak', tier: 'rare', target: 7, icon: '⚡', name: { th: 'ไม่ยอมแพ้ (7 วัน)', en: 'Unstoppable (7 Days)' }, desc: { th: 'ทำเป้าหมายต่อเนื่อง 7 วันติด', en: '7-day streak' }, color: 'bg-blue-500/10 text-blue-500 border-blue-500/20' },
+  { id: 'streak_30', category: 'streak', tier: 'epic', target: 30, icon: '👑', name: { th: 'วินัยเหล็ก (30 วัน)', en: 'Master (30 Days)' }, desc: { th: 'ทำเป้าหมายต่อเนื่อง 30 วันติด', en: '30-day streak' }, color: 'bg-purple-500/10 text-purple-500 border-purple-500/20' },
+  { id: 'streak_100', category: 'streak', tier: 'legendary', target: 100, icon: '💎', name: { th: 'ผู้ไม่เคยหยุดพัก (100 วัน)', en: 'Iron Will (100 Days)' }, desc: { th: 'ทำเป้าหมายต่อเนื่อง 100 วันติด', en: '100-day streak' }, color: 'bg-pink-500/10 text-pink-500 border-pink-500/20' },
+  { id: 'streak_365', category: 'streak', tier: 'mythic', target: 365, icon: '🌠', name: { th: 'ตำนานแห่งปี (365 วัน)', en: 'Legend (365 Days)' }, desc: { th: 'ทำเป้าหมายต่อเนื่อง 365 วันติด', en: '365-day streak' }, color: 'bg-rose-500/10 text-rose-500 border-rose-500/20' },
 
   // หมวดหมู่ที่ 2: การจัดการงานทั่วไป (Tasks)
-  { id: 'task_1', category: 'task', tier: 'common', icon: '🌱', name: { th: 'ก้าวแรก', en: 'First Step' }, desc: { th: 'ทำงานชิ้นแรกสำเร็จ', en: 'Completed your first task' }, color: 'bg-green-500/10 text-green-500 border-green-500/20' },
-  { id: 'task_50', category: 'task', tier: 'rare', icon: '🛠️', name: { th: 'นักปฏิบัติ (50 ชิ้น)', en: 'Doer (50 Tasks)' }, desc: { th: 'ทำงานเสร็จครบ 50 ชิ้น', en: 'Completed 50 tasks' }, color: 'bg-teal-500/10 text-teal-500 border-teal-500/20' },
-  { id: 'task_100', category: 'task', tier: 'epic', icon: '🎯', name: { th: 'ผู้เชี่ยวชาญ (100 ชิ้น)', en: 'Centurion (100 Tasks)' }, desc: { th: 'ทำงานเสร็จครบ 100 ชิ้น', en: 'Completed 100 tasks' }, color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' },
-  { id: 'task_500', category: 'task', tier: 'legendary', icon: '⚔️', name: { th: 'เทพแห่งการจัดการ (500 ชิ้น)', en: 'Task Master (500 Tasks)' }, desc: { th: 'ทำงานเสร็จครบ 500 ชิ้น', en: 'Completed 500 tasks' }, color: 'bg-violet-500/10 text-violet-500 border-violet-500/20' },
+  { id: 'task_1', category: 'task', tier: 'common', target: 1, icon: '🌱', name: { th: 'ก้าวแรก', en: 'First Step' }, desc: { th: 'ทำงานชิ้นแรกสำเร็จ', en: 'Completed your first task' }, color: 'bg-green-500/10 text-green-500 border-green-500/20' },
+  { id: 'task_10', category: 'task', tier: 'common', target: 10, icon: '📝', name: { th: 'เริ่มคล่อง (10 ชิ้น)', en: 'Getting Hang Of It' }, desc: { th: 'ทำงานเสร็จครบ 10 ชิ้น', en: 'Completed 10 tasks' }, color: 'bg-lime-500/10 text-lime-500 border-lime-500/20' },
+  { id: 'task_50', category: 'task', tier: 'rare', target: 50, icon: '🛠️', name: { th: 'นักปฏิบัติ (50 ชิ้น)', en: 'Doer (50 Tasks)' }, desc: { th: 'ทำงานเสร็จครบ 50 ชิ้น', en: 'Completed 50 tasks' }, color: 'bg-teal-500/10 text-teal-500 border-teal-500/20' },
+  { id: 'task_100', category: 'task', tier: 'epic', target: 100, icon: '🎯', name: { th: 'ผู้เชี่ยวชาญ (100 ชิ้น)', en: 'Centurion (100 Tasks)' }, desc: { th: 'ทำงานเสร็จครบ 100 ชิ้น', en: 'Completed 100 tasks' }, color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' },
+  { id: 'task_500', category: 'task', tier: 'legendary', target: 500, icon: '⚔️', name: { th: 'เทพแห่งการจัดการ (500 ชิ้น)', en: 'Task Master (500 Tasks)' }, desc: { th: 'ทำงานเสร็จครบ 500 ชิ้น', en: 'Completed 500 tasks' }, color: 'bg-violet-500/10 text-violet-500 border-violet-500/20' },
 
   // หมวดหมู่ที่ 3: กะการทำงาน (Part-Time Shifts)
-  { id: 'parttime_1', category: 'shift', tier: 'common', icon: '💼', name: { th: 'กะแรก', en: 'First Shift' }, desc: { th: 'ทำกะพาร์ทไทม์ครั้งแรก', en: 'Completed your first shift' }, color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
-  { id: 'parttime_10', category: 'shift', tier: 'rare', icon: '💸', name: { th: 'คนขยันหาเงิน (10 กะ)', en: 'Hard Worker (10 Shifts)' }, desc: { th: 'ทำกะพาร์ทไทม์ครบ 10 ครั้ง', en: 'Completed 10 shifts' }, color: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20' },
-  { id: 'parttime_50', category: 'shift', tier: 'epic', icon: '🏃', name: { th: 'สู้ชีวิต (50 กะ)', en: 'Shift Runner (50 Shifts)' }, desc: { th: 'ทำกะพาร์ทไทม์ครบ 50 ครั้ง', en: 'Completed 50 shifts' }, color: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
-  { id: 'parttime_100', category: 'shift', tier: 'legendary', icon: '🏆', name: { th: 'พนักงานดีเด่น (100 กะ)', en: 'Workaholic (100 Shifts)' }, desc: { th: 'ทำกะพาร์ทไทม์ครบ 100 ครั้ง', en: 'Completed 100 shifts' }, color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
+  { id: 'parttime_1', category: 'shift', tier: 'common', target: 1, icon: '💼', name: { th: 'กะแรก', en: 'First Shift' }, desc: { th: 'ทำกะพาร์ทไทม์ครั้งแรก', en: 'Completed your first shift' }, color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
+  { id: 'parttime_5', category: 'shift', tier: 'common', target: 5, icon: '🏪', name: { th: 'เริ่มคุ้นเคย (5 กะ)', en: 'Familiar (5 Shifts)' }, desc: { th: 'ทำกะพาร์ทไทม์ครบ 5 ครั้ง', en: 'Completed 5 shifts' }, color: 'bg-emerald-500/10 text-emerald-500 border-emerald-500/20' },
+  { id: 'parttime_10', category: 'shift', tier: 'rare', target: 10, icon: '💸', name: { th: 'คนขยันหาเงิน (10 กะ)', en: 'Hard Worker (10 Shifts)' }, desc: { th: 'ทำกะพาร์ทไทม์ครบ 10 ครั้ง', en: 'Completed 10 shifts' }, color: 'bg-cyan-500/10 text-cyan-500 border-cyan-500/20' },
+  { id: 'parttime_50', category: 'shift', tier: 'epic', target: 50, icon: '🏃', name: { th: 'สู้ชีวิต (50 กะ)', en: 'Shift Runner (50 Shifts)' }, desc: { th: 'ทำกะพาร์ทไทม์ครบ 50 ครั้ง', en: 'Completed 50 shifts' }, color: 'bg-amber-500/10 text-amber-500 border-amber-500/20' },
+  { id: 'parttime_100', category: 'shift', tier: 'legendary', target: 100, icon: '🏆', name: { th: 'พนักงานดีเด่น (100 กะ)', en: 'Workaholic (100 Shifts)' }, desc: { th: 'ทำกะพาร์ทไทม์ครบ 100 ครั้ง', en: 'Completed 100 shifts' }, color: 'bg-orange-500/10 text-orange-500 border-orange-500/20' },
 
   // หมวดหมู่ที่ 4: ความมั่งคั่ง (Earnings)
-  { id: 'earn_first', category: 'earn', tier: 'common', icon: '🪙', name: { th: 'หยาดเหงื่อแรงงาน', en: 'First Paycheck' }, desc: { th: 'มีรายได้ก้อนแรก', en: 'Earned your first income' }, color: 'bg-green-500/10 text-green-500 border-green-500/20' },
-  { id: 'earn_10k', category: 'earn', tier: 'rare', icon: '💰', name: { th: 'นักเก็บออม (10,000฿)', en: 'Saver (10,000฿)' }, desc: { th: 'หาเงินได้ครบ 10,000 บาท', en: 'Earned 10,000฿' }, color: 'bg-sky-500/10 text-sky-500 border-sky-500/20' },
-  { id: 'earn_50k', category: 'earn', tier: 'epic', icon: '🏦', name: { th: 'ผู้มั่งคั่ง (50,000฿)', en: 'Wealthy (50,000฿)' }, desc: { th: 'หาเงินได้ครบ 50,000 บาท', en: 'Earned 50,000฿' }, color: 'bg-fuchsia-500/10 text-fuchsia-500 border-fuchsia-500/20' },
-  { id: 'earn_100k', category: 'earn', tier: 'legendary', icon: '🤑', name: { th: 'เศรษฐีใหม่ (100,000฿)', en: 'Tycoon (100,000฿)' }, desc: { th: 'หาเงินได้ครบ 100,000 บาท', en: 'Earned 100,000฿' }, color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
-  { id: 'earn_1m', category: 'earn', tier: 'mythic', icon: '🌌', name: { th: 'อายุน้อยร้อยล้าน (1M฿)', en: 'Millionaire (1M฿)' }, desc: { th: 'หาเงินได้ครบ 1,000,000 บาท', en: 'Earned 1,000,000฿' }, color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' }
+  { id: 'earn_first', category: 'earn', tier: 'common', target: 1, icon: '🪙', name: { th: 'หยาดเหงื่อแรงงาน', en: 'First Paycheck' }, desc: { th: 'มีรายได้ก้อนแรก', en: 'Earned your first income' }, color: 'bg-green-500/10 text-green-500 border-green-500/20' },
+  { id: 'earn_1k', category: 'earn', tier: 'common', target: 1000, icon: '💵', name: { th: 'กระเป๋าตุง (1,000฿)', en: 'Pocket Money (1k)' }, desc: { th: 'หาเงินได้ครบ 1,000 บาท', en: 'Earned 1,000฿' }, color: 'bg-lime-500/10 text-lime-500 border-lime-500/20' },
+  { id: 'earn_10k', category: 'earn', tier: 'rare', target: 10000, icon: '💰', name: { th: 'นักเก็บออม (10,000฿)', en: 'Saver (10,000฿)' }, desc: { th: 'หาเงินได้ครบ 10,000 บาท', en: 'Earned 10,000฿' }, color: 'bg-sky-500/10 text-sky-500 border-sky-500/20' },
+  { id: 'earn_50k', category: 'earn', tier: 'epic', target: 50000, icon: '🏦', name: { th: 'ผู้มั่งคั่ง (50,000฿)', en: 'Wealthy (50,000฿)' }, desc: { th: 'หาเงินได้ครบ 50,000 บาท', en: 'Earned 50,000฿' }, color: 'bg-fuchsia-500/10 text-fuchsia-500 border-fuchsia-500/20' },
+  { id: 'earn_100k', category: 'earn', tier: 'legendary', target: 100000, icon: '🤑', name: { th: 'เศรษฐีใหม่ (100,000฿)', en: 'Tycoon (100,000฿)' }, desc: { th: 'หาเงินได้ครบ 100,000 บาท', en: 'Earned 100,000฿' }, color: 'bg-yellow-500/10 text-yellow-500 border-yellow-500/20' },
+  { id: 'earn_1m', category: 'earn', tier: 'mythic', target: 1000000, icon: '🌌', name: { th: 'อายุน้อยร้อยล้าน (1M฿)', en: 'Millionaire (1M฿)' }, desc: { th: 'หาเงินได้ครบ 1,000,000 บาท', en: 'Earned 1,000,000฿' }, color: 'bg-indigo-500/10 text-indigo-500 border-indigo-500/20' }
 ];
+
+export const getGamificationStats = (tasks, streaks) => {
+  const completedTasks = tasks.filter(t => !t.isPartTime && t.status === TASK_STATUS.DONE).length;
+  const completedShifts = tasks.filter(t => t.isPartTime && (t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd))).length;
+  
+  const completedIncomeTasks = tasks.filter(t => !t.isExpense && (t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd) || t.isExtraIncome));
+  let totalEarned = 0;
+  completedIncomeTasks.forEach(t => {
+    let earned = 0;
+    if (t.isExtraIncome) {
+      earned = Number(t.amount) || 0;
+    } else {
+      const rate = Number(t.hourlyRate) || 0;
+      let hours = 0;
+      if (t.actualStart && t.actualEnd) {
+        hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
+      } else {
+        hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
+      }
+      hours = Math.max(0, hours - (Number(t.breakHours) || 0));
+      if (t.rateType === RATE_TYPE.DAILY) earned = rate;
+      else if (hours > 0) earned = hours * rate;
+      if (t.isHolidayPay) earned *= 2;
+    }
+    if (earned > 0) totalEarned += earned;
+  });
+
+  return {
+    streak: streaks?.longestStreak || 0,
+    task: completedTasks,
+    shift: completedShifts,
+    earn: totalEarned
+  };
+};
 
 export const getUnlockedBadges = (tasks, streaks) => {
   const unlocked = [];
   
   const completedTasks = tasks.filter(t => !t.isPartTime && t.status === TASK_STATUS.DONE);
-  const completedShifts = tasks.filter(t => t.isPartTime && t.actualStart && t.actualEnd);
+  const completedShifts = tasks.filter(t => t.isPartTime && (t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd)));
   
   const sortedTasks = [...completedTasks].sort((a,b) => new Date(a.start) - new Date(b.start));
   const sortedShifts = [...completedShifts].sort((a,b) => new Date(a.start) - new Date(b.start));
@@ -135,12 +172,14 @@ export const getUnlockedBadges = (tasks, streaks) => {
 
   // Tasks
   if (sortedTasks.length >= 1) unlocked.push({ id: 'task_1', date: new Date(sortedTasks[0].start) });
+  if (sortedTasks.length >= 10) unlocked.push({ id: 'task_10', date: new Date(sortedTasks[9].start) });
   if (sortedTasks.length >= 50) unlocked.push({ id: 'task_50', date: new Date(sortedTasks[49].start) });
   if (sortedTasks.length >= 100) unlocked.push({ id: 'task_100', date: new Date(sortedTasks[99].start) });
   if (sortedTasks.length >= 500) unlocked.push({ id: 'task_500', date: new Date(sortedTasks[499].start) });
 
   // Shifts
   if (sortedShifts.length >= 1) unlocked.push({ id: 'parttime_1', date: new Date(sortedShifts[0].start) });
+  if (sortedShifts.length >= 5) unlocked.push({ id: 'parttime_5', date: new Date(sortedShifts[4].start) });
   if (sortedShifts.length >= 10) unlocked.push({ id: 'parttime_10', date: new Date(sortedShifts[9].start) });
   if (sortedShifts.length >= 50) unlocked.push({ id: 'parttime_50', date: new Date(sortedShifts[49].start) });
   if (sortedShifts.length >= 100) unlocked.push({ id: 'parttime_100', date: new Date(sortedShifts[99].start) });
@@ -177,6 +216,7 @@ export const getUnlockedBadges = (tasks, streaks) => {
   const getEarnDate = (target) => earnDates.find(e => e.total >= target)?.date;
 
   if (getEarnDate(1)) unlocked.push({ id: 'earn_first', date: getEarnDate(1) });
+  if (getEarnDate(10000)) unlocked.push({ id: 'earn_1k', date: getEarnDate(1000) });
   if (getEarnDate(10000)) unlocked.push({ id: 'earn_10k', date: getEarnDate(10000) });
   if (getEarnDate(50000)) unlocked.push({ id: 'earn_50k', date: getEarnDate(50000) });
   if (getEarnDate(100000)) unlocked.push({ id: 'earn_100k', date: getEarnDate(100000) });

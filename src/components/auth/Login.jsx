@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail, RecaptchaVerifier, signInWithPhoneNumber } from 'firebase/auth';
+import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
 import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 import Logo from '../layout/Logo';
@@ -18,107 +18,11 @@ export default function Login({ lang }) {
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
 
-  // Phone Auth State
-  const [loginMethod, setLoginMethod] = useState('email'); // 'email' or 'phone'
-  const [phoneNumber, setPhoneNumber] = useState('');
-  const [otpCode, setOtpCode] = useState('');
-  const [otpSent, setOtpSent] = useState(false);
-  const [confirmationResult, setConfirmationResult] = useState(null);
-  const [countryCode, setCountryCode] = useState('+66');
+
 
   const t = translations[lang];
 
-  const formatPhoneNumber = (num) => {
-    let cleaned = num.replace(/\s+/g, '').replace(/-/g, '');
-    
-    // If it starts with + (e.g. +66812345678), keep it as is
-    if (cleaned.startsWith('+')) {
-      return cleaned;
-    }
-    
-    // If it starts with the selected country code without '+' (e.g., 66812345678)
-    const codeNoPlus = countryCode.replace('+', '');
-    if (cleaned.startsWith(codeNoPlus)) {
-      return '+' + cleaned;
-    }
-    
-    // If it starts with '0', strip it (e.g. 0812345678 -> 812345678)
-    if (cleaned.startsWith('0')) {
-      cleaned = cleaned.substring(1);
-    }
-    
-    return countryCode + cleaned;
-  };
 
-  const handleSendOTP = async (e) => {
-    e.preventDefault();
-    if (!phoneNumber) {
-      setError('กรุณากรอกเบอร์โทรศัพท์');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      const formattedNum = formatPhoneNumber(phoneNumber);
-      
-      if (window.recaptchaVerifier) {
-        try {
-          window.recaptchaVerifier.clear();
-        } catch (e) {
-          console.error('Error clearing recaptcha', e);
-        }
-        window.recaptchaVerifier = null;
-      }
-
-      window.recaptchaVerifier = new RecaptchaVerifier(auth, 'recaptcha-container', {
-        size: 'invisible'
-      });
-
-      const appVerifier = window.recaptchaVerifier;
-      const confirmation = await signInWithPhoneNumber(auth, formattedNum, appVerifier);
-      
-      setConfirmationResult(confirmation);
-      setOtpSent(true);
-      setMessage('ส่งรหัส OTP ไปยังเบอร์โทรศัพท์ของคุณแล้ว');
-    } catch (err) {
-      console.error(err);
-      if (err.code === 'auth/invalid-phone-number') {
-        setError('เบอร์โทรศัพท์ไม่ถูกต้อง (เช่น 0812345678)');
-      } else if (err.code === 'auth/too-many-requests') {
-        setError('ระบบส่ง OTP ถี่เกินไป กรุณาลองใหม่ในภายหลัง');
-      } else {
-        setError('เกิดข้อผิดพลาด: ' + err.message.replace('Firebase: ', ''));
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
-
-  const handleVerifyOTP = async (e) => {
-    e.preventDefault();
-    if (!otpCode) {
-      setError('กรุณากรอกรหัส OTP');
-      return;
-    }
-    setLoading(true);
-    setError(null);
-    setMessage(null);
-
-    try {
-      await confirmationResult.confirm(otpCode);
-    } catch (err) {
-      console.error(err);
-      if (err.code === 'auth/invalid-verification-code') {
-        setError('รหัส OTP ไม่ถูกต้อง กรุณาลองอีกครั้ง');
-      } else {
-        setError('เกิดข้อผิดพลาด: ' + err.message.replace('Firebase: ', ''));
-      }
-    } finally {
-      setLoading(false);
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -199,41 +103,7 @@ export default function Login({ lang }) {
             </motion.p>
           </div>
 
-          {/* Login Method Tabs */}
-          {!isResetPassword && (
-            <div className="flex bg-black/5 dark:bg-white/10 rounded-full p-1 w-full mb-6 border border-main/5">
-              <button
-                type="button"
-                onClick={() => {
-                  setLoginMethod('email');
-                  setError(null);
-                  setMessage(null);
-                }}
-                className={`flex-1 py-2 text-xs font-bold rounded-full transition-all ${
-                  loginMethod === 'email'
-                    ? 'bg-[var(--glass-bg-strong)] text-primary-500 shadow-sm border border-[var(--glass-border)]'
-                    : 'text-main/60 hover:text-main'
-                }`}
-              >
-                อีเมล (Email)
-              </button>
-              <button
-                type="button"
-                onClick={() => {
-                  setLoginMethod('phone');
-                  setError(null);
-                  setMessage(null);
-                }}
-                className={`flex-1 py-2 text-xs font-bold rounded-full transition-all ${
-                  loginMethod === 'phone'
-                    ? 'bg-[var(--glass-bg-strong)] text-primary-500 shadow-sm border border-[var(--glass-border)]'
-                    : 'text-main/60 hover:text-main'
-                }`}
-              >
-                เบอร์โทรศัพท์ (Phone)
-              </button>
-            </div>
-          )}
+
 
         {error && (
           <div className="mb-6 p-4 bg-red-50/80 border border-red-200/50 rounded-[16px] flex items-start gap-3 text-red-500 backdrop-blur-sm">
@@ -283,7 +153,7 @@ export default function Login({ lang }) {
               กลับไปเข้าสู่ระบบ
             </button>
           </form>
-        ) : loginMethod === 'email' ? (
+        ) : (
           <form onSubmit={handleSubmit} className="space-y-5">
             <div>
               <label className="block text-sm font-medium text-main mb-1.5 opacity-80">อีเมล (Email)</label>
@@ -345,83 +215,9 @@ export default function Login({ lang }) {
               {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (isLogin ? "เข้าสู่ระบบ (Login)" : "สมัครสมาชิก (Sign Up)")}
             </button>
           </form>
-        ) : (
-          <form onSubmit={otpSent ? handleVerifyOTP : handleSendOTP} className="space-y-5">
-            {!otpSent ? (
-              <div>
-                <label className="block text-sm font-medium text-main mb-1.5 opacity-80">เบอร์โทรศัพท์ (Phone Number)</label>
-                <div className="flex gap-2">
-                  <select
-                    value={countryCode}
-                    onChange={(e) => setCountryCode(e.target.value)}
-                    className="px-3 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow font-bold text-sm shrink-0 border"
-                    style={{ backgroundColor: 'var(--glass-bg-input)', borderColor: 'var(--glass-border)' }}
-                  >
-                    <option value="+66">🇹🇭 +66</option>
-                    <option value="+1">🇺🇸 +1</option>
-                    <option value="+65">🇸🇬 +65</option>
-                    <option value="+60">🇲🇾 +60</option>
-                    <option value="+856">🇱🇦 +856</option>
-                    <option value="+95">🇲🇲 +95</option>
-                    <option value="+855">🇰🇭 +855</option>
-                    <option value="+81">🇯🇵 +81</option>
-                    <option value="+82">🇰🇷 +82</option>
-                  </select>
-                  <input 
-                    type="tel" 
-                    value={phoneNumber}
-                    onChange={(e) => setPhoneNumber(e.target.value)}
-                    required
-                    className="flex-1 px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow"
-                    style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                    placeholder="0812345678"
-                  />
-                </div>
-              </div>
-            ) : (
-              <div>
-                <label className="block text-sm font-medium text-main mb-1.5 opacity-80">รหัสยืนยัน OTP (6 หลัก)</label>
-                <input 
-                  type="text" 
-                  pattern="[0-9]*"
-                  inputMode="numeric"
-                  maxLength={6}
-                  value={otpCode}
-                  onChange={(e) => setOtpCode(e.target.value)}
-                  required
-                  className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main font-mono text-center text-lg tracking-widest transition-shadow"
-                  style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                  placeholder="••••••"
-                />
-              </div>
-            )}
+        )}
 
-            <button 
-              type="submit"
-              disabled={loading}
-              className="w-full flex items-center justify-center gap-2 px-4 py-3.5 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-[16px] transition-all shadow-[0_4px_16px_0_rgba(108,99,255,0.3)] hover:-translate-y-0.5 active:scale-95 disabled:opacity-70 disabled:hover:translate-y-0 border border-white/20"
-            >
-              {loading ? <Loader2 className="w-5 h-5 animate-spin" /> : (otpSent ? "ยืนยันรหัส OTP" : "ส่งรหัส OTP")}
-            </button>
-
-            {otpSent && (
-              <button
-                type="button"
-                onClick={() => {
-                  setOtpSent(false);
-                  setOtpCode('');
-                  setError(null);
-                  setMessage(null);
-                }}
-                className="w-full text-center text-sm text-primary-500 font-bold hover:underline mt-2"
-              >
-                ย้อนกลับไปแก้ไขเบอร์โทรศัพท์
-              </button>
-            )}
-          </form>
-        ) }
-
-        {!isResetPassword && loginMethod === 'email' && (
+        {!isResetPassword && (
           <motion.p 
             className="text-center text-sm mt-8 text-main opacity-70"
             layout
@@ -443,7 +239,7 @@ export default function Login({ lang }) {
 
         </motion.div>
       </AnimatePresence>
-      <div id="recaptcha-container"></div>
+
     </div>
   );
 }

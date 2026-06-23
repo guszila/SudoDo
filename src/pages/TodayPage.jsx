@@ -14,6 +14,7 @@ import { saveTask } from '../services/taskService';
 import { calcSSO } from '../utils/socialSecurity';
 import { TASK_STATUS, TASK_PRIORITY, PRIORITY_WEIGHT, RATE_TYPE } from '../constants';
 import GreetingBanner from '../components/GreetingBanner';
+import NotificationBell from '../components/notifications/NotificationBell';
 import { calculateStreaks } from '../utils/gamification';
 
 const AVAILABLE_WIDGETS = [
@@ -950,6 +951,7 @@ export default function TodayPage({ user, lang = 'th' }) {
             >
                {isEditWidgetMode ? <Check size={18} /> : <LayoutGrid size={18} />}
             </button>
+            <NotificationBell lang={lang} />
             <div 
               onClick={() => navigate('/profile')}
               className="w-12 h-12 rounded-full bg-white/20 flex items-center justify-center text-white font-bold text-xl shadow-inner border border-white/30 flex-shrink-0 overflow-hidden backdrop-blur-sm cursor-pointer hover:scale-105 active:scale-95 transition-transform"

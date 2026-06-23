@@ -8,11 +8,11 @@ import { calcSSO } from '../utils/socialSecurity';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  ArrowLeft, ChevronRight, Moon, Sun, Laptop, Languages, Calendar,
+  ChevronRight, Moon, Sun, Laptop, Languages, Calendar,
   Palette, Lock, Loader2, Mail,
-  Bell, Clock, Flame, Globe, Download,
+  Bell, Clock, Flame, Download,
   ShieldCheck, RefreshCw, Database, Info, Star,
-  Trash2, LogOut, Check, PlayCircle, UserX, Briefcase, Plus, X
+  Trash2, LogOut, Check, PlayCircle, UserX, Briefcase, Plus, Settings
 } from 'lucide-react';
 import { useSettings } from '../contexts/SettingsContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -20,7 +20,7 @@ import { useTasks } from '../contexts/TasksContext';
 import { saveTask, fetchTasks } from '../services/taskService';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import ChangelogModal from '../components/common/ChangelogModal';
-import { SectionLabel, GlassCard, Toggle, SettingsRow as Row } from '../components/common/SettingsUI';
+import { Toggle, SettingsRow as Row } from '../components/common/SettingsUI';
 import { useToast } from '../contexts/ToastContext';
 import pkg from '../../package.json';
 import { auth } from '../firebase';
@@ -48,6 +48,42 @@ const ActionSheet = ({ isOpen, onClose, title, children }) => {
         </div>
       )}
     </AnimatePresence>
+  );
+};
+
+const SettingsSection = ({ section, children, danger = false }) => {
+  const Icon = section.icon;
+  const cardClass = danger
+    ? "bg-[rgba(252,235,235,0.55)] dark:bg-[rgba(163,45,45,0.15)] border-[rgba(242,148,148,0.45)] dark:border-[rgba(240,149,149,0.22)]"
+    : "";
+
+  return (
+    <motion.section
+      variants={{
+        hidden: { opacity: 0, y: 18 },
+        show: { opacity: 1, y: 0 }
+      }}
+      transition={{ duration: 0.28, ease: "easeOut" }}
+      className="mb-5"
+    >
+      <div className="mx-4 mb-2.5 flex items-center gap-3">
+        <div className={`w-10 h-10 rounded-[14px] flex items-center justify-center shadow-sm ${section.iconClass}`}>
+          <Icon size={19} />
+        </div>
+        <div className="min-w-0">
+          <div className="text-[11px] font-[600] text-[var(--theme-section-label)] dark:text-[#AFA9EC] tracking-[0.08em] uppercase">
+            {section.title}
+          </div>
+          <p className="mt-0.5 text-[12px] leading-snug text-main/55">{section.subtitle}</p>
+        </div>
+      </div>
+      <div className={`relative mx-4 overflow-hidden rounded-[18px] border-[0.5px] border-white/50 dark:border-white/10 bg-[rgba(255,255,255,0.38)] dark:bg-[rgba(255,255,255,0.08)] backdrop-blur-[20px] shadow-sm ${cardClass}`}>
+        <div className={`pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-r ${section.accent}`} />
+        <div className="relative">
+          {children}
+        </div>
+      </div>
+    </motion.section>
   );
 };
 
@@ -421,6 +457,50 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
 
   const avatarInitial = user?.displayName ? user.displayName.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'U');
   const avatarUrl = user?.uid ? (localStorage.getItem(`avatar_${user.uid}`) || '') : '';
+  const settingSections = {
+    display: {
+      icon: Palette,
+      title: t.display,
+      subtitle: lang === 'en' ? 'Theme, language, and calendar preferences' : 'ธีม ภาษา และรูปแบบปฏิทิน',
+      accent: 'from-violet-500/20 to-sky-500/10',
+      iconClass: 'bg-violet-500/15 text-violet-600 dark:text-violet-300'
+    },
+    notifications: {
+      icon: Bell,
+      title: t.notifications,
+      subtitle: lang === 'en' ? 'Reminders for tasks, shifts, and streaks' : 'การเตือนสำหรับงาน กะ และสถิติการใช้งาน',
+      accent: 'from-amber-500/20 to-orange-500/10',
+      iconClass: 'bg-amber-500/15 text-amber-600 dark:text-amber-300'
+    },
+    data: {
+      icon: Database,
+      title: t.data,
+      subtitle: lang === 'en' ? 'Income export, jobs, storage, and reset tools' : 'ส่งออก จัดการงาน รายได้ และพื้นที่จัดเก็บ',
+      accent: 'from-emerald-500/20 to-teal-500/10',
+      iconClass: 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-300'
+    },
+    about: {
+      icon: Info,
+      title: t.about,
+      subtitle: lang === 'en' ? 'Version, release notes, and product tour' : 'เวอร์ชัน รายการอัปเดต และทัวร์แอป',
+      accent: 'from-blue-500/20 to-indigo-500/10',
+      iconClass: 'bg-blue-500/15 text-blue-600 dark:text-blue-300'
+    },
+    security: {
+      icon: Lock,
+      title: t.securityTitle,
+      subtitle: lang === 'en' ? 'Account access and password controls' : 'การเข้าถึงบัญชีและรหัสผ่าน',
+      accent: 'from-slate-500/15 to-amber-500/10',
+      iconClass: 'bg-slate-500/15 text-slate-700 dark:text-slate-200'
+    },
+    danger: {
+      icon: ShieldCheck,
+      title: t.dangerZone,
+      subtitle: lang === 'en' ? 'Permanent actions that need confirmation' : 'คำสั่งถาวรที่ต้องยืนยันก่อนดำเนินการ',
+      accent: 'from-red-500/20 to-rose-500/10',
+      iconClass: 'bg-red-500/15 text-red-500'
+    }
+  };
 
   return (
     <motion.div 
@@ -429,9 +509,45 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
       exit={{ opacity: 0, x: -50 }}
       className="min-h-screen font-sans pb-32 pt-4 overflow-y-auto"
     >
-      <div className="max-w-2xl mx-auto">
+      <motion.div
+        variants={{
+          hidden: {},
+          show: { transition: { staggerChildren: 0.055, delayChildren: 0.04 } }
+        }}
+        initial="hidden"
+        animate="show"
+        className="max-w-2xl mx-auto"
+      >
+        <motion.header
+          variants={{
+            hidden: { opacity: 0, y: 14 },
+            show: { opacity: 1, y: 0 }
+          }}
+          transition={{ duration: 0.28, ease: "easeOut" }}
+          className="mx-4 mb-4"
+        >
+          <div className="relative overflow-hidden rounded-[24px] border border-white/50 dark:border-white/10 bg-white/45 dark:bg-white/10 p-5 shadow-sm backdrop-blur-[22px]">
+            <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-[var(--theme-accent)]/20 via-white/20 to-emerald-400/10" />
+            <div className="relative flex items-start justify-between gap-4">
+              <div>
+                <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--theme-section-label)]">{t.version} {pkg.version || '1.0.0'}</p>
+                <h1 className="mt-1 text-3xl font-black text-main">{lang === 'en' ? 'Settings' : 'ตั้งค่า'}</h1>
+                <p className="mt-1 max-w-[28rem] text-sm leading-relaxed text-main/60">
+                  {lang === 'en' ? 'Tune the app experience, reminders, account, and data tools from one place.' : 'ปรับประสบการณ์ใช้งาน การแจ้งเตือน บัญชี และข้อมูลของแอปในที่เดียว'}
+                </p>
+              </div>
+              <div className="hidden sm:flex h-12 w-12 shrink-0 items-center justify-center rounded-[18px] bg-[var(--theme-accent)]/15 text-[var(--theme-accent)]">
+                <Settings size={22} />
+              </div>
+            </div>
+          </div>
+        </motion.header>
         {/* Profile Card */}
-        <div 
+        <motion.div 
+          variants={{
+            hidden: { opacity: 0, y: 14 },
+            show: { opacity: 1, y: 0 }
+          }}
           onClick={() => navigate('/profile')}
           className="flex items-center mx-4 mb-6 p-4 bg-[rgba(255,255,255,0.6)] dark:bg-[rgba(255,255,255,0.08)] backdrop-blur-[20px] border-[0.5px] border-white/40 dark:border-[rgba(255,255,255,0.12)] rounded-[20px] cursor-pointer active:scale-[0.98] transition-transform shadow-sm"
         >
@@ -446,11 +562,10 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
             <p className="text-[13px] text-[#888780] dark:text-[#A0A0A0] truncate">{user?.email}</p>
           </div>
           <ChevronRight className="text-[#888780] shrink-0" size={20} />
-        </div>
+        </motion.div>
 
         {/* Section 1: การแสดงผล */}
-        <SectionLabel>{t.display}</SectionLabel>
-        <GlassCard>
+        <SettingsSection section={settingSections.display}>
           <Row 
             icon={Palette} iconBgClass="bg-purple-500/15" iconColorClass="text-purple-600 dark:text-purple-400"
             title={t.themeColor} subtitle={currentTheme.name}
@@ -461,7 +576,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
             icon={theme === 'dark' ? Moon : theme === 'light' ? Sun : Laptop} iconBgClass="bg-purple-500/15" iconColorClass="text-purple-600 dark:text-purple-400"
             title={t.themeMode} subtitle={t.themeModeSub}
             rightElement={
-              <div className="relative flex p-0.5 bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-full w-[130px] sm:w-[210px] h-[34px] items-center select-none shrink-0">
+              <div className="relative flex p-0.5 bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-full w-[112px] sm:w-[210px] h-[34px] items-center select-none shrink-0">
                 {/* Sliding Indicator */}
                 <div 
                   className="absolute top-0.5 bottom-0.5 rounded-full bg-white dark:bg-white/10 shadow-[0_2px_6px_rgba(0,0,0,0.15)] transition-all duration-300 ease-out border border-black/[0.03] dark:border-white/[0.05]"
@@ -513,11 +628,10 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
             onClick={() => setActiveSheet('weekStart')}
             isLast
           />
-        </GlassCard>
+        </SettingsSection>
 
         {/* Section 2: การแจ้งเตือน */}
-        <SectionLabel>{t.notifications}</SectionLabel>
-        <GlassCard>
+        <SettingsSection section={settingSections.notifications}>
           <Row 
             icon={Bell} iconBgClass="bg-amber-500/15" iconColorClass="text-amber-600 dark:text-amber-400"
             title={t.notifyTasks} subtitle={t.notifyTasksSub}
@@ -534,11 +648,10 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
             rightElement={<Toggle checked={settings?.notifyStreak ?? false} onChange={(val) => handleToggle('notifyStreak', val)} />}
             isLast
           />
-        </GlassCard>
+        </SettingsSection>
 
         {/* Section 4: ข้อมูล */}
-        <SectionLabel>{t.data}</SectionLabel>
-        <GlassCard>
+        <SettingsSection section={settingSections.data}>
           <Row 
             icon={Download} iconBgClass="bg-emerald-500/15" iconColorClass="text-emerald-600 dark:text-emerald-400"
             title={t.exportPdf}
@@ -573,11 +686,10 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
             onClick={() => {}}
             isLast
           />
-        </GlassCard>
+        </SettingsSection>
 
         {/* Section 5: เกี่ยวกับ */}
-        <SectionLabel>{t.about}</SectionLabel>
-        <GlassCard>
+        <SettingsSection section={settingSections.about}>
           <Row 
             icon={Info} iconBgClass="bg-blue-500/15" iconColorClass="text-blue-600 dark:text-blue-400"
             title={t.version} subtitle={pkg.version || '1.0.0'}
@@ -598,11 +710,10 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
             }}
             isLast
           />
-        </GlassCard>
+        </SettingsSection>
 
         {/* Section 6: Security */}
-        <SectionLabel>{t.securityTitle}</SectionLabel>
-        <GlassCard>
+        <SettingsSection section={settingSections.security}>
           <Row 
             icon={Lock} iconBgClass="bg-amber-500/10" iconColorClass="text-amber-500"
             title={t.changePassword} 
@@ -610,11 +721,10 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
             onClick={() => setActiveSheet('changePassword')}
             isLast
           />
-        </GlassCard>
+        </SettingsSection>
 
         {/* Section 7: Danger Zone */}
-        <SectionLabel>{t.dangerZone}</SectionLabel>
-        <div className="bg-[rgba(252,235,235,0.5)] dark:bg-[rgba(163,45,45,0.15)] backdrop-blur-[20px] border-[0.5px] border-[rgba(242,148,148,0.4)] dark:border-[rgba(240,149,149,0.2)] rounded-[16px] mx-4 mb-8 overflow-hidden shadow-sm">
+        <SettingsSection section={settingSections.danger} danger>
           <Row 
             icon={Trash2} iconBgClass="bg-transparent" iconColorClass="text-red-500"
             title={<span className="text-red-500 font-bold">{t.deleteAll}</span>} 
@@ -634,9 +744,9 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
             onClick={handleLogout}
             isLast
           />
-        </div>
+        </SettingsSection>
 
-      </div>
+      </motion.div>
 
       {/* Manage Jobs Sheet */}
       <ActionSheet isOpen={activeSheet === 'manageJobs'} onClose={() => setActiveSheet(null)} title={t.manageJobs}>

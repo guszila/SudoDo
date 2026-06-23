@@ -10,7 +10,7 @@ import {
 
 import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
-import { calculateStreaks, BADGE_LIST, getUnlockedBadges } from '../utils/gamification';
+import { BADGE_LIST, getUnlockedBadges, calculateStreaks, getGamificationStats } from '../utils/gamification';
 import { getPublicProfile, updatePublicProfileSettings, syncPublicProfile } from '../services/friendService';
 
 const PRESET_BANNERS = [
@@ -548,6 +548,7 @@ export default function ProfilePage({ user, lang = 'th' }) {
                       const TIER_ORDER = { common: 1, rare: 2, epic: 3, legendary: 4, mythic: 5 };
                       const sortedBadges = [...BADGE_LIST].sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier]);
                       const chunks = Array.from({ length: Math.ceil(sortedBadges.length / 6) }, (_, i) => sortedBadges.slice(i * 6, i * 6 + 6));
+                      const stats = getGamificationStats(tasks, streaks);
                       
                       return chunks.map((chunk, pageIndex) => (
                         <div key={pageIndex} className="w-full flex-none snap-center px-2">
@@ -564,27 +565,56 @@ export default function ProfilePage({ user, lang = 'th' }) {
                               });
                             };
 
-                            let tierClass = '';
+                            const currentVal = badge.category === 'streak' ? stats.streak :
+                                               badge.category === 'task' ? stats.task :
+                                               badge.category === 'shift' ? stats.shift :
+                                               badge.category === 'earn' ? stats.earn : 0;
+                            const progress = Math.min(100, Math.round((currentVal / (badge.target || 1)) * 100));
+
+                            let tierClass = badge.color + ' bg-opacity-10 border ';
                             if (isUnlocked) {
-                              if (badge.tier === 'rare') tierClass = 'shadow-[0_0_15px_rgba(59,130,246,0.3)] border-blue-500/30';
-                              if (badge.tier === 'epic') tierClass = 'animate-float shadow-[0_0_20px_rgba(168,85,247,0.4)] border-purple-500/50';
-                              if (badge.tier === 'legendary') tierClass = 'animate-shimmer shadow-[0_0_25px_rgba(249,115,22,0.5)] border-orange-500/60';
-                              if (badge.tier === 'mythic') tierClass = 'animate-sparkle shadow-[0_0_30px_rgba(236,72,153,0.6)] border-pink-500/80 bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20';
+                              if (badge.tier === 'rare') tierClass += ' shadow-[0_0_15px_rgba(59,130,246,0.4)]';
+                              if (badge.tier === 'epic') tierClass += ' animate-float shadow-[0_0_20px_rgba(168,85,247,0.5)]';
+                              if (badge.tier === 'legendary') tierClass += ' animate-shimmer shadow-[0_0_25px_rgba(249,115,22,0.6)]';
+                              if (badge.tier === 'mythic') tierClass = 'animate-sparkle shadow-[0_0_30px_rgba(236,72,153,0.7)] border-pink-500/80 bg-gradient-to-br from-indigo-500/20 via-purple-500/20 to-pink-500/20 text-pink-500';
                             }
 
                             return (
                               <div 
                                 key={badge.id} 
                                 onClick={handleBadgeClick}
-                                className={`h-full relative p-4 rounded-[20px] flex flex-col items-center text-center transition-all ${isUnlocked ? badge.color + ' bg-opacity-10 border cursor-pointer hover:scale-105 active:scale-95 ' + tierClass : 'bg-black/5 dark:bg-white/5 border border-transparent grayscale opacity-50 cursor-pointer hover:scale-105 active:scale-95'}`}
+                                className={`h-full relative p-4 rounded-[20px] flex flex-col items-center text-center transition-all cursor-pointer hover:scale-105 active:scale-95 group overflow-hidden ${
+                                  isUnlocked 
+                                    ? tierClass 
+                                    : 'bg-black/5 dark:bg-white/5 border border-main/10 opacity-70 hover:opacity-100'
+                                }`}
                               >
-                                <div className="text-4xl mb-3 drop-shadow-sm">{badge.icon}</div>
-                                <h4 className={`font-bold text-sm mb-1 ${isUnlocked ? '' : 'text-main'}`}>{badge.name[lang] || badge.name.th}</h4>
-                                <p className={`text-[10px] leading-snug flex-1 flex items-center justify-center ${isUnlocked ? 'opacity-80' : 'text-main/60'}`}>{badge.desc[lang] || badge.desc.th}</p>
+                                <div className={`text-4xl mb-3 drop-shadow-md transition-all ${isUnlocked ? 'scale-110' : 'grayscale opacity-60 group-hover:grayscale-0 group-hover:opacity-100'}`}>
+                                  {badge.icon}
+                                </div>
+                                <h4 className={`font-bold text-sm mb-1 z-10 ${isUnlocked ? '' : 'text-main/80'}`}>
+                                  {badge.name[lang] || badge.name.th}
+                                </h4>
+                                <p className={`text-[10px] leading-snug flex-1 flex items-center justify-center z-10 ${isUnlocked ? 'opacity-80 font-medium' : 'text-main/60'}`}>
+                                  {badge.desc[lang] || badge.desc.th}
+                                </p>
                                 
-                                {isUnlocked && (
+                                {isUnlocked ? (
                                   <div className="absolute top-2 right-2">
-                                    <CheckCircle2 size={14} className="text-current" />
+                                    <CheckCircle2 size={16} className="text-current drop-shadow-sm" />
+                                  </div>
+                                ) : (
+                                  <div className="w-full mt-3 flex flex-col gap-1.5 relative z-10">
+                                    <div className="flex justify-between text-[9px] font-bold text-main/50">
+                                      <span>{currentVal.toLocaleString()}</span>
+                                      <span>{badge.target.toLocaleString()}</span>
+                                    </div>
+                                    <div className="h-2 w-full bg-main/10 rounded-full overflow-hidden shadow-inner">
+                                      <div 
+                                        className="h-full bg-primary-500 rounded-full transition-all duration-1000 ease-out"
+                                        style={{ width: `${progress}%` }}
+                                      />
+                                    </div>
                                   </div>
                                 )}
                               </div>

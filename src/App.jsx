@@ -25,7 +25,6 @@ import pkg from '../package.json';
 import ProfilePage from './pages/ProfilePage';
 import SettingsPage from './pages/SettingsPage';
 import PartTimePage from './pages/PartTimePage';
-import IncomeHistoryPage from './pages/IncomeHistoryPage';
 import TodayPage from './pages/TodayPage';
 import SocialSecurityPage from './pages/SocialSecurityPage';
 import TasksPage from './pages/TasksPage';
@@ -595,6 +594,11 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
             selectable
             longPressThreshold={10}
             length={365}
+            scrollToTime={new Date(1970, 1, 1, 7, 0, 0)}
+            min={new Date(1970, 1, 1, 6, 0, 0)}
+            max={new Date(1970, 1, 1, 23, 59, 59)}
+            step={30}
+            timeslots={2}
             components={{
               event: EventComponent,
               month: {
@@ -689,7 +693,6 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
           <Route path="/profile" element={<ProfilePage user={user} lang={lang} />} />
           <Route path="/settings" element={<ErrorBoundary><SettingsPage user={user} lang={lang} setLang={setLang} theme={theme} setThemeMode={setThemeMode} /></ErrorBoundary>} />
           <Route path="/part-time" element={<ErrorBoundary><PartTimePage user={user} lang={lang} /></ErrorBoundary>} />
-          <Route path="/income/history" element={<ErrorBoundary><IncomeHistoryPage user={user} lang={lang} /></ErrorBoundary>} />
           <Route path="/social-security" element={<SocialSecurityPage lang={lang} />} />
           <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
           <Route path="/friends" element={<FriendsPage user={user} lang={lang} />} />

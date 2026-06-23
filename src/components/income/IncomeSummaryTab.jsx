@@ -31,6 +31,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
   const [isDeleting, setIsDeleting] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null); // null = all
   const [isShiftListCollapsed, setIsShiftListCollapsed] = useState(false);
+  const [chartMode, setChartMode] = useState('daily'); // 'daily' | 'weekly'
 
   const partTimeTasks = useMemo(() =>
     allTasks.filter(t => t.isPartTime).sort((a, b) => new Date(b.start) - new Date(a.start)),
@@ -55,7 +56,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
     });
   };
 
-  const { summary, chartData, shiftsList, comparison, companyChartData, companyStatsMap, expensesList } = useMemo(() => {
+  const { summary, chartData, weeklyChartData, shiftsList, comparison, companyChartData, companyStatsMap, expensesList } = useMemo(() => {
     const targetDate = new Date(`${selectedMonth}-01T00:00:00`);
     const daysInMonth = getDaysInMonth(targetDate);
 
@@ -65,6 +66,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
     const companyIncomeMap = {};
     const companyStatsMap = {};
     const dailyIncomeMap = {};
+    const weeklyIncomeMap = {};
     for (let i = 1; i <= daysInMonth; i++) dailyIncomeMap[i] = { income: 0 };
 
     partTimeTasks.forEach(t => {
@@ -113,11 +115,16 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
 
       if (isDone) {
         const day = taskDate.getDate();
+        const weekNum = getWeekOfMonth(taskDate, { weekStartsOn: 1 });
+        if (!weeklyIncomeMap[weekNum]) weeklyIncomeMap[weekNum] = { week: `W${weekNum}`, weekNum, income: 0 };
+
         if (dailyIncomeMap[day]) {
-          dailyIncomeMap[day].income += earnings;
           if (!t.isExpense) {
+            dailyIncomeMap[day].income += earnings;
+            weeklyIncomeMap[weekNum].income += earnings;
             const n = t.title || 'อื่นๆ';
             dailyIncomeMap[day][n] = (dailyIncomeMap[day][n] || 0) + earnings;
+            weeklyIncomeMap[weekNum][n] = (weeklyIncomeMap[weekNum][n] || 0) + earnings;
           }
         }
       }
@@ -129,6 +136,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
         chartArr.push({ day: i.toString(), fullDay: i, ...dailyIncomeMap[i] });
       }
     }
+    const weeklyChartArr = Object.values(weeklyIncomeMap).sort((a,b) => a.weekNum - b.weekNum);
 
     const companyChartData = Object.entries(companyIncomeMap)
       .map(([name, value]) => ({ name, value }))
@@ -168,6 +176,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
       summary: { totalGross, ssoDeduction, netIncome, shiftCount, totalHours },
       companyChartData, companyStatsMap,
       chartData: chartArr,
+      weeklyChartData: weeklyChartArr,
       shiftsList: shiftsInMonth,
       expensesList,
       comparison: {
@@ -344,8 +353,14 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
 
       {/* ── Bar Chart ── */}
       <div className="liquid-glass-card p-4 rounded-[24px]">
-        <p className="text-main/60 text-xs font-bold mb-3">รายได้รายวัน (เดือนนี้)</p>
-        {chartData.length === 0 ? (
+        <div className="flex justify-between items-center mb-3">
+          <p className="text-main/60 text-xs font-bold">สรุปรายได้ (เดือนนี้)</p>
+          <div className="flex bg-main/5 dark:bg-white/5 rounded-full p-0.5">
+            <button onClick={() => setChartMode('daily')} className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-all ${chartMode === 'daily' ? 'bg-primary-500 text-white shadow-sm' : 'text-main/50 hover:text-main'}`}>รายวัน</button>
+            <button onClick={() => setChartMode('weekly')} className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-all ${chartMode === 'weekly' ? 'bg-primary-500 text-white shadow-sm' : 'text-main/50 hover:text-main'}`}>รายสัปดาห์</button>
+          </div>
+        </div>
+        {(chartMode === 'daily' ? chartData : weeklyChartData).length === 0 ? (
           <div className="h-[100px] flex flex-col items-center justify-center">
             <CalendarOff className="w-7 h-7 text-primary-500/30 mb-2" />
             <p className="text-main/40 text-xs font-bold">ยังไม่มีรายการที่เสร็จแล้ว</p>
@@ -353,13 +368,13 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
         ) : (
           <div className="h-[160px]">
             <ResponsiveContainer width="100%" height="100%">
-              <BarChart data={chartData} margin={{ top: 8, right: 0, left: -20, bottom: 0 }}>
+              <BarChart data={chartMode === 'daily' ? chartData : weeklyChartData} margin={{ top: 8, right: 0, left: -20, bottom: 0 }}>
                 <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(100,100,120,0.08)" />
-                <XAxis dataKey="day" axisLine={false} tickLine={false}
+                <XAxis dataKey={chartMode === 'daily' ? 'day' : 'week'} axisLine={false} tickLine={false}
                   tick={{ fontSize: 9, fill: 'rgba(100,100,120,0.7)', fontWeight: 'bold' }} dy={6} />
                 <YAxis axisLine={false} tickLine={false}
                   tick={{ fontSize: 9, fill: 'rgba(100,100,120,0.7)', fontWeight: 'bold' }}
-                  tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000) + 'k' : value}` : '0'} />
+                  tickFormatter={(value) => value > 0 ? `฿${value >= 1000 ? (value/1000).toFixed(1).replace(/\.0$/, '') + 'k' : value}` : '0'} />
                 <Tooltip content={<CustomTooltip />} cursor={{ fill: 'rgba(255,255,255,0.05)' }} />
                 {companyChartData.length > 1
                   ? companyChartData.map((c, i) => (
@@ -369,11 +384,16 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
                     ))
                   : (
                       <Bar dataKey="income" radius={[6,6,6,6]} maxBarSize={36}>
-                        {chartData.map((entry, i) => (
-                          <Cell key={i} fill={entry.fullDay === new Date().getDate()
-                            ? 'var(--theme-accent)'
-                            : 'color-mix(in srgb, var(--theme-accent) 35%, transparent)'} />
-                        ))}
+                        {(chartMode === 'daily' ? chartData : weeklyChartData).map((entry, i) => {
+                          const isCurrent = chartMode === 'daily'
+                            ? entry.fullDay === new Date().getDate() && selectedMonth === format(new Date(), 'yyyy-MM')
+                            : entry.weekNum === getWeekOfMonth(new Date(), { weekStartsOn: 1 }) && selectedMonth === format(new Date(), 'yyyy-MM');
+                          return (
+                            <Cell key={i} fill={isCurrent
+                              ? 'var(--theme-accent)'
+                              : 'color-mix(in srgb, var(--theme-accent) 35%, transparent)'} />
+                          );
+                        })}
                       </Bar>
                     )
                 }

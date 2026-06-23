@@ -85,7 +85,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
     startDate: new Date().toISOString().slice(0, 10),
     endDate: new Date().toISOString().slice(0, 10),
     startTime: DEFAULT_TASK_VALUES.START_TIME,
-    endTime: DEFAULT_TASK_VALUES.END_TIME
+    endTime: DEFAULT_TASK_VALUES.END_TIME,
+    selectedDays: []
   });
   const [successShiftData, setSuccessShiftData] = useState(null);
   const [successExtraData, setSuccessExtraData] = useState(null);
@@ -784,6 +785,10 @@ export default function PartTimePage({ user, lang = 'en' }) {
     const shiftsToAdd = [];
     
     for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+      if (formData.selectedDays && formData.selectedDays.length > 0 && !formData.selectedDays.includes(d.getDay())) {
+        continue;
+      }
+
       const dateString = d.toISOString().slice(0, 10);
       const startDateTime = new Date(`${dateString}T${formData.startTime}:00`).toISOString();
         let endDateObj = new Date(`${dateString}T${formData.endTime}:00`);
@@ -1343,6 +1348,33 @@ export default function PartTimePage({ user, lang = 'en' }) {
                   </div>
                 );
               })()}
+
+              <div className="mb-4">
+                <label className="block text-sm font-medium text-main mb-2 opacity-80">วันในสัปดาห์ (ไม่เลือก = ทุกวัน)</label>
+                <div className="flex flex-wrap gap-2">
+                  {daysOfWeek.map(day => (
+                    <button
+                      key={day.id}
+                      type="button"
+                      onClick={() => {
+                        setFormData(prev => ({
+                          ...prev,
+                          selectedDays: prev.selectedDays?.includes(day.id)
+                            ? prev.selectedDays.filter(id => id !== day.id)
+                            : [...(prev.selectedDays || []), day.id]
+                        }));
+                      }}
+                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                        formData.selectedDays?.includes(day.id)
+                          ? 'bg-primary-500 text-white border-primary-500 shadow-md'
+                          : 'bg-black/5 dark:bg-white/5 text-main/70 border-transparent hover:border-main/20'
+                      }`}
+                    >
+                      {day.label}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="grid grid-cols-2 gap-3">

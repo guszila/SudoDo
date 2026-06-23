@@ -1,10 +1,10 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   Users, UserPlus, Copy, Check, Search, Trash2, Award, Flame, X,
   Clock, MapPin, Briefcase, ChevronRight, Share2, QrCode, Sparkles,
   Calendar, Activity, ArrowRight, CheckCircle2, Circle, RefreshCw, Bell, BellOff,
-  MessageCircle, CalendarDays
+  MessageCircle, CalendarDays, Trophy, Medal, Crown, TrendingUp
 } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
 import { getFriends, subscribeToFriends, addFriendByCode, removeFriend, subscribeToPendingRequests, acceptFriendRequest, declineFriendRequest } from '../services/friendService';
@@ -282,6 +282,30 @@ export default function FriendsPage({ user, lang = 'th' }) {
   };
 
   const activeToday = friends.filter(f => f.hasWorkedToday).length;
+
+  const leaderboardData = useMemo(() => {
+    if (!myProfile && friends.length === 0) return [];
+    
+    const allUsers = [...friends];
+    if (myProfile) {
+      allUsers.push({
+        uid: user.uid,
+        displayName: user.displayName || (lang === 'en' ? 'Me' : 'ฉัน'),
+        avatarUrl: localStorage.getItem(`avatar_${user.uid}`) || myProfile.avatarUrl,
+        currentStreak: myProfile.currentStreak || 0,
+        totalBadges: myProfile.totalBadges || 0,
+        hasWorkedToday: myProfile.hasWorkedToday || false,
+        isMe: true,
+      });
+    }
+    
+    return allUsers.sort((a, b) => {
+      if ((b.currentStreak || 0) !== (a.currentStreak || 0)) {
+        return (b.currentStreak || 0) - (a.currentStreak || 0);
+      }
+      return (b.totalBadges || 0) - (a.totalBadges || 0);
+    });
+  }, [friends, myProfile, user, lang]);
 
   return (
     <motion.div
@@ -698,29 +722,91 @@ export default function FriendsPage({ user, lang = 'th' }) {
           </button>
         </motion.div>
       ) : (
-        <div className="space-y-3">
-          {/* Active today section */}
-          {activeToday > 0 && (
-            <p className="text-xs font-bold text-emerald-600 dark:text-emerald-400 uppercase tracking-widest px-1 flex items-center gap-1.5 mb-1">
-              <Activity size={12} />
-              {lang === 'en' ? 'Active Today' : 'ทำงานวันนี้'}
-            </p>
+        <div className="space-y-6">
+          {/* ── Podium Leaderboard (Top 3) ── */}
+          {leaderboardData.length >= 2 && (
+            <div className="liquid-glass-card rounded-[28px] p-5 pt-10 mt-6 mb-4 relative overflow-visible border-primary-500/20 shadow-[0_8px_30px_rgba(var(--color-primary-500),0.1)]">
+              <div className="absolute -top-3.5 left-1/2 -translate-x-1/2 bg-gradient-to-r from-orange-400 to-amber-500 text-white px-4 py-1.5 rounded-full text-xs font-black tracking-widest uppercase shadow-lg shadow-amber-500/30 flex items-center gap-1.5 whitespace-nowrap z-20">
+                <Trophy size={14} /> LEADERBOARD
+              </div>
+              
+              <div className="flex items-end justify-center gap-3 mt-6 min-h-[240px]">
+                {(() => {
+                  const top3 = leaderboardData.slice(0, 3);
+                  // Always render 3 slots to keep Rank 1 perfectly centered: [Rank 2, Rank 1, Rank 3]
+                  const podiumOrder = [top3[1] || null, top3[0], top3[2] || null];
+                  
+                  return podiumOrder.map((u, i) => {
+                    if (!u) return <div key={`empty-${i}`} className="flex-1 max-w-[100px]" />;
+
+                    const isFirst = u.uid === top3[0]?.uid;
+                    const isSecond = top3.length > 1 && u.uid === top3[1]?.uid;
+                    const isThird = top3.length > 2 && u.uid === top3[2]?.uid;
+                    
+                    const heightClass = isFirst ? 'h-[110px]' : isSecond ? 'h-[80px]' : 'h-[60px]';
+                    const colorClass = isFirst ? 'from-amber-400 to-orange-500' : isSecond ? 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-700' : 'from-orange-300 to-orange-400 dark:from-orange-800 dark:to-orange-900';
+                    const glowClass = isFirst ? 'shadow-[0_0_20px_rgba(245,158,11,0.5)] z-10' : 'opacity-90';
+                    
+                    return (
+                      <div key={u.uid} className={`flex flex-col items-center flex-1 max-w-[100px] ${isFirst ? 'scale-110 origin-bottom' : ''}`}>
+                        <div className="relative z-10">
+                          {isFirst && <Crown size={24} className="absolute -top-6 left-1/2 -translate-x-1/2 text-yellow-500 drop-shadow-md z-20" />}
+                          <Avatar src={u.avatarUrl} name={u.displayName} size={isFirst ? "lg" : "md"} pulse={u.hasWorkedToday} />
+                        </div>
+                        <p className={`text-xs font-bold mt-2 truncate w-full text-center px-1 ${isFirst ? 'text-primary-500' : 'text-main'}`}>
+                          {u.isMe ? (lang === 'en' ? 'You' : 'คุณ') : u.displayName}
+                        </p>
+                        <p className="text-[10px] text-orange-500 font-bold mb-2 flex items-center gap-0.5">
+                          <Flame size={10} fill="currentColor" /> {u.currentStreak || 0}
+                        </p>
+                        
+                        <div className={`w-full rounded-t-xl bg-gradient-to-t ${colorClass} ${heightClass} ${glowClass} flex justify-center pt-2 relative overflow-hidden transition-all duration-500 mt-1`}>
+                          <span className="text-white/90 font-black text-2xl drop-shadow-md">
+                            {isFirst ? '1' : isSecond ? '2' : '3'}
+                          </span>
+                          <div className="absolute inset-0 bg-white/20 dark:bg-black/10 mix-blend-overlay" />
+                          <div className="absolute top-0 left-0 w-full h-1 bg-white/40" />
+                        </div>
+                      </div>
+                    );
+                  });
+                })()}
+              </div>
+            </div>
           )}
 
-          {friends
-            .sort((a, b) => (b.hasWorkedToday ? 1 : 0) - (a.hasWorkedToday ? 1 : 0))
-            .map((friend, idx) => (
+          {/* ── Full List ── */}
+          <div className="space-y-3">
+            <h3 className="text-xs font-bold text-main/50 uppercase tracking-widest px-1 flex items-center gap-1.5">
+              <Users size={12} />
+              {lang === 'en' ? 'All Users' : 'รายชื่อทั้งหมด'}
+            </h3>
+
+            {leaderboardData.map((friend, idx) => (
               <motion.div
                 key={friend.uid}
                 initial={{ opacity: 0, x: -20 }}
                 animate={{ opacity: 1, x: 0 }}
                 transition={{ delay: idx * 0.05 }}
                 className={`liquid-glass-card rounded-[20px] p-4 flex items-center gap-3.5 cursor-pointer
-                  hover:border-primary-500/30 hover:shadow-lg active:scale-[0.98] transition-all group relative
+                  hover:border-primary-500/40 hover:shadow-[0_4px_20px_rgba(var(--color-primary-500),0.15)] active:scale-[0.98] transition-all group relative
                   ${removingId === friend.uid ? 'opacity-50 pointer-events-none' : ''}
-                  ${friend.hasWorkedToday ? 'border-emerald-500/20' : ''}`}
-                onClick={() => { setSelectedFriend(friend); setModalTab('profile'); }}
+                  ${friend.hasWorkedToday ? 'border-emerald-500/30 bg-emerald-500/5' : ''}
+                  ${friend.isMe ? 'border-primary-500/40 bg-primary-500/5' : ''}`}
+                onClick={() => { 
+                  if (friend.isMe) return;
+                  setSelectedFriend(friend); 
+                  setModalTab('profile'); 
+                }}
               >
+                <div className={`w-6 flex-shrink-0 flex items-center justify-center font-black text-lg ${
+                  idx === 0 ? 'text-yellow-500' :
+                  idx === 1 ? 'text-slate-400' :
+                  idx === 2 ? 'text-orange-400' : 'text-main/20'
+                }`}>
+                  {idx + 1}
+                </div>
+
                 <Avatar
                   src={friend.avatarUrl}
                   name={friend.displayName}
@@ -730,8 +816,8 @@ export default function FriendsPage({ user, lang = 'th' }) {
 
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2">
-                    <h4 className="font-bold text-main truncate">
-                      {friend.displayName || (lang === 'en' ? 'Unknown' : 'ผู้ใช้งาน')}
+                    <h4 className={`font-bold truncate ${friend.isMe ? 'text-primary-500' : 'text-main'}`}>
+                      {friend.displayName || (lang === 'en' ? 'Unknown' : 'ผู้ใช้งาน')} {friend.isMe && (lang === 'en' ? '(You)' : '(คุณ)')}
                     </h4>
                     {friend.featuredBadgeId && (() => {
                       const b = BADGE_LIST.find(b => b.id === friend.featuredBadgeId);
@@ -746,26 +832,29 @@ export default function FriendsPage({ user, lang = 'th' }) {
                       : null
                   }
 
-                  <div className="flex items-center gap-2 mt-1.5">
-                    <span className="text-xs font-bold text-orange-500 flex items-center gap-0.5 bg-orange-500/10 px-2 py-0.5 rounded-full">
-                      <Flame size={10} fill="currentColor" /> {friend.currentStreak || 0}
+                  <div className="flex items-center gap-2 mt-2">
+                    <span className="text-xs font-bold text-orange-500 flex items-center gap-1 bg-orange-500/10 px-2 py-1 rounded-full">
+                      <Flame size={12} fill="currentColor" /> {friend.currentStreak || 0}
                     </span>
-                    <span className="text-xs font-bold text-primary-500 flex items-center gap-0.5 bg-primary-500/10 px-2 py-0.5 rounded-full">
-                      <Award size={10} /> {friend.totalBadges || 0}
+                    <span className="text-xs font-bold text-primary-500 flex items-center gap-1 bg-primary-500/10 px-2 py-1 rounded-full">
+                      <Award size={12} /> {friend.totalBadges || 0}
                     </span>
                     {friend.hasWorkedToday && (
-                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-0.5 bg-emerald-500/10 px-2 py-0.5 rounded-full">
-                        <Activity size={10} /> {lang === 'en' ? 'Active' : 'ทำงานอยู่'}
+                      <span className="text-xs font-bold text-emerald-600 dark:text-emerald-400 flex items-center gap-1 bg-emerald-500/10 px-2 py-1 rounded-full border border-emerald-500/20">
+                        <Activity size={12} /> {lang === 'en' ? 'Active' : 'กำลังลุยงาน'}
                       </span>
                     )}
                   </div>
                 </div>
 
-                <div className="flex items-center gap-1 flex-shrink-0">
-                  <ChevronRight size={16} className="text-main/30 group-hover:text-primary-500 transition-colors" />
-                </div>
+                {!friend.isMe && (
+                  <div className="flex items-center gap-1 flex-shrink-0">
+                    <ChevronRight size={16} className="text-main/30 group-hover:text-primary-500 transition-colors" />
+                  </div>
+                )}
               </motion.div>
             ))}
+          </div>
         </div>
       )}
 

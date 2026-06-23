@@ -368,3 +368,226 @@ html, body {
 .rbc-off-range {
   opacity: 0.25;
 }
+
+/* ═══════════════════════════════════════════
+   WEEK & DAY VIEW — Improved Readability
+   ═══════════════════════════════════════════ */
+
+/* Bigger time slots so events have more room */
+.rbc-time-view .rbc-timeslot-group {
+  min-height: 64px;
+}
+
+/* Time gutter labels — larger, bolder */
+.rbc-time-view .rbc-time-gutter .rbc-label {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--color-text-main);
+  opacity: 0.4;
+  padding: 4px 8px;
+  white-space: nowrap;
+}
+
+/* Events in week/day view — bigger text, more padding */
+.rbc-time-view .rbc-event {
+  border-radius: 12px !important;
+  padding: 4px 8px !important;
+  font-size: 12px;
+  font-weight: 600;
+  min-height: 28px;
+  line-height: 1.3;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.08);
+}
+
+.rbc-time-view .rbc-event .rbc-event-content {
+  white-space: normal;
+  overflow: visible;
+  word-break: break-word;
+}
+
+.rbc-time-view .rbc-event-label {
+  font-size: 10px;
+  font-weight: 700;
+  opacity: 0.7;
+  margin-bottom: 1px;
+}
+
+/* Current time indicator — accent colored */
+.rbc-current-time-indicator {
+  background-color: var(--theme-accent) !important;
+  height: 2px;
+  z-index: 10;
+}
+.rbc-current-time-indicator::before {
+  content: '';
+  position: absolute;
+  left: -5px;
+  top: -4px;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: var(--theme-accent);
+  box-shadow: 0 0 6px var(--theme-accent);
+}
+
+/* Week view — column headers (day names) */
+.rbc-time-view .rbc-header {
+  padding: 10px 4px;
+  font-size: 12px;
+  font-weight: 700;
+  letter-spacing: 0;
+  text-transform: none;
+  opacity: 1;
+  color: var(--color-text-main);
+}
+
+.rbc-time-view .rbc-header.rbc-today {
+  color: var(--theme-accent) !important;
+  position: relative;
+}
+.rbc-time-view .rbc-header.rbc-today::after {
+  content: '';
+  position: absolute;
+  bottom: 2px;
+  left: 50%;
+  transform: translateX(-50%);
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: var(--theme-accent);
+}
+
+/* Day column highlight for today */
+.rbc-time-view .rbc-day-slot.rbc-today {
+  background: color-mix(in srgb, var(--theme-accent) 4%, transparent);
+}
+
+/* ═══════════════════════════════════════════
+   AGENDA VIEW — Card-Style Redesign
+   ═══════════════════════════════════════════ */
+
+.rbc-agenda-view {
+  @apply rounded-[24px];
+  background: transparent !important;
+}
+
+.rbc-agenda-view table.rbc-agenda-table {
+  border: none !important;
+  border-spacing: 0 6px !important;
+  border-collapse: separate !important;
+}
+
+.rbc-agenda-view table.rbc-agenda-table thead > tr > th {
+  border-bottom: none !important;
+  padding: 12px 16px;
+  font-size: 11px;
+  font-weight: 700;
+  text-transform: uppercase;
+  letter-spacing: 0.08em;
+  color: var(--color-text-main);
+  opacity: 0.4;
+}
+
+.rbc-agenda-view table.rbc-agenda-table tbody > tr {
+  background: var(--glass-bg) !important;
+  border-radius: 16px;
+  overflow: hidden;
+  transition: all 0.2s ease;
+}
+
+.rbc-agenda-view table.rbc-agenda-table tbody > tr:hover {
+  background: var(--glass-bg-strong) !important;
+  transform: translateX(2px);
+}
+
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+  border: none !important;
+  padding: 14px 16px;
+  font-size: 13px;
+  font-weight: 500;
+  color: var(--color-text-main);
+  vertical-align: middle;
+}
+
+/* Date column in agenda */
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td:first-child {
+  font-weight: 700;
+  font-size: 12px;
+  white-space: nowrap;
+  opacity: 0.7;
+  padding-left: 12px;
+  border-left: 3px solid var(--theme-accent) !important;
+  border-radius: 12px 0 0 12px;
+}
+
+/* Time column in agenda */
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td:nth-child(2) {
+  font-size: 12px;
+  font-weight: 600;
+  opacity: 0.6;
+  white-space: nowrap;
+}
+
+/* Event name column in agenda */
+.rbc-agenda-view table.rbc-agenda-table tbody > tr > td:last-child {
+  border-radius: 0 12px 12px 0;
+  font-weight: 600;
+}
+
+/* Agenda date separator header */
+.rbc-agenda-date-cell {
+  font-weight: 700 !important;
+  color: var(--theme-accent-dark) !important;
+}
+
+/* Empty agenda message */
+.rbc-agenda-empty {
+  text-align: center;
+  padding: 48px 24px;
+  font-size: 14px;
+  font-weight: 600;
+  opacity: 0.4;
+  color: var(--color-text-main);
+}
+
+/* ═══════════════════════════════════════════
+   Mobile-specific improvements
+   ═══════════════════════════════════════════ */
+@media (max-width: 768px) {
+  /* Week view on mobile — wider time slots */
+  .rbc-time-view .rbc-timeslot-group {
+    min-height: 56px;
+  }
+
+  .rbc-time-view .rbc-time-gutter .rbc-label {
+    font-size: 10px;
+    padding: 2px 4px;
+  }
+
+  .rbc-time-view .rbc-event {
+    font-size: 10px;
+    padding: 3px 5px !important;
+    border-radius: 8px !important;
+    min-height: 24px;
+  }
+
+  .rbc-time-view .rbc-event-label {
+    font-size: 9px;
+  }
+
+  .rbc-time-view .rbc-header {
+    font-size: 10px;
+    padding: 8px 2px;
+  }
+
+  /* Agenda on mobile */
+  .rbc-agenda-view table.rbc-agenda-table tbody > tr > td {
+    padding: 10px 10px;
+    font-size: 12px;
+  }
+  
+  .rbc-agenda-view table.rbc-agenda-table tbody > tr > td:first-child {
+    font-size: 11px;
+    padding-left: 8px;
+  }
+}
