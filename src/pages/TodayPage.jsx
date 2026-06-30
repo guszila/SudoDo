@@ -948,7 +948,7 @@ export default function TodayPage({ user, lang = 'th' }) {
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="min-h-screen font-sans pb-32 md:pb-8 overflow-x-hidden"
     >
-      <div className="relative w-full h-[180px] md:h-[220px] mb-6">
+      <div className="relative w-full h-[220px] md:h-[240px] mb-6">
         <GreetingBanner 
           name={user?.displayName?.split(' ')[0] || ''} 
           dateLabel={format(now, 'EEEE d MMM yyyy', { locale: lang === 'th' ? th : undefined })} 

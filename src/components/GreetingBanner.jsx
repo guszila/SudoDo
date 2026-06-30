@@ -317,7 +317,7 @@ export default function GreetingBanner({ name = "โฟกัส", dateLabel, fo
         <div className="max-w-4xl mx-auto w-full h-full relative">
           {/* greeting text */}
           <div
-            className="greeting-banner-text absolute bottom-8 left-4 md:bottom-12 md:left-8 z-10"
+            className="greeting-banner-text absolute bottom-8 left-4 md:bottom-12 md:left-8 z-10 pr-[100px] md:pr-[120px] max-w-full"
           >
             <p style={{
               margin: 0,

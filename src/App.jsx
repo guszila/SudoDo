@@ -20,6 +20,7 @@ import BottomNav from './components/layout/BottomNav';
 import ProductTour from './components/onboarding/ProductTour';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import ChangelogModal from './components/common/ChangelogModal';
+import OneSignalVerificationModal from './components/common/OneSignalVerificationModal';
 import pkg from '../package.json';
 
 import ProfilePage from './pages/ProfilePage';
@@ -767,6 +768,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
         task={selectedTask}
         lang={lang}
       />
+      <OneSignalVerificationModal lang={lang} />
     </>
   );
 }
@@ -830,6 +832,11 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setAuthLoading(false);
+      
+      // Initialize OneSignal
+      import('./services/OneSignalService').then(mod => {
+        mod.default.initialize(currentUser?.uid);
+      });
     });
     return () => unsubscribe();
   }, []);
