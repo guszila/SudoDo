@@ -261,8 +261,30 @@ export default function TodayPage({ user, lang = 'th' }) {
           if (!navigator.geolocation) {
             reject(new Error("Geolocation is not supported"));
           } else {
-            // Reduce timeout to 3s to fail faster if location is not available
-            navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
+            const getLoc = () => navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 3000 });
+            
+            const handlePrompt = () => {
+              if (!localStorage.getItem('has_asked_location')) {
+                localStorage.setItem('has_asked_location', 'true');
+                getLoc();
+              } else {
+                reject(new Error("Already asked previously"));
+              }
+            };
+
+            if (navigator.permissions && navigator.permissions.query) {
+              navigator.permissions.query({ name: 'geolocation' }).then(result => {
+                if (result.state === 'granted') {
+                  getLoc();
+                } else if (result.state === 'prompt') {
+                  handlePrompt();
+                } else {
+                  reject(new Error("Permission denied"));
+                }
+              }).catch(() => handlePrompt()); // Fallback for Safari
+            } else {
+              handlePrompt(); // Fallback if permissions API is missing
+            }
           }
         });
       };
@@ -934,7 +956,7 @@ export default function TodayPage({ user, lang = 'th' }) {
           className="rounded-b-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-b border-white/10" 
         />
         
-        <div className="absolute top-0 left-0 right-0 p-4 md:p-8 flex justify-end items-start z-10 max-w-4xl mx-auto w-full">
+        <div className="absolute top-0 left-0 right-0 p-4 pt-safe md:p-8 flex justify-end items-start z-10 max-w-4xl mx-auto w-full">
 
           
           <div className="flex items-center gap-2 mt-2">

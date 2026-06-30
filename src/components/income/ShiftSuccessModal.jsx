@@ -265,7 +265,7 @@ export default function ShiftSuccessModal({ isOpen, onClose, data, lang = 'th' }
                 <div className="flex justify-between items-center text-xs">
                   <span className="text-main/50 font-medium">{t.estPayLabel}</span>
                   <span className="text-main/70 font-semibold">
-                    ≈ ฿{estPayPerShift.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    ≈ ฿{estPayPerShift.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                 </div>
               )}
@@ -277,7 +277,7 @@ export default function ShiftSuccessModal({ isOpen, onClose, data, lang = 'th' }
                 <span className="text-green-600 dark:text-green-400 font-bold text-lg flex items-center gap-0.5">
                   <DollarSign size={16} className="text-green-500" />
                   <span>
-                    ฿{totalEstPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    ฿{totalEstPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>
                   {data.shiftCount > 1 && (
                     <span className="text-xs text-main/40 font-medium ml-1">

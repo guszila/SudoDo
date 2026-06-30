@@ -549,7 +549,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="min-h-screen font-sans pb-32 md:pb-8 overflow-x-hidden"
+      className="min-h-screen font-sans pb-32 pt-safe md:pb-8 overflow-x-hidden"
     >
       <div className="max-w-7xl mx-auto px-4 md:px-8 relative z-10 animate-slide-up mt-8">
         <header className="flex justify-between items-start mb-6 animate-slide-up">

@@ -215,7 +215,7 @@ export default function TasksPage({ user, lang = 'en' }) {
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
-      className="min-h-screen font-sans pb-32 md:pb-8 p-4 md:p-8 max-w-4xl mx-auto"
+      className="min-h-screen font-sans pb-32 md:pb-8 p-4 pt-safe md:p-8 max-w-4xl mx-auto"
     >
       <div className="flex items-center justify-between mb-6 px-2">
         <div className="flex items-center gap-4">

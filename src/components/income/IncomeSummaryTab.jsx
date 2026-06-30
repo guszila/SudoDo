@@ -272,7 +272,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
     if (!active || !payload?.length) return null;
     return (
       <div className="liquid-glass-card px-3 py-2 rounded-xl shadow-lg text-sm">
-        <p className="text-primary-500 font-bold">฿{payload[0].value.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+        <p className="text-primary-500 font-bold">฿{payload[0].value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
       </div>
     );
   };
@@ -325,12 +325,12 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
             animate={{ opacity: 1, y: 0 }}
             className="text-white text-[36px] font-black tracking-tight leading-none mb-1"
           >
-            ฿{summary.netIncome.toLocaleString()}
+            ฿{summary.netIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </motion.h2>
 
           {summary.ssoDeduction > 0 && (
             <p className="text-white/60 text-xs font-medium mb-4">
-              หักประกันสังคม ฿{summary.ssoDeduction.toLocaleString()} · รวม ฿{summary.totalGross.toLocaleString()}
+              หักประกันสังคม ฿{summary.ssoDeduction.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · รวม ฿{summary.totalGross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </p>
           )}
 
@@ -339,8 +339,8 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
             {[
               { label: 'กะงาน', value: `${summary.shiftCount}` },
               { label: 'ชั่วโมง', value: `${summary.totalHours % 1 === 0 ? summary.totalHours : summary.totalHours.toFixed(1)}` },
-              { label: '฿/กะ', value: `${avgPerShift.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
-              { label: '฿/ชม.', value: `${avgPerHour.toLocaleString(undefined, { maximumFractionDigits: 0 })}` },
+              { label: '฿/กะ', value: `${avgPerShift.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+              { label: '฿/ชม.', value: `${avgPerHour.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
             ].map(item => (
               <div key={item.label} className="bg-black/20 backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/10 shadow-inner">
                 <p className="text-white font-black text-[16px] sm:text-[17px] leading-tight">{item.value}</p>
@@ -425,7 +425,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
                       )}
                     </div>
                     <span className="text-xs font-bold text-main/70">
-                      ฿{c.value.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                      ฿{c.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                       <span className="text-main/40 ml-1">({pct.toFixed(0)}%)</span>
                     </span>
                   </div>
@@ -450,7 +450,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
           <div className="flex justify-between items-center mb-4">
             <h3 className="text-main/80 font-bold text-sm">รวมรายจ่ายเดือนนี้</h3>
             <span className="text-sm font-bold text-red-500">
-              -฿{expensesList.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+              -฿{expensesList.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
           </div>
           <div className="space-y-2">
@@ -465,7 +465,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
                   <p className="text-[10px] text-main/50 mt-0.5">{format(new Date(exp.start), 'd MMM yyyy', { locale: th })}</p>
                 </div>
                 <span className="text-sm font-bold text-red-500">
-                  -฿{(Number(exp.amount) || 0).toLocaleString(undefined, { maximumFractionDigits: 2 })}
+                  -฿{(Number(exp.amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                 </span>
               </div>
             ))}
@@ -485,7 +485,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
           return (
             <div key={item.label} className="liquid-glass-card p-4 rounded-[20px]">
               <p className="text-main/50 text-xs font-bold mb-1">{item.label}</p>
-              <p className="text-main font-black text-base">฿{item.amount.toLocaleString(undefined, { maximumFractionDigits: 0 })}</p>
+              <p className="text-main font-black text-base">฿{item.amount.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
               <div className={`flex items-center gap-1 text-[10px] font-bold mt-2 px-2 py-1 w-fit rounded-lg
                 ${isUp ? 'bg-green-500/10 text-green-500' : isFlat ? 'bg-main/5 text-main/40' : 'bg-red-500/10 text-red-500'}`}>
                 <Icon size={10} />
@@ -567,7 +567,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
                         <h4 className="text-main/60 font-bold text-xs">{group.label}</h4>
                         {group.totalEarnings > 0 && (
                           <span className="text-main/50 font-bold text-xs">
-                            ฿{group.totalEarnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            ฿{group.totalEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         )}
                       </div>
@@ -656,7 +656,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
                                   task.isExpense ? 'text-red-500' :
                                   isCompleted ? 'text-green-500' : 'text-amber-500'
                                 }`}>
-                                  {task.isExpense ? '-' : '+'}฿{Math.abs(earnings).toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                                  {task.isExpense ? '-' : '+'}฿{Math.abs(earnings).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                                 </p>
                               </div>
                             </motion.div>

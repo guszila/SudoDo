@@ -313,7 +313,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ type: 'spring', stiffness: 280, damping: 28 }}
-      className="min-h-screen p-4 md:p-8 font-sans pb-28 max-w-2xl mx-auto"
+      className="min-h-screen p-4 pt-safe md:p-8 font-sans pb-28 max-w-2xl mx-auto"
     >
       {/* ── Header ─────────────────────────────────── */}
       <div className="flex items-center justify-between mb-4">

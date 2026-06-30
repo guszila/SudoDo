@@ -7,13 +7,17 @@ import { th } from 'date-fns/locale';
 
 export default function NotificationBell({ lang = 'th' }) {
   const [isOpen, setIsOpen] = useState(false);
+  const [frozenNotifications, setFrozenNotifications] = useState([]);
   const { notifications, unreadCount, markAllRead } = useNotifications();
   const navigate = useNavigate();
 
   const handleOpen = () => {
+    setFrozenNotifications(notifications);
     setIsOpen(true);
     markAllRead();
   };
+
+  const displayList = isOpen ? frozenNotifications : notifications;
 
   return (
     <div className="relative">
@@ -36,12 +40,12 @@ export default function NotificationBell({ lang = 'th' }) {
             </span>
           </div>
           <div className="flex-1 overflow-y-auto p-2">
-            {notifications.length === 0 ? (
+            {displayList.length === 0 ? (
               <div className="p-6 text-center text-main/50 text-sm">
                 {lang === 'en' ? 'No new notifications' : 'ไม่มีการแจ้งเตือน'}
               </div>
             ) : (
-              notifications.map((n) => (
+              displayList.map((n) => (
                 <div key={n.id} className="p-3 mb-1 rounded-xl hover:bg-black/5 dark:hover:bg-white/5 cursor-pointer transition-colors" onClick={() => {
                    if (!n.isSystem) navigate('/friends');
                    setIsOpen(false);

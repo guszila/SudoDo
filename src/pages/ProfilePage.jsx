@@ -282,7 +282,7 @@ export default function ProfilePage({ user, lang = 'th' }) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -50 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="min-h-screen p-4 md:p-8 font-sans pb-24 md:pb-8 overflow-x-hidden"
+      className="min-h-screen p-4 pt-safe md:p-8 font-sans pb-24 md:pb-8 overflow-x-hidden"
     >
       <div className="max-w-2xl mx-auto">
         

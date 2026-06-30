@@ -983,7 +983,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
-      className="min-h-screen font-sans pb-32 md:pb-8 p-4 md:p-8 max-w-4xl mx-auto"
+      className="min-h-screen font-sans pb-32 md:pb-8 p-4 pt-safe md:p-8 max-w-4xl mx-auto"
     >
       {/* Header */}
       <div className="flex items-center justify-between mb-5 px-2">
@@ -1340,7 +1340,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                           </span>
                           <span className="text-green-500/40 text-xs">·</span>
                           <span className="text-sm font-black text-green-600 dark:text-green-400">
-                            ≈ ฿{estPay.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                            ≈ ฿{estPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                           </span>
                         </div>
                       )}
@@ -1583,7 +1583,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
                 <div className="text-right flex-shrink-0">
                   <p className={`text-sm font-black ${activeTab === 'upcoming' ? 'text-amber-500' : 'text-green-500'}`}>
-                    ฿{weekGroup.totalEarnings.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    ฿{weekGroup.totalEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
                   <p className="text-[10px] text-main/40">{weekGroup.tasks.length} รายการ</p>
                 </div>

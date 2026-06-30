@@ -507,7 +507,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -50 }}
-      className="min-h-screen font-sans pb-32 pt-4 overflow-y-auto"
+      className="min-h-screen font-sans pb-32 pt-safe overflow-y-auto"
     >
       <motion.div
         variants={{

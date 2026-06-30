@@ -131,7 +131,7 @@ export default function SocialSecurityPage({ lang }) {
       initial={{ opacity: 0, x: 50 }}
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -50 }}
-      className="min-h-screen font-sans pb-32 pt-4 overflow-x-hidden"
+      className="min-h-screen font-sans pb-32 pt-safe overflow-x-hidden"
     >
       <div className="max-w-2xl mx-auto">
         
