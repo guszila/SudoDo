@@ -956,7 +956,7 @@ export default function TodayPage({ user, lang = 'th' }) {
           className="rounded-b-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-b border-white/10" 
         />
         
-        <div className="absolute top-0 left-0 right-0 p-4 pt-safe md:p-8 flex justify-end items-start z-10 max-w-4xl mx-auto w-full">
+        <div className="absolute top-0 left-0 right-0 p-4 pt-safe md:p-8 flex justify-end items-start z-[20000] max-w-4xl mx-auto w-full">
 
           
           <div className="flex items-center gap-2 mt-2">

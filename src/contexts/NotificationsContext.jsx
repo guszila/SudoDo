@@ -10,6 +10,7 @@ export const NotificationsContext = createContext({
   notifications: [],
   unreadCount: 0,
   markAllRead: async () => {},
+  clearAllNotifications: async () => {},
 });
 
 export function useNotifications() {

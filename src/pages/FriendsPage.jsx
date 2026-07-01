@@ -83,6 +83,13 @@ const extractFriendCode = (text) => {
   return trimmed.toUpperCase().replace(/[^A-Z0-9]/g, '').slice(0, 6);
 };
 
+const safeNotificationText = (value, fallback) => {
+  if (typeof value !== 'string') return fallback;
+  const text = value.trim();
+  if (!text || text.toLowerCase() === 'undefined' || text.toLowerCase() === 'null') return fallback;
+  return text;
+};
+
 // Avatar component with gradient fallback
 const Avatar = ({ src, name, size = 'md', pulse = false }) => {
   const sizeMap = { sm: 'w-10 h-10 text-sm', md: 'w-14 h-14 text-lg', lg: 'w-20 h-20 text-2xl' };
@@ -134,7 +141,15 @@ const TodaySchedulePreview = ({ schedule = [], lang }) => {
 export default function FriendsPage({ user, lang = 'th' }) {
   const navigate = useNavigate();
   const { showToast } = useToast();
-  const { notifications, unreadCount, markAllRead } = useNotifications();
+  const { notifications: notificationFeed } = useNotifications();
+  const notifications = useMemo(
+    () => notificationFeed.filter((item) => !item.isSystem),
+    [notificationFeed],
+  );
+  const unreadCount = useMemo(
+    () => notifications.filter((item) => item.read === false).length,
+    [notifications],
+  );
 
   const [myCode, setMyCode] = useState('');
   const [friends, setFriends] = useState([]);
@@ -443,13 +458,15 @@ export default function FriendsPage({ user, lang = 'th' }) {
                 : '';
               const isShift = notif.type === 'shift';
               const friendObj = friends.find(f => f.uid === notif.friendUid);
+              const isUnread = notif.read === false;
 
+              const friendName = safeNotificationText(notif.friendName, lang === 'en' ? 'Friend' : 'เพื่อน');
               const msgTitle = isShift
-                ? `${notif.friendName} ส่งกะงานให้คุณ`
-                : `${notif.friendName} ส่งข้อความมา`;
+                ? `${friendName} ส่งกะงานให้คุณ`
+                : `${friendName} ส่งข้อความมา`;
               const msgPreview = isShift
                 ? (notif.shift?.title ? `📅 ${notif.shift.title}` : '📅 แชร์กะงาน')
-                : notif.text;
+                : safeNotificationText(notif.text, lang === 'en' ? 'Open chat to view details' : 'เปิดแชทเพื่อดูรายละเอียด');
 
               return (
                 <motion.div
@@ -460,13 +477,13 @@ export default function FriendsPage({ user, lang = 'th' }) {
                   onClick={() => {
                     if (friendObj) { setSelectedFriend(friendObj); setModalTab('chat'); }
                   }}
-                  className="flex items-center gap-3.5 px-1 py-3 cursor-pointer active:scale-[0.98] transition-all group border-b border-main/5 last:border-0"
+                  className={`flex items-center gap-3.5 px-1 py-3 cursor-pointer active:scale-[0.98] transition-all group border-b border-main/5 last:border-0 ${isUnread ? '' : 'opacity-70'}`}
                 >
                   {/* Avatar circle */}
                   <div className="flex-shrink-0 w-[52px] h-[52px] rounded-full bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center overflow-hidden shadow-md ring-2 ring-white/20">
                     {notif.friendAvatar
                       ? <img src={notif.friendAvatar} alt="" className="w-full h-full object-cover" />
-                      : <span className="text-white font-bold text-base">{(notif.friendName || '?').slice(0, 2).toUpperCase()}</span>
+                      : <span className="text-white font-bold text-base">{friendName.slice(0, 2).toUpperCase()}</span>
                     }
                   </div>
 
@@ -483,7 +500,11 @@ export default function FriendsPage({ user, lang = 'th' }) {
 
                   {/* Unread blue dot */}
                   <div className="flex-shrink-0 flex flex-col items-center gap-1.5">
-                    <span className="w-2.5 h-2.5 rounded-full bg-primary-500 shadow-md shadow-primary-500/40" />
+                    {isUnread ? (
+                      <span className="w-2.5 h-2.5 rounded-full bg-primary-500 shadow-md shadow-primary-500/40" />
+                    ) : (
+                      <CheckCircle2 size={15} className="text-main/25" />
+                    )}
                   </div>
                 </motion.div>
               );

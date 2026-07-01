@@ -1,11 +1,11 @@
 /**
  * Notification Service
- * Listens to all chat conversations for a user and surfaces unread messages
+ * Listens to all chat conversations for a user and surfaces recent messages
  * from friends as "notifications" for the Inbox tab on FriendsPage.
  *
  * Strategy: Subscribe to each chatId (derived from friends list), fetch recent
- * messages ordered by time, and filter client-side for unread messages FROM the
- * friend. This avoids needing a Firestore composite index.
+ * messages ordered by time, and filter client-side for messages FROM the friend.
+ * Read items stay visible until the user explicitly clears them.
  */
 
 import {
@@ -15,14 +15,13 @@ import {
   limit,
   onSnapshot,
   doc,
-  setDoc,
-  writeBatch
+  setDoc
 } from 'firebase/firestore';
 import { getChatId } from './chatService';
 import { db } from '../firebase';
 
 /**
- * Subscribe to unread chat notifications across all friends.
+ * Subscribe to visible chat notifications across all friends.
  *
  * @param {string} userUid   — current user's UID
  * @param {Array}  friends   — array of friend profile objects (must have .uid)
@@ -65,10 +64,13 @@ export const subscribeToFriendNotifications = (userUid, friends, callback) => {
     const unsub = onSnapshot(
       q,
       (snap) => {
-        // Keep only messages FROM the friend that haven't been read yet
+        // Keep messages from the friend until the user explicitly clears them.
         chatMessages[chatId] = snap.docs
           .map((d) => ({ id: d.id, chatId, friendUid: friend.uid, friendName: friend.displayName || 'เพื่อน', friendAvatar: friend.avatarUrl || null, ...d.data() }))
-          .filter((m) => m.senderId === friend.uid && m.read === false);
+          .filter((m) => {
+            const dismissedBy = Array.isArray(m.dismissedBy) ? m.dismissedBy : [];
+            return m.senderId === friend.uid && !dismissedBy.includes(userUid);
+          });
         rebuild();
       },
       () => {
@@ -92,7 +94,8 @@ export const addSystemNotification = async (uid, message, type = 'system') => {
       message,
       type,
       createdAt: new Date(),
-      read: false
+      read: false,
+      dismissedBy: []
     });
   } catch (err) {
     console.error('Error adding system notification:', err);
@@ -112,12 +115,13 @@ export const subscribeToSystemNotifications = (uid, callback) => {
   return onSnapshot(q, (snap) => {
     const notifs = snap.docs
       .map(d => ({ id: d.id, isSystem: true, ...d.data() }))
-      .filter(n => n.read === false);
+      .filter((n) => {
+        const dismissedBy = Array.isArray(n.dismissedBy) ? n.dismissedBy : [];
+        return !dismissedBy.includes(uid);
+      });
     callback(notifs);
   }, (err) => {
     console.error("System notifications error:", err);
     callback([]);
   });
 };
-
-

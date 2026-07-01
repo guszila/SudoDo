@@ -10,11 +10,18 @@
  */
 
 import React, { useState, useEffect, useCallback, useRef } from 'react';
-import { writeBatch, doc } from 'firebase/firestore';
+import { writeBatch, doc, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebase';
 import { NotificationsContext } from './NotificationsContext';
 import { subscribeToFriendNotifications, subscribeToSystemNotifications } from '../services/notificationService';
-import { getFriends, subscribeToFriends } from '../services/friendService';
+import { subscribeToFriends } from '../services/friendService';
+
+const getNotificationTime = (item) => {
+  if (item.createdAt?.seconds) return item.createdAt.seconds;
+  if (typeof item.createdAt?.toDate === 'function') return item.createdAt.toDate().getTime() / 1000;
+  if (typeof item.createdAt?.getTime === 'function') return item.createdAt.getTime() / 1000;
+  return 0;
+};
 
 export default function NotificationsProvider({ children, user }) {
   // null = not loaded yet, [] = loaded but empty
@@ -23,11 +30,7 @@ export default function NotificationsProvider({ children, user }) {
   const [systemNotifications, setSystemNotifications] = useState([]);
   
   // Combine both types of notifications, sort by date (newest first)
-  const notifications = [...friendNotifications, ...systemNotifications].sort((a, b) => {
-    const timeA = a.createdAt?.seconds || a.createdAt?.getTime() / 1000 || 0;
-    const timeB = b.createdAt?.seconds || b.createdAt?.getTime() / 1000 || 0;
-    return timeB - timeA;
-  });
+  const notifications = [...friendNotifications, ...systemNotifications].sort((a, b) => getNotificationTime(b) - getNotificationTime(a));
 
   const notificationsRef = useRef([]);
 
@@ -71,8 +74,9 @@ export default function NotificationsProvider({ children, user }) {
   }, [user?.uid]);
 
   const markAllRead = useCallback(async () => {
-    const items = notificationsRef.current;
+    const items = notificationsRef.current.filter((item) => item.read === false);
     if (items.length === 0) return;
+    if (!user?.uid) return;
     try {
       const batch = writeBatch(db);
       items.forEach((item) => {
@@ -85,19 +89,44 @@ export default function NotificationsProvider({ children, user }) {
         }
       });
       await batch.commit();
-      setFriendNotifications([]);
-      setSystemNotifications([]);
+      setFriendNotifications((current) => current.map((item) => ({ ...item, read: true })));
+      setSystemNotifications((current) => current.map((item) => ({ ...item, read: true })));
     } catch (err) {
       console.error('markAllRead error:', err);
     }
-  }, []);
+  }, [user?.uid]);
+
+  const clearAllNotifications = useCallback(async () => {
+    const items = notificationsRef.current;
+    if (items.length === 0) return;
+    if (!user?.uid) return;
+    try {
+      const batch = writeBatch(db);
+      items.forEach((item) => {
+        const data = { read: true, dismissedBy: arrayUnion(user.uid) };
+        if (item.isSystem) {
+          const msgRef = doc(db, 'users', user.uid, 'notifications', item.id);
+          batch.update(msgRef, data);
+        } else {
+          const msgRef = doc(db, 'chats', item.chatId, 'messages', item.id);
+          batch.update(msgRef, data);
+        }
+      });
+      await batch.commit();
+      setFriendNotifications([]);
+      setSystemNotifications([]);
+    } catch (err) {
+      console.error('clearAllNotifications error:', err);
+    }
+  }, [user?.uid]);
 
   return (
     <NotificationsContext.Provider
       value={{
         notifications,
-        unreadCount: notifications.length,
+        unreadCount: notifications.filter((item) => item.read === false).length,
         markAllRead,
+        clearAllNotifications,
       }}
     >
       {children}
