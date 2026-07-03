@@ -1,10 +1,11 @@
 import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Calendar, Clock, DollarSign, X, Check, Award } from 'lucide-react';
+import { Calendar, Clock, X, Check, Award } from 'lucide-react';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { useSettings } from '../../contexts/SettingsContext';
+import { useSwipeToClose } from '../../hooks/useSwipeToClose';
 
 const JOB_COLORS = {
   blue: 'bg-blue-500/10 text-blue-600 dark:text-blue-400 border-blue-500/20',
@@ -30,6 +31,7 @@ const draw = {
 
 export default function ShiftSuccessModal({ isOpen, onClose, data, lang = 'th' }) {
   const { settings } = useSettings();
+  const { dragProps, handleProps } = useSwipeToClose(onClose);
 
   if (typeof document === 'undefined' || !isOpen || !data) return null;
 
@@ -124,7 +126,7 @@ export default function ShiftSuccessModal({ isOpen, onClose, data, lang = 'th' }
 
   return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4">
         {/* Backdrop overlay */}
         <motion.div
           initial={{ opacity: 0 }}
@@ -137,12 +139,14 @@ export default function ShiftSuccessModal({ isOpen, onClose, data, lang = 'th' }
 
         {/* Modal body */}
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
+          initial={{ opacity: 0, y: '100%' }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="relative w-full max-w-md overflow-hidden liquid-glass-card border border-white/20 dark:border-white/10 shadow-2xl p-6 md:p-8 rounded-3xl z-10 flex flex-col bg-white/80 dark:bg-zinc-900/80"
+          {...dragProps}
+          className="relative w-full max-w-md max-h-[86vh] overflow-y-auto overscroll-contain liquid-glass-card border border-white/20 dark:border-white/10 border-x-0 border-b-0 sm:border shadow-2xl p-6 md:p-8 rounded-t-[32px] sm:rounded-3xl z-10 flex flex-col bg-white/80 dark:bg-zinc-900/80"
         >
+          <div {...handleProps} className={`${handleProps.className} sm:hidden`} />
           {/* Close button top right */}
           <button
             onClick={onClose}
@@ -205,29 +209,29 @@ export default function ShiftSuccessModal({ isOpen, onClose, data, lang = 'th' }
             </div>
 
             {/* Job details */}
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-center gap-3">
               <span className="text-main/50 font-medium">{t.jobLabel}</span>
-              <span className={`flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${jobColorClass || 'bg-black/5 text-main border-black/10'}`}>
+              <span className={`min-w-0 max-w-[62%] flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold border ${jobColorClass || 'bg-black/5 text-main border-black/10'}`}>
                 <span>{jobEmoji}</span>
-                <span>{data.title}</span>
+                <span className="truncate">{data.title}</span>
               </span>
             </div>
 
             {/* Date Details */}
             <div className="flex justify-between items-start gap-4">
               <span className="text-main/50 font-medium whitespace-nowrap">{t.dateLabel}</span>
-              <span className="text-main font-bold text-right flex items-center gap-1.5">
+              <span className="text-main font-bold text-right flex items-start justify-end gap-1.5 min-w-0">
                 <Calendar size={14} className="text-primary-500" />
-                <span>{dateDisplayStr}</span>
+                <span className="break-words">{dateDisplayStr}</span>
               </span>
             </div>
 
             {/* Time / Duration Details */}
-            <div className="flex justify-between items-center">
-              <span className="text-main/50 font-medium">{t.timeLabel}</span>
-              <span className="text-main font-bold flex items-center gap-1.5">
-                <Clock size={14} className="text-primary-500" />
-                <span>
+            <div className="flex justify-between items-start gap-3">
+              <span className="text-main/50 font-medium whitespace-nowrap">{t.timeLabel}</span>
+              <span className="text-main font-bold flex items-start justify-end gap-1.5 text-right min-w-0">
+                <Clock size={14} className="text-primary-500 mt-0.5 flex-shrink-0" />
+                <span className="break-words">
                   {data.startTime} – {data.endTime}
                   {data.rateType === 'hourly' && ` (${netHrs % 1 === 0 ? netHrs : netHrs.toFixed(1)} ${t.hoursUnit})`}
                 </span>
@@ -245,15 +249,15 @@ export default function ShiftSuccessModal({ isOpen, onClose, data, lang = 'th' }
             )}
 
             {/* Wage rate details */}
-            <div className="flex justify-between items-center">
+            <div className="flex justify-between items-start gap-3">
               <span className="text-main/50 font-medium">{t.rateLabel}</span>
-              <div className="flex items-center gap-2">
+              <div className="flex flex-wrap justify-end items-center gap-2 min-w-0">
                 {data.isHolidayPay && (
                   <span className="text-[10px] bg-red-500/10 text-red-500 border border-red-500/20 font-bold px-1.5 py-0.5 rounded-md">
                     {t.holidayBadge}
                   </span>
                 )}
-                <span className="text-main font-bold">
+                <span className="text-main font-bold text-right">
                   ฿{Number(data.hourlyRate).toLocaleString()} / {data.rateType === 'hourly' ? (lang === 'th' ? 'ชม.' : 'hr') : (lang === 'th' ? 'วัน' : 'day')}
                 </span>
               </div>
@@ -274,8 +278,7 @@ export default function ShiftSuccessModal({ isOpen, onClose, data, lang = 'th' }
                 <span className="text-main font-bold text-base">
                   {data.shiftCount > 1 ? t.totalEstPayLabel : t.estPayLabel}
                 </span>
-                <span className="text-green-600 dark:text-green-400 font-bold text-lg flex items-center gap-0.5">
-                  <DollarSign size={16} className="text-green-500" />
+                <span className="text-green-600 dark:text-green-400 font-bold text-lg flex items-baseline justify-end gap-1 text-right">
                   <span>
                     ฿{totalEstPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </span>

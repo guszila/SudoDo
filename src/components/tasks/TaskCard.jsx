@@ -205,16 +205,18 @@ export default function TaskCard({
       </div>
 
       {!isSelectionMode && (
-        <div className="flex gap-1 md:gap-2 opacity-0 group-hover:opacity-100 transition-opacity">
+        <div className="touch-visible-actions flex gap-1 md:gap-2 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity">
           <button 
             onClick={(e) => { e.stopPropagation(); onEdit(task); }} 
-            className="p-2 text-primary-500 hover:bg-primary-50 dark:hover:bg-primary-500/20 rounded-full transition-all"
+            className="p-2 text-primary-500 bg-primary-500/10 md:bg-transparent hover:bg-primary-50 dark:hover:bg-primary-500/20 rounded-full transition-all"
+            aria-label={lang === 'en' ? 'Edit task' : 'แก้ไขงาน'}
           >
             <Edit size={16} />
           </button>
           <button 
             onClick={(e) => { e.stopPropagation(); onDelete(task); }} 
-            className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full transition-all"
+            className="p-2 text-red-500 bg-red-500/10 md:bg-transparent hover:bg-red-50 dark:hover:bg-red-500/20 rounded-full transition-all"
+            aria-label={lang === 'en' ? 'Delete task' : 'ลบงาน'}
           >
             <Trash2 size={16} />
           </button>

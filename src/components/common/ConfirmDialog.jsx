@@ -2,6 +2,7 @@ import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { AlertTriangle, X } from 'lucide-react';
+import { useSwipeToClose } from '../../hooks/useSwipeToClose';
 
 export default function ConfirmDialog({ 
   isOpen, 
@@ -13,6 +14,8 @@ export default function ConfirmDialog({
   onCancel, 
   isDanger = false 
 }) {
+  const { dragProps, handleProps } = useSwipeToClose(onCancel);
+
   if (typeof document === 'undefined') return null;
 
   return createPortal(
@@ -23,7 +26,7 @@ export default function ConfirmDialog({
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
             exit={{ opacity: 0 }} 
-            className="fixed inset-0 backdrop-blur-md z-40"
+            className="fixed inset-0 backdrop-blur-md z-[90]"
             style={{ backgroundColor: 'var(--overlay-bg)' }}
             onClick={onCancel}
           />
@@ -32,9 +35,10 @@ export default function ConfirmDialog({
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="fixed bottom-0 left-0 right-0 z-50 liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl p-6 md:p-8 max-w-md mx-auto md:bottom-auto md:top-1/2 md:-translate-y-1/2 md:border md:rounded-3xl"
+            {...dragProps}
+            className="fixed bottom-0 left-0 right-0 z-[100] liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl p-6 md:p-8 max-w-md mx-auto max-h-[86vh] overflow-y-auto overscroll-contain md:border md:rounded-3xl"
           >
-            <div className="w-12 h-1.5 bg-black/10 dark:bg-white/20 rounded-full mx-auto mb-6 md:hidden" />
+            <div {...handleProps} />
             <div className="flex flex-col items-center text-center">
               {isDanger && (
                 <div className="w-16 h-16 rounded-full bg-red-500/10 text-red-500 flex items-center justify-center mb-4">

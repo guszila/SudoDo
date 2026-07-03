@@ -2,6 +2,7 @@ import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Bug, Palette, Rocket, LayoutDashboard } from 'lucide-react';
 import pkg from '../../../package.json';
+import { useSwipeToClose } from '../../hooks/useSwipeToClose';
 
 const CHANGELOG_DATA = [
   {
@@ -45,22 +46,28 @@ const CHANGELOG_DATA = [
 ];
 
 export default function ChangelogModal({ isOpen, onClose, lang = 'th' }) {
+  const { dragProps, handleProps } = useSwipeToClose(onClose);
+
   return (
     <AnimatePresence>
       {isOpen && (
         <div 
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4 sm:p-6"
+          className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-6"
           style={{ backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(10px)' }}
           onClick={onClose}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
+            initial={{ opacity: 0, y: '100%' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-            className="w-full max-w-md max-h-[85vh] flex flex-col bg-white dark:bg-[#1a1a2e] rounded-[32px] shadow-2xl overflow-hidden relative border border-black/5 dark:border-white/10"
+            {...dragProps}
+            className="w-full max-w-md max-h-[86vh] flex flex-col bg-white dark:bg-[#1a1a2e] rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-hidden relative border border-x-0 border-b-0 sm:border-black/5 dark:sm:border-white/10"
             onClick={e => e.stopPropagation()}
           >
+            <div className="pt-4 sm:hidden">
+              <div {...handleProps} />
+            </div>
             {/* Header */}
             <div className="p-6 pb-4 border-b border-black/5 dark:border-white/10 flex items-center justify-between sticky top-0 bg-white/80 dark:bg-[#1a1a2e]/80 backdrop-blur-md z-10">
               <div className="flex items-center gap-3">

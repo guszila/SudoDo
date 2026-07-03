@@ -12,6 +12,7 @@ import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
 import { BADGE_LIST, getUnlockedBadges, calculateStreaks, getGamificationStats } from '../utils/gamification';
 import { getPublicProfile, updatePublicProfileSettings, syncPublicProfile } from '../services/friendService';
+import { useSwipeToClose } from '../hooks/useSwipeToClose';
 
 const PRESET_BANNERS = [
   { id: 'cyberpunk', name: 'Cyberpunk', value: 'linear-gradient(135deg, #a855f7 0%, #ec4899 100%)' },
@@ -27,6 +28,7 @@ export default function ProfilePage({ user, lang = 'th' }) {
   const { showToast } = useToast();
   
   const [activeTab, setActiveTab] = useState('private'); // 'private', 'public', 'achievements'
+  const [badgePage, setBadgePage] = useState(0);
   
   const [displayName, setDisplayName] = useState('');
   const [avatarUrl, setAvatarUrl] = useState(() => localStorage.getItem(`avatar_${user?.uid}`) || '');
@@ -76,6 +78,13 @@ export default function ProfilePage({ user, lang = 'th' }) {
   const [isDraggingCrop, setIsDraggingCrop] = useState(false);
   const [cropDragStart, setCropDragStart] = useState({ x: 0, y: 0 });
   const [isSavingCrop, setIsSavingCrop] = useState(false);
+  const avatarSheet = useSwipeToClose(() => setShowAvatarModal(false));
+  const cropSheet = useSwipeToClose(() => {
+    setShowCropModal(false);
+    setTempImageSrc('');
+  });
+  const bannerSheet = useSwipeToClose(() => setShowBannerPicker(false));
+  const badgeSheet = useSwipeToClose(() => setSelectedBadge(null));
 
   const handleAvatarChange = (e) => {
     const file = e.target.files[0];
@@ -287,7 +296,7 @@ export default function ProfilePage({ user, lang = 'th' }) {
       <div className="max-w-2xl mx-auto">
         
         {/* Header */}
-        <div className="flex items-center justify-between mb-6">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
           <div className="flex items-center gap-4">
             <h1 className="text-3xl font-bold tracking-tight text-main">{lang === 'en' ? 'Profile' : 'โปรไฟล์'}</h1>
           </div>
@@ -316,19 +325,19 @@ export default function ProfilePage({ user, lang = 'th' }) {
         <div className="flex bg-black/5 dark:bg-white/5 p-1 rounded-2xl mb-8 border border-main/10 shadow-inner overflow-x-auto hide-scrollbar snap-x">
           <button 
             onClick={() => setActiveTab('private')}
-            className={`flex-1 min-w-[110px] snap-center py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0 ${activeTab === 'private' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+            className={`flex-1 min-w-[96px] md:min-w-[110px] snap-center py-3 px-3 md:px-4 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0 ${activeTab === 'private' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
           >
             <User size={18} /> {lang === 'en' ? 'Private' : 'ข้อมูลส่วนตัว'}
           </button>
           <button 
             onClick={() => setActiveTab('public')}
-            className={`flex-1 min-w-[110px] snap-center py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0 ${activeTab === 'public' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+            className={`flex-1 min-w-[96px] md:min-w-[110px] snap-center py-3 px-3 md:px-4 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0 ${activeTab === 'public' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
           >
             <Users size={18} /> {lang === 'en' ? 'Public' : 'สาธารณะ'}
           </button>
           <button 
             onClick={() => setActiveTab('achievements')}
-            className={`flex-1 min-w-[110px] snap-center py-3 px-4 rounded-xl font-bold text-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0 ${activeTab === 'achievements' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
+            className={`flex-1 min-w-[96px] md:min-w-[110px] snap-center py-3 px-3 md:px-4 rounded-xl font-bold text-xs md:text-sm transition-all flex items-center justify-center gap-2 whitespace-nowrap flex-shrink-0 ${activeTab === 'achievements' ? 'bg-white dark:bg-[#2a2a3e] text-primary-500 shadow-sm' : 'text-main/60 hover:text-main'}`}
           >
             <Award size={18} /> {lang === 'en' ? 'Stats' : 'ความสำเร็จ'}
           </button>
@@ -543,7 +552,13 @@ export default function ProfilePage({ user, lang = 'th' }) {
                 </h3>
                 
                 <div className="relative -mx-2">
-                  <div className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4">
+                  <div
+                    className="flex overflow-x-auto snap-x snap-mandatory hide-scrollbar pb-4"
+                    onScroll={(e) => {
+                      const pageWidth = e.currentTarget.clientWidth || 1;
+                      setBadgePage(Math.round(e.currentTarget.scrollLeft / pageWidth));
+                    }}
+                  >
                     {(() => {
                       const TIER_ORDER = { common: 1, rare: 2, epic: 3, legendary: 4, mythic: 5 };
                       const sortedBadges = [...BADGE_LIST].sort((a, b) => TIER_ORDER[a.tier] - TIER_ORDER[b.tier]);
@@ -628,7 +643,10 @@ export default function ProfilePage({ user, lang = 'th' }) {
                   {/* Pagination Dots indicator */}
                   <div className="flex justify-center items-center gap-2 mt-2">
                     {Array.from({ length: Math.ceil(BADGE_LIST.length / 6) }).map((_, i) => (
-                      <div key={i} className="w-2 h-2 rounded-full bg-main/20" />
+                      <div
+                        key={i}
+                        className={`h-2 rounded-full transition-all ${badgePage === i ? 'w-6 bg-primary-500' : 'w-2 bg-main/20'}`}
+                      />
                     ))}
                     <span className="text-[10px] text-main/40 ml-2 font-bold uppercase tracking-wider">Scroll</span>
                   </div>
@@ -641,14 +659,20 @@ export default function ProfilePage({ user, lang = 'th' }) {
         {/* Avatar Modal */}
         {showAvatarModal && (
           <div
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
             style={{ backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(8px)' }}
             onClick={() => setShowAvatarModal(false)}
           >
-            <div
-              className="bg-white dark:bg-[#1e1e2d] w-full max-w-xs rounded-[28px] p-6 text-center shadow-2xl"
+            <motion.div
+              initial={{ opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              {...avatarSheet.dragProps}
+              className="bg-white dark:bg-[#1e1e2d] w-full max-w-xs rounded-t-[32px] sm:rounded-[28px] p-6 text-center shadow-2xl max-h-[86vh] overflow-y-auto overscroll-contain"
               onClick={e => e.stopPropagation()}
             >
+              <div {...avatarSheet.handleProps} className={`${avatarSheet.handleProps.className} sm:hidden`} />
               <div className="w-20 h-20 rounded-full mx-auto mb-4 bg-gradient-to-br from-primary-400 to-primary-600 flex items-center justify-center overflow-hidden shadow-lg">
                 {avatarUrl
                   ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
@@ -685,20 +709,26 @@ export default function ProfilePage({ user, lang = 'th' }) {
                   ยกเลิก
                 </button>
               </div>
-            </div>
+            </motion.div>
           </div>
         )}
 
         {/* Crop Modal */}
         {showCropModal && (
           <div 
-            className="fixed inset-0 z-[110] flex items-center justify-center p-4"
+            className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4"
             style={{ backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(12px)' }}
           >
-            <div 
-              className="bg-white dark:bg-[#1e1e2d] w-full max-w-sm rounded-[28px] p-6 text-center shadow-2xl border border-white/20"
+            <motion.div 
+              initial={{ opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              {...cropSheet.dragProps}
+              className="bg-white dark:bg-[#1e1e2d] w-full max-w-sm rounded-t-[32px] sm:rounded-[28px] p-6 text-center shadow-2xl border border-x-0 border-b-0 sm:border-white/20 max-h-[92vh] overflow-y-auto overscroll-contain"
               onClick={e => e.stopPropagation()}
             >
+              <div {...cropSheet.handleProps} className={`${cropSheet.handleProps.className} sm:hidden`} />
               <h3 className="text-xl font-bold text-main mb-2">ปรับแต่งรูปโปรไฟล์</h3>
               <p className="text-sm text-main/60 mb-6">ลากเพื่อย้ายตำแหน่ง และเลื่อนเพื่อซูม</p>
               
@@ -766,20 +796,26 @@ export default function ProfilePage({ user, lang = 'th' }) {
                   {isSavingCrop ? <Loader2 size={18} className="animate-spin" /> : 'บันทึกรูปภาพ'}
                 </button>
               </div>
-            </div>
+            </motion.div>
           </div>
         )}
 
         {/* Banner Picker Modal */}
         {showBannerPicker && (
           <div 
-            className="fixed inset-0 z-[110] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm"
+            className="fixed inset-0 z-[110] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm"
             onClick={() => setShowBannerPicker(false)}
           >
-            <div 
-              className="bg-white dark:bg-[#1e1e2d] w-full max-w-sm rounded-[28px] p-6 text-center shadow-2xl border border-white/20"
+            <motion.div 
+              initial={{ opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }}
+              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+              {...bannerSheet.dragProps}
+              className="bg-white dark:bg-[#1e1e2d] w-full max-w-sm rounded-t-[32px] sm:rounded-[28px] p-6 text-center shadow-2xl border border-x-0 border-b-0 sm:border-white/20 max-h-[86vh] overflow-y-auto overscroll-contain"
               onClick={e => e.stopPropagation()}
             >
+              <div {...bannerSheet.handleProps} className={`${bannerSheet.handleProps.className} sm:hidden`} />
               <h3 className="text-xl font-bold text-main mb-2">ปรับแต่งแบนเนอร์โปรไฟล์</h3>
               <p className="text-sm text-main/60 mb-6">เลือกชุดสีไล่เฉดสีที่ต้องการใช้งาน</p>
               
@@ -811,25 +847,27 @@ export default function ProfilePage({ user, lang = 'th' }) {
               >
                 เสร็จสิ้น
               </button>
-            </div>
+            </motion.div>
           </div>
         )}
 
         {/* Badge Detail Modal */}
         {selectedBadge && (
           <div 
-            className="fixed inset-0 z-[100] flex items-center justify-center p-4"
+            className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4"
             style={{ backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(8px)' }}
             onClick={() => setSelectedBadge(null)}
           >
             <motion.div 
-              initial={{ opacity: 0, scale: 0.9 }}
-              animate={{ opacity: 1, scale: 1 }}
-              exit={{ opacity: 0, scale: 0.9 }}
+              initial={{ opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="bg-white dark:bg-[#1e1e2d] w-full max-w-sm rounded-[28px] p-6 text-center shadow-2xl relative"
+              {...badgeSheet.dragProps}
+              className="bg-white dark:bg-[#1e1e2d] w-full max-w-sm rounded-t-[32px] sm:rounded-[28px] p-6 text-center shadow-2xl relative max-h-[86vh] overflow-y-auto overscroll-contain"
               onClick={e => e.stopPropagation()}
             >
+              <div {...badgeSheet.handleProps} className={`${badgeSheet.handleProps.className} sm:hidden`} />
               <button 
                 onClick={() => setSelectedBadge(null)}
                 className="absolute top-4 right-4 p-2 bg-black/5 dark:bg-white/10 rounded-full hover:bg-black/10 dark:hover:bg-white/20 transition-colors"

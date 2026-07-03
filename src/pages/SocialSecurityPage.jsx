@@ -155,23 +155,23 @@ export default function SocialSecurityPage({ lang }) {
             {lang === 'th' ? `ประจำเดือน ${currentMonthData.monthLabel}` : `For ${currentMonthData.monthLabel}`}
           </h2>
           
-          <div className="grid grid-cols-2 gap-4 mb-4">
-            <div className="bg-white/40 dark:bg-black/20 p-4 rounded-2xl flex flex-col items-center justify-center border-[0.5px] border-[rgba(255,255,255,0.5)] dark:border-[rgba(255,255,255,0.08)]">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4 mb-4">
+            <div className="bg-white/40 dark:bg-black/20 p-4 rounded-2xl flex flex-col items-center justify-center border-[0.5px] border-[rgba(255,255,255,0.5)] dark:border-[rgba(255,255,255,0.08)] min-w-0">
               <span className="text-sm text-main/70 font-medium mb-1">{lang === 'th' ? 'รายได้รวม' : 'Gross Income'}</span>
-              <span className="text-xl font-bold text-main">฿{currentMonthData.gross.toLocaleString()}</span>
+              <span className="text-lg sm:text-xl font-bold text-main break-words max-w-full text-center">฿{currentMonthData.gross.toLocaleString()}</span>
             </div>
-            <div className="bg-[rgba(239,68,68,0.1)] p-4 rounded-2xl flex flex-col items-center justify-center border-[0.5px] border-[rgba(240,149,149,0.2)] relative group">
+            <div className="bg-[rgba(239,68,68,0.1)] p-4 rounded-2xl flex flex-col items-center justify-center border-[0.5px] border-[rgba(240,149,149,0.2)] relative group min-w-0">
               <span className="text-sm text-red-500 font-medium mb-1">{lang === 'th' ? 'หัก 5%' : '5% Deduction'}</span>
-              <span className="text-xl font-bold text-red-500">-฿{currentMonthData.deduction.toLocaleString()}</span>
+              <span className="text-lg sm:text-xl font-bold text-red-500 break-words max-w-full text-center">-฿{currentMonthData.deduction.toLocaleString()}</span>
               {currentMonthData.ssGross < currentMonthData.gross && (
-                <div className="absolute top-1 right-2 text-[10px] text-red-500/70 border border-red-500/20 px-1.5 rounded-full">คิดจากฐาน ฿{currentMonthData.ssGross.toLocaleString()}</div>
+                <div className="mt-2 text-[10px] text-red-500/70 border border-red-500/20 px-1.5 rounded-full max-w-full text-center break-words">คิดจากฐาน ฿{currentMonthData.ssGross.toLocaleString()}</div>
               )}
             </div>
           </div>
           
           <div className="bg-[var(--theme-accent)] p-5 rounded-2xl flex flex-col items-center justify-center shadow-[0_8px_16px_rgba(127,119,221,0.3)]">
             <span className="text-white/80 font-medium mb-1">{lang === 'th' ? 'รายได้สุทธิ' : 'Net Income'}</span>
-            <span className="text-4xl font-bold text-white">฿{currentMonthData.net.toLocaleString()}</span>
+            <span className="text-3xl sm:text-4xl font-bold text-white break-words max-w-full text-center">฿{currentMonthData.net.toLocaleString()}</span>
           </div>
         </div>
 

@@ -3,7 +3,7 @@ import React, { useState, useMemo, useRef } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { DollarSign, Clock, CheckCircle2, Check, Plus, ArrowLeft, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, PieChart, GripHorizontal, Flame, ChevronRight, ChevronDown, Banknote, Receipt, Calculator } from 'lucide-react';
+import { Clock, CheckCircle2, Check, Plus, ArrowLeft, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, PieChart, GripHorizontal, Flame, ChevronRight, ChevronDown, Banknote, Receipt, Calculator } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -22,6 +22,7 @@ import { calcSSO } from '../utils/socialSecurity';
 import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE, DEFAULT_TASK_VALUES } from '../constants';
 import { translations } from '../i18n';
 import confetti from 'canvas-confetti';
+import { useSwipeToClose } from '../hooks/useSwipeToClose';
 
 const JOB_COLORS = {
   blue: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/20', borderL: 'border-l-blue-500', button: 'text-blue-500 hover:bg-blue-500/20' },
@@ -109,6 +110,9 @@ export default function PartTimePage({ user, lang = 'en' }) {
   });
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [tempGoal, setTempGoal] = useState({ goalAmount: 5000, goalMonth: new Date().toISOString().slice(0, 7), isRecurring: true });
+  const extraFormSheet = useSwipeToClose(() => setShowAddExtraForm(false));
+  const widgetSelectorSheet = useSwipeToClose(() => setShowWidgetSelector(false));
+  const goalSheet = useSwipeToClose(() => setShowGoalModal(false));
 
   React.useEffect(() => {
     localStorage.setItem('income_dashboard', JSON.stringify(enabledWidgets));
@@ -986,7 +990,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       className="min-h-screen font-sans pb-32 md:pb-8 p-4 pt-safe md:p-8 max-w-4xl mx-auto"
     >
       {/* Header */}
-      <div className="flex items-center justify-between mb-5 px-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-5 px-2">
         <div className="flex items-center gap-4">
 
           <h1 className="text-2xl font-bold text-main flex items-center gap-2 m-0">
@@ -1007,7 +1011,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       <div className="flex gap-1 bg-black/5 dark:bg-white/5 rounded-full p-1.5 mb-6 mx-2">
         <button
           onClick={() => setMainTab('shifts')}
-          className={`flex-1 py-2.5 rounded-full text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2.5 rounded-full text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
             mainTab === 'shifts' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300' : 'text-main/50 hover:text-main'
           }`}
         >
@@ -1015,7 +1019,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         </button>
         <button
           onClick={() => setMainTab('summary')}
-          className={`flex-1 py-2.5 rounded-full text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
+          className={`flex-1 py-2.5 rounded-full text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
             mainTab === 'summary' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300' : 'text-main/50 hover:text-main'
           }`}
         >
@@ -1053,7 +1057,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         axis="y"
         values={sortedWidgets}
         onReorder={setEnabledWidgets}
-        className="grid grid-cols-2 gap-4 mb-4"
+        className="grid grid-cols-2 auto-rows-[minmax(120px,auto)] md:auto-rows-[minmax(132px,auto)] gap-4 mb-4"
       >
         <AnimatePresence>
           {sortedWidgets.map(id => (
@@ -1069,7 +1073,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
               } : { opacity: 1, scale: 1, rotate: 0 }}
               exit={{ opacity: 0, scale: 0.5 }}
               dragListener={isEditWidgetMode}
-              className={`relative ${['total_sso_net', 'expense_list', 'goal', 'chart'].includes(id) ? 'col-span-2' : ''} ${isEditWidgetMode ? 'cursor-grab active:cursor-grabbing z-50' : ''}`}
+              className={`relative min-h-[120px] md:min-h-[132px] ${['total_sso_net', 'expense_list', 'goal', 'chart'].includes(id) ? 'col-span-2' : ''} ${isEditWidgetMode ? 'cursor-grab active:cursor-grabbing z-[55]' : ''}`}
             >
               {isEditWidgetMode && (
                 <>
@@ -1136,27 +1140,27 @@ export default function PartTimePage({ user, lang = 'en' }) {
       </div>
 
       <div className="mb-5 px-2">
-        <div className="flex flex-1 bg-black/5 dark:bg-white/5 rounded-full p-1.5 items-center justify-between">
+        <div className="flex flex-1 bg-black/5 dark:bg-white/5 rounded-[22px] p-1.5 items-center justify-between gap-2 overflow-x-auto hide-scrollbar">
           <span className="text-sm font-bold text-main px-4 opacity-70">เวรล่วงหน้า</span>
-          <div className="flex gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-full">
+          <div className="flex gap-1 bg-black/5 dark:bg-white/5 p-1 rounded-full flex-shrink-0">
             <button
               onClick={() => { 
                 setIsBulkEditMode(!isBulkEditMode);
                 setSelectedShifts([]);
               }}
-              className={`px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold ${isBulkEditMode ? 'bg-primary-500 text-white shadow-md scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
+              className={`px-3 md:px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap ${isBulkEditMode ? 'bg-primary-500 text-white shadow-md scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
             >
               {isBulkEditMode ? 'ยกเลิกเลือก' : 'เลือก'}
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold ${viewMode === 'list' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300 scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
+              className={`px-3 md:px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap ${viewMode === 'list' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300 scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
             >
               <List size={14} /> ลิสต์
             </button>
             <button
               onClick={() => setViewMode('calendar')}
-              className={`px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold ${viewMode === 'calendar' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300 scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
+              className={`px-3 md:px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap ${viewMode === 'calendar' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300 scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
             >
               <CalendarDays size={14} /> ปฏิทิน
             </button>
@@ -1166,7 +1170,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
       <AnimatePresence>
         {showAddExtraForm && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
             <motion.div 
               initial={{ opacity: 0 }} 
               animate={{ opacity: 1 }} 
@@ -1175,12 +1179,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
               onClick={() => setShowAddExtraForm(false)} 
             />
             <motion.div 
-              initial={{ scale: 0.95, opacity: 0, y: 15 }} 
-              animate={{ scale: 1, opacity: 1, y: 0 }} 
-              exit={{ scale: 0.95, opacity: 0, y: 15 }} 
+              initial={{ opacity: 0, y: '100%' }} 
+              animate={{ opacity: 1, y: 0 }} 
+              exit={{ opacity: 0, y: '100%' }} 
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-              className={`relative w-full max-w-md liquid-glass-card p-6 md:p-8 space-y-5 border border-white/20 dark:border-white/10 shadow-2xl z-10 rounded-3xl ${extraFormType === 'income' ? 'bg-white/90 dark:bg-zinc-900/90 border-t-4 border-t-green-500' : 'bg-white/90 dark:bg-zinc-900/90 border-t-4 border-t-red-500'}`}
+              {...extraFormSheet.dragProps}
+              className={`relative w-full max-w-md max-h-[88vh] overflow-y-auto overscroll-contain liquid-glass-card p-6 md:p-8 space-y-5 border border-x-0 border-b-0 sm:border-white/20 dark:sm:border-white/10 shadow-2xl z-10 rounded-t-[32px] sm:rounded-3xl ${extraFormType === 'income' ? 'bg-white/90 dark:bg-zinc-900/90 border-t-4 border-t-green-500' : 'bg-white/90 dark:bg-zinc-900/90 border-t-4 border-t-red-500'}`}
             >
+              <div {...extraFormSheet.handleProps} className={`${extraFormSheet.handleProps.className} sm:hidden`} />
               <button 
                 onClick={() => setShowAddExtraForm(false)} 
                 className="absolute top-4 right-4 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main/50 hover:text-main"
@@ -1697,11 +1703,15 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
                               {/* Hover actions */}
                               {!isBulkEditMode && (
-                                <div className="flex gap-0.5 opacity-0 group-hover:opacity-100 transition-opacity flex-shrink-0">
+                                <div className="touch-visible-actions flex gap-0.5 opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-opacity flex-shrink-0">
                                   <button onClick={(e) => { e.stopPropagation(); setEditingTask(task); setIsModalOpen(true); }}
-                                    className={`p-1.5 ${c.button} rounded-full`}><Edit size={12} /></button>
+                                    className={`p-1.5 ${c.button} bg-black/5 dark:bg-white/10 md:bg-transparent rounded-full`}
+                                    aria-label={lang === 'en' ? 'Edit shift' : 'แก้ไขกะ'}
+                                  ><Edit size={12} /></button>
                                   <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }}
-                                    className="p-1.5 text-red-500 hover:bg-red-500/10 rounded-full"><Trash2 size={12} /></button>
+                                    className="p-1.5 text-red-500 bg-red-500/10 md:bg-transparent hover:bg-red-500/10 rounded-full"
+                                    aria-label={lang === 'en' ? 'Delete shift' : 'ลบกะ'}
+                                  ><Trash2 size={12} /></button>
                                 </div>
                               )}
                             </div>
@@ -1731,7 +1741,9 @@ export default function PartTimePage({ user, lang = 'en' }) {
                               {task.isExtraIncome ? '+' : '-'}฿{expenseAmount.toLocaleString(undefined,{maximumFractionDigits:0})}
                             </p>
                             <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }}
-                              className="p-1.5 text-red-400/40 hover:text-red-500 hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 transition-all flex-shrink-0">
+                              className="touch-visible-actions p-1.5 text-red-500 md:text-red-400/40 hover:text-red-500 bg-red-500/10 md:bg-transparent hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all flex-shrink-0"
+                              aria-label={lang === 'en' ? 'Delete item' : 'ลบรายการ'}
+                            >
                               <Trash2 size={12} />
                             </button>
                           </motion.div>
@@ -1788,9 +1800,10 @@ export default function PartTimePage({ user, lang = 'en' }) {
             <motion.div 
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              className="fixed bottom-0 left-0 right-0 z-50 liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl p-6 max-h-[80vh] overflow-y-auto max-w-4xl mx-auto"
+              {...widgetSelectorSheet.dragProps}
+              className="fixed bottom-0 left-0 right-0 z-50 liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl p-6 max-h-[86vh] overflow-y-auto overscroll-contain max-w-4xl mx-auto"
             >
-              <div className="w-12 h-1.5 bg-black/10 dark:bg-white/20 rounded-full mx-auto mb-6" />
+              <div {...widgetSelectorSheet.handleProps} />
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><LayoutGrid size={20}/> เลือก Widget ที่ต้องการแสดง</h3>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
@@ -1821,9 +1834,17 @@ export default function PartTimePage({ user, lang = 'en' }) {
       {/* Income Goal Modal */}
       <AnimatePresence>
         {showGoalModal && (
-          <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
              <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowGoalModal(false)} />
-             <motion.div initial={{scale:0.9, opacity:0}} animate={{scale:1, opacity:1}} exit={{scale:0.9, opacity:0}} className="liquid-glass-card p-6 w-full max-w-md relative z-10 border-2 border-primary-500/30">
+             <motion.div
+               initial={{ opacity: 0, y: '100%' }}
+               animate={{ opacity: 1, y: 0 }}
+               exit={{ opacity: 0, y: '100%' }}
+               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+               {...goalSheet.dragProps}
+               className="liquid-glass-card p-6 w-full max-w-md relative z-10 border-2 border-primary-500/30 rounded-t-[32px] sm:rounded-[28px] max-h-[86vh] overflow-y-auto overscroll-contain"
+             >
+               <div {...goalSheet.handleProps} className={`${goalSheet.handleProps.className} sm:hidden`} />
                <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-primary-500"><Target size={24}/> ตั้งเป้าหมายรายได้</h3>
                <div className="space-y-4">
                  <div>
@@ -1881,21 +1902,21 @@ export default function PartTimePage({ user, lang = 'en' }) {
             initial={{ y: 100, opacity: 0 }}
             animate={{ y: 0, opacity: 1 }}
             exit={{ y: 100, opacity: 0 }}
-            className="fixed bottom-20 left-0 right-0 z-40 px-4"
+            className="fixed bottom-20 left-0 right-0 z-[45] px-4"
           >
-            <div className="max-w-md mx-auto bg-white/90 dark:bg-[#1a1a2e]/90 backdrop-blur-md border border-main/10 shadow-xl rounded-2xl p-4 flex gap-3">
+            <div className="max-w-md mx-auto bg-white/90 dark:bg-[#1a1a2e]/90 backdrop-blur-md border border-main/10 shadow-xl rounded-2xl p-3 md:p-4 flex gap-2 md:gap-3">
               <button
                 onClick={() => {
                   setIsBulkEditMode(false);
                   setSelectedShifts([]);
                 }}
-                className="flex-1 py-3.5 rounded-xl font-bold bg-black/5 dark:bg-white/10 text-main hover:bg-black/10 transition-colors"
+                className="flex-1 py-3.5 rounded-xl text-sm md:text-base font-bold bg-black/5 dark:bg-white/10 text-main hover:bg-black/10 transition-colors"
               >
                 ยกเลิก
               </button>
               <button
                 onClick={() => setShowBulkEditForm(true)}
-                className="flex-[2] py-3.5 rounded-xl font-bold bg-primary-500 text-white shadow-lg shadow-primary-500/30 hover:bg-primary-600 transition-colors"
+                className="flex-[2] py-3.5 rounded-xl text-sm md:text-base font-bold bg-primary-500 text-white shadow-lg shadow-primary-500/30 hover:bg-primary-600 transition-colors"
               >
                 แก้ไขกะที่เลือก ({selectedShifts.length})
               </button>

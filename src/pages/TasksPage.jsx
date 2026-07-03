@@ -217,7 +217,7 @@ export default function TasksPage({ user, lang = 'en' }) {
       exit={{ opacity: 0, scale: 0.98 }}
       className="min-h-screen font-sans pb-32 md:pb-8 p-4 pt-safe md:p-8 max-w-4xl mx-auto"
     >
-      <div className="flex items-center justify-between mb-6 px-2">
+      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 px-2">
         <div className="flex items-center gap-4">
 
           <h1 className="text-2xl font-bold text-main flex items-center gap-2 m-0">
@@ -226,10 +226,10 @@ export default function TasksPage({ user, lang = 'en' }) {
           </h1>
         </div>
         {isSelectionMode ? (
-          <div className="flex items-center gap-4">
+          <div className="flex items-center gap-2 md:gap-4">
             <button 
               onClick={toggleSelectAll} 
-              className="text-sm font-bold text-main/70 hover:text-primary-500"
+              className="text-xs md:text-sm font-bold text-main/70 hover:text-primary-500"
             >
               เลือกทั้งหมด
             </button>
@@ -238,7 +238,7 @@ export default function TasksPage({ user, lang = 'en' }) {
                 setIsSelectionMode(false);
                 setSelectedTaskIds(new Set());
               }}
-              className="px-4 py-2 rounded-full font-bold bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
+              className="px-3 md:px-4 py-2 rounded-full text-sm font-bold bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
             >
               ยกเลิก
             </button>
@@ -257,12 +257,12 @@ export default function TasksPage({ user, lang = 'en' }) {
       </div>
 
       {/* Status + Priority Tabs */}
-      <div className="flex gap-3 mb-4">
+      <div className="flex items-center gap-2 mb-4">
         {/* Status filter */}
-        <div className="flex bg-black/5 dark:bg-white/5 rounded-full p-1 gap-0.5">
+        <div className="flex min-w-0 flex-1 bg-black/5 dark:bg-white/5 rounded-full p-1 gap-0.5">
           <button
             onClick={() => setActiveStatus('pending')}
-            className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${
+            className={`flex-1 min-w-0 px-3 md:px-5 py-2 rounded-full font-bold text-xs md:text-sm whitespace-nowrap transition-all ${
               activeStatus === 'pending' ? 'bg-primary-500 text-white shadow-sm' : 'text-main/60 hover:text-main'
             }`}
           >
@@ -270,7 +270,7 @@ export default function TasksPage({ user, lang = 'en' }) {
           </button>
           <button
             onClick={() => setActiveStatus('done')}
-            className={`px-5 py-2 rounded-full font-bold text-sm transition-all ${
+            className={`flex-1 min-w-0 px-3 md:px-5 py-2 rounded-full font-bold text-xs md:text-sm whitespace-nowrap transition-all ${
               activeStatus === 'done' ? 'bg-primary-500 text-white shadow-sm' : 'text-main/60 hover:text-main'
             }`}
           >
@@ -399,14 +399,14 @@ export default function TasksPage({ user, lang = 'en' }) {
               initial={{ opacity: 0, y: 150 }}
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: 150 }}
-              className="fixed bottom-0 left-0 right-0 px-5 pt-5 pb-[calc(1rem+84px+env(safe-area-inset-bottom))] liquid-glass border-t border-main/10 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-30 flex justify-between items-center rounded-t-[32px]"
+              className="fixed bottom-0 left-0 right-0 px-4 md:px-5 pt-5 pb-[calc(1rem+84px+env(safe-area-inset-bottom))] liquid-glass border-t border-main/10 shadow-[0_-10px_40px_rgba(0,0,0,0.1)] z-[45] flex justify-between items-center gap-3 rounded-t-[32px]"
             >
-              <span className="font-bold text-main text-lg">
+              <span className="font-bold text-main text-sm md:text-lg">
                 เลือกแล้ว {selectedTaskIds.size} รายการ
               </span>
               <button 
                 onClick={() => setBulkDeleteConfirm(true)}
-                className="px-6 py-3 bg-red-500 hover:bg-red-600 text-white font-bold rounded-[16px] shadow-lg shadow-red-500/30 transition-transform active:scale-95"
+                className="px-4 md:px-6 py-3 bg-red-500 hover:bg-red-600 text-white text-sm md:text-base font-bold rounded-[16px] shadow-lg shadow-red-500/30 transition-transform active:scale-95 flex-shrink-0"
               >
                 ลบที่เลือก
               </button>

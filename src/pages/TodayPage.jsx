@@ -3,7 +3,7 @@ import { useState, useEffect, useMemo, useCallback } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, isBefore, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Flame, DollarSign, Check, ArrowLeft, Maximize2, X, Trash2, Bell, Edit2, Zap, Briefcase, Settings, GripHorizontal, LayoutGrid, Plus, Calendar, CloudRain, Timer, Play, Pause, RotateCcw, RefreshCw, Users, Sun, Cloud, CloudFog, CloudLightning, Droplets } from 'lucide-react';
+import { Flame, Banknote, Check, ArrowLeft, Maximize2, X, Trash2, Bell, Edit2, Zap, Briefcase, Settings, GripHorizontal, LayoutGrid, Plus, Calendar, CloudRain, Timer, Play, Pause, RotateCcw, RefreshCw, Users, Sun, Cloud, CloudFog, CloudLightning, Droplets } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -16,6 +16,7 @@ import { TASK_STATUS, TASK_PRIORITY, PRIORITY_WEIGHT, RATE_TYPE } from '../const
 import GreetingBanner from '../components/GreetingBanner';
 import NotificationBell from '../components/notifications/NotificationBell';
 import { calculateStreaks } from '../utils/gamification';
+import { useSwipeToClose } from '../hooks/useSwipeToClose';
 
 const AVAILABLE_WIDGETS = [
   { id: 'ALL_TASKS', labelKey: 'allTasks', size: 1 },
@@ -185,6 +186,9 @@ export default function TodayPage({ user, lang = 'th' }) {
   });
   const [showDdayModal, setShowDdayModal] = useState(false);
   const [ddayInput, setDdayInput] = useState({ title: '', date: '' });
+  const chartSheet = useSwipeToClose(() => setIsChartExpanded(false));
+  const widgetSelectorSheet = useSwipeToClose(() => setShowWidgetSelector(false));
+  const ddaySheet = useSwipeToClose(() => setShowDdayModal(false));
 
   // Weather State
   const [weatherData, setWeatherData] = useState(null);
@@ -956,7 +960,7 @@ export default function TodayPage({ user, lang = 'th' }) {
           className="rounded-b-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-b border-white/10" 
         />
         
-        <div className="absolute top-0 left-0 right-0 p-4 pt-safe md:p-8 flex justify-end items-start z-[20000] max-w-4xl mx-auto w-full">
+        <div className="absolute top-0 left-0 right-0 p-4 pt-safe md:p-8 flex justify-end items-start z-30 max-w-4xl mx-auto w-full">
 
           
           <div className="flex items-center gap-2 mt-2">
@@ -1045,7 +1049,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                               }`}
                             >
                                {isWork ? (
-                                 <DollarSign size={12} className="text-green-600 dark:text-green-400" />
+                                 <Banknote size={12} className="text-green-600 dark:text-green-400" />
                                ) : (
                                  <div className={`w-1.5 h-1.5 rounded-full ${tItem.priority === TASK_PRIORITY.HIGH ? 'bg-red-500 animate-pulse' : 'bg-primary-500/70'}`} />
                                )}
@@ -1073,7 +1077,7 @@ export default function TodayPage({ user, lang = 'th' }) {
           axis="y"
           values={selectedWidgets}
           onReorder={setSelectedWidgets}
-          className="grid grid-cols-2 gap-4 mb-8"
+          className="grid grid-cols-2 auto-rows-[minmax(120px,auto)] md:auto-rows-[minmax(132px,auto)] gap-4 mb-8"
         >
           <AnimatePresence>
             {selectedWidgets.filter(id => AVAILABLE_WIDGETS.some(w => w.id === id)).map(id => (
@@ -1089,7 +1093,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                 } : { opacity: 1, scale: 1, rotate: 0 }}
                 exit={{ opacity: 0, scale: 0.5 }}
                 dragListener={isEditWidgetMode}
-                className={`relative ${AVAILABLE_WIDGETS.find(w => w.id === id)?.size === 2 ? 'col-span-2' : 'col-span-1'} ${isEditWidgetMode ? 'cursor-grab active:cursor-grabbing z-50' : ''}`}
+                className={`relative min-h-[120px] md:min-h-[132px] ${AVAILABLE_WIDGETS.find(w => w.id === id)?.size === 2 ? 'col-span-2' : 'col-span-1'} ${isEditWidgetMode ? 'cursor-grab active:cursor-grabbing z-[55]' : ''}`}
               >
                 {isEditWidgetMode && (
                   <>
@@ -1170,7 +1174,7 @@ export default function TodayPage({ user, lang = 'th' }) {
             className="h-48 w-full cursor-pointer hover:opacity-90 transition-opacity relative group"
             onClick={() => setIsChartExpanded(true)}
           >
-            <div className="absolute top-2 right-2 bg-black/10 dark:bg-white/10 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10">
+            <div className="touch-visible-actions absolute top-2 right-2 bg-black/10 dark:bg-white/10 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10">
               <Maximize2 className="w-4 h-4 text-main/70" />
             </div>
             <ResponsiveContainer width="100%" height="100%">
@@ -1232,11 +1236,11 @@ export default function TodayPage({ user, lang = 'th' }) {
                     <div className={`w-2 h-2 rounded-full flex-shrink-0 ${getStatusColor(task.status, task.priority)} ${isOverdue ? 'animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]' : ''}`} />
                     <div className="flex-1 min-w-0">
                       <h4 className={`font-bold text-main truncate ${task.status === TASK_STATUS.DONE ? 'line-through' : ''}`}>{task.title}</h4>
-                      <p className="text-[10px] md:text-xs text-main/60 truncate flex items-center gap-1.5 mt-0.5">
+                      <p className="text-[10px] md:text-xs text-main/60 flex flex-wrap items-center gap-1.5 mt-0.5">
                          {format(task.start, 'HH:mm') === format(task.end, 'HH:mm') ? format(task.start, 'HH:mm') : `${format(task.start, 'HH:mm')} - ${format(task.end, 'HH:mm')}`}
                          <span className="opacity-50">•</span>
                          {task.isPartTime ? (
-                           <span className="text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5"><DollarSign size={10} /> {t.workShift}</span>
+                           <span className="text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5"><Briefcase size={10} /> {t.workShift}</span>
                          ) : (
                            <span className={task.priority === TASK_PRIORITY.HIGH ? 'text-red-500 font-bold' : ''}>{t.important}{task.priority}</span>
                          )}
@@ -1285,11 +1289,11 @@ export default function TodayPage({ user, lang = 'th' }) {
                   <div className={`w-2 h-2 rounded-full flex-shrink-0 ${task.priority === TASK_PRIORITY.HIGH ? 'bg-red-500' : 'bg-amber-500'}`} />
                   <div className="flex-1 min-w-0">
                     <h4 className="font-bold text-main truncate">{task.title}</h4>
-                    <p className="text-[10px] md:text-xs text-main/60 truncate flex items-center gap-1.5 mt-0.5">
+                    <p className="text-[10px] md:text-xs text-main/60 flex flex-wrap items-center gap-1.5 mt-0.5">
                        {format(task.start, 'd MMM HH:mm', { locale: lang === 'th' ? th : undefined })}
                        <span className="opacity-50">•</span>
                        {task.isPartTime ? (
-                         <span className="text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5"><DollarSign size={10} /> {t.workShift}</span>
+                         <span className="text-green-500 dark:text-green-400 font-bold flex items-center gap-0.5"><Briefcase size={10} /> {t.workShift}</span>
                        ) : (
                          <span className={task.priority === TASK_PRIORITY.HIGH ? 'text-red-500 font-bold' : ''}>{t.important}{task.priority}</span>
                        )}
@@ -1309,11 +1313,17 @@ export default function TodayPage({ user, lang = 'th' }) {
 
       {/* Expanded Chart Modal */}
       {isChartExpanded && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 md:p-8 bg-white/30 dark:bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => setIsChartExpanded(false)}>
-          <div 
-            className="liquid-glass-card w-full max-w-5xl h-[80vh] p-6 md:p-8 flex flex-col relative"
+        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-8 bg-white/30 dark:bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => setIsChartExpanded(false)}>
+          <motion.div 
+            initial={{ opacity: 0, y: '100%' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '100%' }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            {...chartSheet.dragProps}
+            className="liquid-glass-card w-full max-w-5xl h-[82vh] md:h-[80vh] p-5 md:p-8 flex flex-col relative rounded-t-[32px] md:rounded-[28px]"
             onClick={e => e.stopPropagation()}
           >
+            <div {...chartSheet.handleProps} className={`${chartSheet.handleProps.className} md:hidden`} />
             <button 
               onClick={() => setIsChartExpanded(false)}
               className="absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main/70 hover:text-main"
@@ -1386,7 +1396,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                 </div>
               )}
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 
@@ -1399,10 +1409,11 @@ export default function TodayPage({ user, lang = 'th' }) {
               animate={{ opacity: 1, y: 0 }}
               exit={{ opacity: 0, y: '100%' }}
               transition={{ type: "spring", damping: 25, stiffness: 300 }}
+              {...widgetSelectorSheet.dragProps}
               onClick={(e) => e.stopPropagation()}
-              className="w-full sm:max-w-md bg-white dark:bg-[#1a1b26] rounded-t-[32px] sm:rounded-[32px] p-6 pb-safe shadow-2xl"
+              className="w-full sm:max-w-md max-h-[86vh] overflow-y-auto overscroll-contain bg-white dark:bg-[#1a1b26] rounded-t-[32px] sm:rounded-[32px] p-6 pb-safe shadow-2xl"
             >
-              <div className="w-12 h-1.5 bg-black/10 dark:bg-white/10 rounded-full mx-auto mb-6" />
+              <div {...widgetSelectorSheet.handleProps} />
               
               <h3 className="text-lg font-bold mb-2 flex items-center gap-2"><LayoutGrid size={20}/> {t.selectWidget}</h3>
               
@@ -1470,11 +1481,17 @@ export default function TodayPage({ user, lang = 'th' }) {
 
       {/* D-Day Config Modal */}
       {showDdayModal && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowDdayModal(false)}>
-          <div 
-            className="liquid-glass-card w-full max-w-sm p-6 flex flex-col relative animate-slide-up"
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowDdayModal(false)}>
+          <motion.div 
+            initial={{ opacity: 0, y: '100%' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '100%' }}
+            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            {...ddaySheet.dragProps}
+            className="liquid-glass-card w-full max-w-sm p-6 flex flex-col relative rounded-t-[32px] sm:rounded-[28px] max-h-[86vh] overflow-y-auto overscroll-contain"
             onClick={e => e.stopPropagation()}
           >
+            <div {...ddaySheet.handleProps} className={`${ddaySheet.handleProps.className} sm:hidden`} />
             <h2 className="text-xl font-bold text-main mb-4 flex items-center gap-2">
               <Calendar size={20} className="text-primary-500" />
               {t.configDDay}
@@ -1528,7 +1545,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                 {t.save}
               </button>
             </div>
-          </div>
+          </motion.div>
         </div>
       )}
 

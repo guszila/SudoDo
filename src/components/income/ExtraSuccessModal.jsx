@@ -4,6 +4,7 @@ import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Banknote, X, Check, Award } from 'lucide-react';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
+import { useSwipeToClose } from '../../hooks/useSwipeToClose';
 
 const draw = {
   hidden: { pathLength: 0, opacity: 0 },
@@ -18,6 +19,8 @@ const draw = {
 };
 
 export default function ExtraSuccessModal({ isOpen, onClose, data, lang = 'th' }) {
+  const { dragProps, handleProps } = useSwipeToClose(onClose);
+
   if (typeof document === 'undefined' || !isOpen || !data) return null;
 
   // Formatting date
@@ -34,7 +37,7 @@ export default function ExtraSuccessModal({ isOpen, onClose, data, lang = 'th' }
 
   return createPortal(
     <AnimatePresence>
-      <div className="fixed inset-0 z-[9999] flex items-center justify-center p-4">
+      <div className="fixed inset-0 z-[9999] flex items-end sm:items-center justify-center p-0 sm:p-4">
         <motion.div
           initial={{ opacity: 0 }}
           animate={{ opacity: 1 }}
@@ -45,12 +48,14 @@ export default function ExtraSuccessModal({ isOpen, onClose, data, lang = 'th' }
         />
 
         <motion.div
-          initial={{ opacity: 0, scale: 0.95, y: 15 }}
-          animate={{ opacity: 1, scale: 1, y: 0 }}
-          exit={{ opacity: 0, scale: 0.95, y: 15 }}
+          initial={{ opacity: 0, y: '100%' }}
+          animate={{ opacity: 1, y: 0 }}
+          exit={{ opacity: 0, y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-          className="relative w-full max-w-md overflow-hidden liquid-glass-card border border-white/20 dark:border-white/10 shadow-2xl p-6 md:p-8 rounded-3xl z-10 flex flex-col bg-white/80 dark:bg-zinc-900/80"
+          {...dragProps}
+          className="relative w-full max-w-md max-h-[86vh] overflow-y-auto overscroll-contain liquid-glass-card border border-white/20 dark:border-white/10 border-x-0 border-b-0 sm:border shadow-2xl p-6 md:p-8 rounded-t-[32px] sm:rounded-3xl z-10 flex flex-col bg-white/80 dark:bg-zinc-900/80"
         >
+          <div {...handleProps} className={`${handleProps.className} sm:hidden`} />
           <button
             onClick={onClose}
             className="absolute top-4 right-4 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main/50 hover:text-main"

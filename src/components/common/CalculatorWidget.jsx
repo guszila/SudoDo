@@ -1,8 +1,10 @@
 import React, { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Delete } from 'lucide-react';
+import { useSwipeToClose } from '../../hooks/useSwipeToClose';
 
 export default function CalculatorWidget({ isOpen, onClose, lang = 'th' }) {
+  const { dragProps, handleProps } = useSwipeToClose(onClose);
   const [display, setDisplay] = useState('0');
   const [equation, setEquation] = useState('');
   const [prevValue, setPrevValue] = useState(null);
@@ -100,18 +102,23 @@ export default function CalculatorWidget({ isOpen, onClose, lang = 'th' }) {
     <AnimatePresence>
       {isOpen && (
         <div 
-          className="fixed inset-0 z-[200] flex items-center justify-center p-4"
+          className="fixed inset-0 z-[200] flex items-end sm:items-center justify-center p-0 sm:p-4"
           style={{ backgroundColor: 'var(--overlay-bg)', backdropFilter: 'blur(8px)' }}
           onClick={onClose}
         >
           <motion.div
-            initial={{ opacity: 0, scale: 0.9, y: 20 }}
-            animate={{ opacity: 1, scale: 1, y: 0 }}
-            exit={{ opacity: 0, scale: 0.9, y: 20 }}
-            className="w-full max-w-[320px] rounded-[32px] overflow-hidden shadow-2xl relative"
+            initial={{ opacity: 0, y: '100%' }}
+            animate={{ opacity: 1, y: 0 }}
+            exit={{ opacity: 0, y: '100%' }}
+            transition={{ type: 'spring', damping: 25, stiffness: 300 }}
+            {...dragProps}
+            className="w-full max-w-[320px] rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl relative max-h-[92vh] overflow-y-auto overscroll-contain"
             style={{ backgroundColor: 'var(--glass-bg)', border: '1px solid var(--glass-border)' }}
             onClick={e => e.stopPropagation()}
           >
+            <div className="pt-4 sm:hidden">
+              <div {...handleProps} />
+            </div>
             {/* Header */}
             <div className="flex justify-between items-center p-4 border-b border-white/10 bg-black/5 dark:bg-white/5">
               <span className="font-bold text-main/80 flex items-center gap-2">

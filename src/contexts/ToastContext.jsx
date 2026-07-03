@@ -57,7 +57,7 @@ export function ToastProvider({ children }) {
             initial={{ opacity: 0, y: 50, scale: 0.9 }}
             animate={{ opacity: 1, y: 0, scale: 1 }}
             exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="fixed bottom-24 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[400px] z-50 pointer-events-none"
+            className="fixed bottom-24 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[400px] z-[80] pointer-events-none"
           >
             <div className="bg-[#1a1a2e] dark:bg-white text-white dark:text-[#1a1a2e] rounded-2xl p-4 shadow-2xl flex items-center gap-3 pointer-events-auto">
               <div className="text-green-400 dark:text-green-600">

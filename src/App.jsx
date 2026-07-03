@@ -5,10 +5,10 @@ import withDragAndDropLib from 'react-big-calendar/lib/addons/dragAndDrop';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { format, parse, startOfWeek, getDay, isBefore, startOfDay, endOfDay, differenceInDays, isSameDay } from 'date-fns';
 import { enUS, th } from 'date-fns/locale';
-import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Home, Settings, ListTodo, User, DollarSign, ChevronLeft, ChevronRight, X, FileText, Coins, Bell } from 'lucide-react';
+import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Home, Settings, ListTodo, User, Briefcase, ChevronLeft, ChevronRight, X, FileText, Coins, Bell } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
-import { motion, AnimatePresence } from 'framer-motion';
+import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
 
 import TaskModal from './components/tasks/TaskModal';
 import StatsBar from './components/tasks/StatsBar';
@@ -20,16 +20,7 @@ import BottomNav from './components/layout/BottomNav';
 import ProductTour from './components/onboarding/ProductTour';
 import ErrorBoundary from './components/common/ErrorBoundary';
 import ChangelogModal from './components/common/ChangelogModal';
-import OneSignalVerificationModal from './components/common/OneSignalVerificationModal';
 import pkg from '../package.json';
-
-import ProfilePage from './pages/ProfilePage';
-import SettingsPage from './pages/SettingsPage';
-import PartTimePage from './pages/PartTimePage';
-import TodayPage from './pages/TodayPage';
-import SocialSecurityPage from './pages/SocialSecurityPage';
-import TasksPage from './pages/TasksPage';
-import FriendsPage from './pages/FriendsPage';
 
 import { saveTask } from './services/taskService';
 import { getThaiHoliday } from './utils/holidays';
@@ -43,6 +34,27 @@ import { ThemeProvider, useTheme } from './contexts/ThemeContext';
 import { useNotifications } from './contexts/NotificationsContext';
 import NotificationsProvider from './contexts/NotificationsProvider';
 
+const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
+const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
+const PartTimePage = React.lazy(() => import('./pages/PartTimePage'));
+const TodayPage = React.lazy(() => import('./pages/TodayPage'));
+const SocialSecurityPage = React.lazy(() => import('./pages/SocialSecurityPage'));
+const TasksPage = React.lazy(() => import('./pages/TasksPage'));
+const FriendsPage = React.lazy(() => import('./pages/FriendsPage'));
+const OneSignalVerificationModal = React.lazy(() => import('./components/common/OneSignalVerificationModal'));
+
+const PAGE_ORDER = ['/', '/calendar', '/tasks', '/part-time', '/friends', '/profile', '/settings', '/social-security'];
+
+const getPageIndex = (pathname) => {
+  const index = PAGE_ORDER.indexOf(pathname);
+  return index === -1 ? PAGE_ORDER.length : index;
+};
+
+const PageFallback = () => (
+  <div className="min-h-[100dvh] flex items-center justify-center pb-[calc(7rem+env(safe-area-inset-bottom))] pt-safe">
+    <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+  </div>
+);
 
 
 
@@ -83,6 +95,9 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
 
   const navigate = useNavigate();
   const location = useLocation();
+  const prefersReducedMotion = useReducedMotion();
+  const previousPathRef = React.useRef(location.pathname);
+  const routeDirection = getPageIndex(location.pathname) >= getPageIndex(previousPathRef.current) ? 1 : -1;
   const { tasks, isLoading } = useTasks();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -109,6 +124,10 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
   };
 
   const t = translations[lang];
+
+  useEffect(() => {
+    previousPathRef.current = location.pathname;
+  }, [location.pathname]);
 
   const handleSelectSlot = ({ start }) => {
     setSelectedDateFilter(start);
@@ -186,7 +205,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
     return (
       <div className={`flex items-center gap-1 md:gap-1.5 px-1 py-0.5 md:px-2 md:py-1 overflow-hidden h-full ${isDone ? 'opacity-60 line-through' : ''}`}>
         {event.isPartTime ? (
-          <DollarSign className="w-2 h-2 md:w-3 md:h-3 text-green-600 dark:text-green-400 flex-shrink-0" />
+          <Briefcase className="w-2.5 h-2.5 md:w-3 md:h-3 text-green-600 dark:text-green-400 flex-shrink-0" />
         ) : (
           <div className={`w-1.5 h-1.5 md:w-2 md:h-2 rounded-full flex-shrink-0 ${priorityColor}`}></div>
         )}
@@ -327,6 +346,8 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       };
       return getOrder(a) - getOrder(b);
     });
+    const visibleTasks = sortedTasks.slice(0, 4);
+    const hiddenTaskCount = Math.max(0, sortedTasks.length - visibleTasks.length);
 
     const holidayName = getThaiHoliday(date);
     const dayOfWeek = date.getDay();
@@ -358,13 +379,21 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
           {holidayName && (
             <div className="w-1.5 h-1.5 bg-red-500 rounded-full opacity-80" title={holidayName}></div>
           )}
-          {sortedTasks.map((t, idx) => (
+          {visibleTasks.map((t, idx) => (
             <div 
               key={t.id || idx} 
               className={`w-3.5 h-1 rounded-full ${getPillColor(t)}`} 
               title={t.title}
             />
           ))}
+          {hiddenTaskCount > 0 && (
+            <div
+              className="h-3 min-w-4 px-1 rounded-full bg-main/10 text-[8px] leading-3 font-bold text-main/60"
+              title={`${hiddenTaskCount} more`}
+            >
+              +{hiddenTaskCount}
+            </div>
+          )}
         </div>
         {hasOverdue && <div className="absolute top-1 right-2 w-1.5 h-1.5 bg-red-500 rounded-full animate-pulse shadow-[0_0_8px_rgba(239,68,68,0.8)]" />}
       </button>
@@ -448,12 +477,12 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
           </div>
         </div>
 
-        <div className="rbc-btn-group w-full flex justify-center !mb-2 mt-0">
+        <div className="rbc-btn-group w-full flex flex-wrap justify-center gap-1 !mb-2 mt-0">
           {views.map(name => (
             <button
               type="button"
               key={name}
-              className={view === name ? 'rbc-active' : ''}
+              className={`${view === name ? 'rbc-active' : ''} min-w-[64px] flex-1 md:flex-none`}
               onClick={() => onView(name)}
             >
               {t.calendarMessages[name] || name}
@@ -688,16 +717,28 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
   return (
     <>
       <AnimatePresence mode="wait">
-        <Routes location={location} key={location.pathname}>
-          <Route path="/" element={<TodayPage user={user} lang={lang} />} />
-          <Route path="/calendar" element={CalendarView} />
-          <Route path="/profile" element={<ProfilePage user={user} lang={lang} />} />
-          <Route path="/settings" element={<ErrorBoundary><SettingsPage user={user} lang={lang} setLang={setLang} theme={theme} setThemeMode={setThemeMode} /></ErrorBoundary>} />
-          <Route path="/part-time" element={<ErrorBoundary><PartTimePage user={user} lang={lang} /></ErrorBoundary>} />
-          <Route path="/social-security" element={<SocialSecurityPage lang={lang} />} />
-          <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
-          <Route path="/friends" element={<FriendsPage user={user} lang={lang} />} />
-        </Routes>
+        <motion.div
+          key={location.pathname}
+          custom={routeDirection}
+          initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: routeDirection * 16 }}
+          animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
+          exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: routeDirection * -16 }}
+          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
+          className="relative z-[2] min-h-screen transform-gpu will-change-transform"
+        >
+          <React.Suspense fallback={<PageFallback />}>
+            <Routes location={location}>
+              <Route path="/" element={<TodayPage user={user} lang={lang} />} />
+              <Route path="/calendar" element={CalendarView} />
+              <Route path="/profile" element={<ProfilePage user={user} lang={lang} />} />
+              <Route path="/settings" element={<ErrorBoundary><SettingsPage user={user} lang={lang} setLang={setLang} theme={theme} setThemeMode={setThemeMode} /></ErrorBoundary>} />
+              <Route path="/part-time" element={<ErrorBoundary><PartTimePage user={user} lang={lang} /></ErrorBoundary>} />
+              <Route path="/social-security" element={<SocialSecurityPage lang={lang} />} />
+              <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
+              <Route path="/friends" element={<FriendsPage user={user} lang={lang} />} />
+            </Routes>
+          </React.Suspense>
+        </motion.div>
       </AnimatePresence>
       
       {showTour && (
@@ -745,7 +786,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       
       {/* Global Add Button — only on calendar pages */}
       {(location.pathname === '/' || location.pathname === '/calendar') && (
-        <div className="fixed bottom-24 right-4 md:bottom-24 md:right-8 z-50">
+        <div className="fixed bottom-24 right-4 md:bottom-24 md:right-8 z-[45]">
           <button 
             onClick={() => { 
               setSelectedTask(selectedDateFilter ? { start: selectedDateFilter, end: selectedDateFilter } : null); 
@@ -768,7 +809,9 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
         task={selectedTask}
         lang={lang}
       />
-      <OneSignalVerificationModal lang={lang} />
+      <React.Suspense fallback={null}>
+        <OneSignalVerificationModal lang={lang} />
+      </React.Suspense>
     </>
   );
 }
@@ -843,7 +886,7 @@ export default function App() {
 
   if (authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
+      <div className="min-h-[100dvh] flex items-center justify-center pb-[env(safe-area-inset-bottom)]">
         <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
       </div>
     );

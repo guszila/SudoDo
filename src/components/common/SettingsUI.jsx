@@ -26,7 +26,7 @@ export const Toggle = ({ checked, onChange }) => (
 export const SettingsRow = ({ icon: Icon, iconBgClass, iconColorClass = 'text-[#1a1a2e]', title, subtitle, rightElement, onClick, isLast }) => (
   <div 
     onClick={onClick}
-    className={`flex items-center min-h-[52px] px-4 py-[13px] ${!isLast ? 'border-b-[0.5px] border-[rgba(255,255,255,0.3)] dark:border-[rgba(255,255,255,0.08)]' : ''} ${onClick ? 'cursor-pointer active:bg-black/5 dark:active:bg-white/5 transition-colors' : ''}`}
+    className={`flex items-center min-h-[52px] px-4 py-[13px] ${!isLast ? 'border-b-[0.5px] border-white/20 dark:border-white/[0.06]' : ''} ${onClick ? 'cursor-pointer active:bg-black/5 dark:active:bg-white/5 transition-colors' : ''}`}
   >
     {Icon && (
       <div className={`w-8 h-8 rounded-[10px] flex items-center justify-center shrink-0 mr-3 ${iconBgClass} ${iconColorClass}`}>

@@ -161,7 +161,7 @@ body {
   background-size: 300% 300%;
   animation: gradientBG 20s ease infinite;
   background-attachment: fixed;
-  font-family: 'Prompt', system-ui, -apple-system, sans-serif;
+  font-family: 'Kanit', 'Inter', system-ui, -apple-system, sans-serif;
   margin: 0;
   position: relative;
   overflow-x: hidden;
@@ -181,6 +181,23 @@ html, body {
   background: var(--bg-gradient);
   background-size: 300% 300%;
   overscroll-behavior-y: none;
+}
+
+button,
+[role="button"],
+input,
+select,
+textarea {
+  touch-action: manipulation;
+}
+
+@media (max-width: 640px) {
+  input,
+  select,
+  textarea {
+    font-size: 16px;
+  }
+
 }
 
 /* --- Animations --- */
@@ -251,11 +268,22 @@ html, body {
   animation: sparkle 2s ease-in-out infinite;
 }
 
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.001ms !important;
+    animation-iteration-count: 1 !important;
+    scroll-behavior: auto !important;
+    transition-duration: 0.001ms !important;
+  }
+}
+
 /* --- Calendar Overrides --- */
 .rbc-calendar {
-  font-family: 'Prompt', sans-serif;
-  background-color: var(--glass-bg);
-  backdrop-filter: blur(20px);
+  font-family: 'Kanit', 'Inter', system-ui, sans-serif;
+  background-color: color-mix(in srgb, var(--glass-bg-strong) 70%, transparent);
+  backdrop-filter: blur(18px);
   box-shadow: 0 8px 32px 0 var(--glass-shadow);
   @apply rounded-[20px] md:rounded-[28px] p-2 md:p-6;
   border: 1px solid var(--glass-border) !important;
@@ -592,5 +620,11 @@ html, body {
   .rbc-agenda-view table.rbc-agenda-table tbody > tr > td:first-child {
     font-size: 11px;
     padding-left: 8px;
+  }
+}
+
+@media (hover: none) and (pointer: coarse) {
+  .touch-visible-actions {
+    opacity: 1 !important;
   }
 }

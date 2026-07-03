@@ -26,7 +26,10 @@ export default function SplashScreen({ onDone }) {
     : accentColor; // Fallback for midnight's rgba
 
   return (
-    <div className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden" style={{ background: backgroundGradient, animation: 'splashFadeOut 0.3s ease-out 2.2s both' }}>
+    <div
+      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden px-6 pt-[max(1.5rem,env(safe-area-inset-top))] pb-[max(4.5rem,calc(3rem+env(safe-area-inset-bottom)))]"
+      style={{ background: backgroundGradient, animation: 'splashFadeOut 0.3s ease-out 2.2s both', minHeight: '100dvh', height: '100dvh' }}
+    >
       <style>{`
         @keyframes logoScale {
           0% { transform: scale(0.5); opacity: 0; }
@@ -68,7 +71,7 @@ export default function SplashScreen({ onDone }) {
       <div className="absolute bottom-[10%] left-[20%] w-72 h-72 rounded-full bg-white blur-[70px]" style={{ animation: 'circlePulse 4.5s ease-in-out infinite 2s', opacity: isDark ? 0.05 : undefined }} />
 
       {/* Main Content */}
-      <div className="relative z-10 flex flex-col items-center">
+      <div className="relative z-10 flex flex-col items-center -translate-y-2 sm:translate-y-0">
         
         {/* Logo Container */}
         <div className="relative flex items-center justify-center w-[88px] h-[88px] mb-6" style={{ animation: 'logoScale 0.6s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both' }}>
@@ -83,7 +86,7 @@ export default function SplashScreen({ onDone }) {
         </div>
 
         {/* Wordmark */}
-        <div className="flex flex-col items-center mb-12">
+        <div className="flex flex-col items-center mb-10 sm:mb-12">
           <h1 className="text-[36px] font-[800] tracking-tight leading-none mb-2" style={{ 
             background: 'linear-gradient(90deg, #7c3aed, #db2777)', 
             WebkitBackgroundClip: 'text', 
@@ -121,7 +124,7 @@ export default function SplashScreen({ onDone }) {
       </div>
 
       {/* Version */}
-      <div className="absolute bottom-8 left-0 right-0 text-center" style={{ animation: 'subFade 0.4s ease-out 1.5s both' }}>
+      <div className="absolute bottom-[max(1.25rem,calc(0.75rem+env(safe-area-inset-bottom)))] left-0 right-0 text-center" style={{ animation: 'subFade 0.4s ease-out 1.5s both' }}>
         <p className="text-[11px] font-medium" style={{ color: isDark ? 'rgba(255,255,255,0.4)' : 'rgba(83,74,183,0.4)' }}>v{version}</p>
       </div>
 

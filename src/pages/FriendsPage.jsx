@@ -15,6 +15,7 @@ import { db } from '../firebase';
 import { COLLECTIONS } from '../constants';
 import { BADGE_LIST } from '../utils/gamification';
 import ChatView from '../components/social/ChatView';
+import { useSwipeToClose } from '../hooks/useSwipeToClose';
 
 // ────────────────────────────────────────────────
 // Helpers
@@ -163,6 +164,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
   const [copied, setCopied] = useState(false);
 
   const [selectedFriend, setSelectedFriend] = useState(null);
+  const friendDetailSheet = useSwipeToClose(() => setSelectedFriend(null));
   const [showAddPanel, setShowAddPanel] = useState(false);
   const [removingId, setRemovingId] = useState(null);
   const [myProfile, setMyProfile] = useState(null);
@@ -891,13 +893,20 @@ export default function FriendsPage({ user, lang = 'th' }) {
             onClick={() => setSelectedFriend(null)}
           >
             <motion.div
-              initial={{ opacity: 0, y: 60, scale: 0.95 }}
-              animate={{ opacity: 1, y: 0, scale: 1 }}
-              exit={{ opacity: 0, y: 60, scale: 0.95 }}
+              initial={{ opacity: 0, y: '100%' }}
+              animate={{ opacity: 1, y: 0 }}
+              exit={{ opacity: 0, y: '100%' }}
               transition={{ type: 'spring', stiffness: 300, damping: 30 }}
+              {...friendDetailSheet.dragProps}
               className="bg-white dark:bg-[#1a1a2e] w-full max-w-md rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl relative flex flex-col max-h-[88vh]"
               onClick={e => e.stopPropagation()}
             >
+              <div className="absolute top-3 left-0 right-0 z-20 flex justify-center sm:hidden">
+                <div
+                  onPointerDown={friendDetailSheet.handleProps.onPointerDown}
+                  className="w-12 h-1.5 bg-white/60 rounded-full cursor-grab active:cursor-grabbing touch-none"
+                />
+              </div>
               {/* Close */}
               <button
                 onClick={() => setSelectedFriend(null)}
@@ -907,13 +916,13 @@ export default function FriendsPage({ user, lang = 'th' }) {
               </button>
 
               {/* Hero Header */}
-              <div className="bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 p-7 flex flex-col items-center text-center relative overflow-hidden flex-shrink-0">
+              <div className={`bg-gradient-to-br from-primary-500 via-primary-600 to-primary-700 flex flex-col items-center text-center relative overflow-hidden flex-shrink-0 transition-all ${modalTab === 'chat' ? 'p-4 sm:p-5' : 'p-7'}`}>
                 <div className="absolute inset-0 opacity-10" style={{
                   backgroundImage: 'radial-gradient(circle at 20% 80%, white 0%, transparent 60%), radial-gradient(circle at 80% 20%, white 0%, transparent 60%)'
                 }} />
 
                 {/* Featured badge */}
-                {selectedFriend.featuredBadgeId && (() => {
+                {modalTab !== 'chat' && selectedFriend.featuredBadgeId && (() => {
                   const b = BADGE_LIST.find(b => b.id === selectedFriend.featuredBadgeId);
                   return b ? (
                     <div className="absolute top-4 left-4 bg-white/20 backdrop-blur-md p-2.5 rounded-2xl border border-white/30 shadow-lg">
@@ -922,33 +931,33 @@ export default function FriendsPage({ user, lang = 'th' }) {
                   ) : null;
                 })()}
 
-                <div className="relative mb-4">
-                  <div className="w-24 h-24 rounded-full ring-4 ring-white/30 shadow-xl overflow-hidden bg-white/20">
+                <div className={`relative ${modalTab === 'chat' ? 'mb-2' : 'mb-4'}`}>
+                  <div className={`${modalTab === 'chat' ? 'w-16 h-16' : 'w-24 h-24'} rounded-full ring-4 ring-white/30 shadow-xl overflow-hidden bg-white/20 transition-all`}>
                     {selectedFriend.avatarUrl
                       ? <img src={selectedFriend.avatarUrl} alt="avatar" className="w-full h-full object-cover" />
                       : <div className="w-full h-full flex items-center justify-center">
-                          <span className="text-white font-bold text-3xl">
+                          <span className={`text-white font-bold ${modalTab === 'chat' ? 'text-xl' : 'text-3xl'}`}>
                             {(selectedFriend.displayName || '??').substring(0, 2).toUpperCase()}
                           </span>
                         </div>
                     }
                   </div>
                   {selectedFriend.hasWorkedToday && (
-                    <div className="absolute -bottom-1 -right-1 w-7 h-7 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow-md">
+                    <div className={`${modalTab === 'chat' ? 'w-5 h-5' : 'w-7 h-7'} absolute -bottom-1 -right-1 bg-emerald-500 rounded-full border-2 border-white flex items-center justify-center shadow-md`}>
                       <Activity size={12} className="text-white" />
                     </div>
                   )}
                 </div>
 
-                <h2 className="text-2xl font-black text-white mb-1">
+                <h2 className={`${modalTab === 'chat' ? 'text-lg' : 'text-2xl'} font-black text-white mb-1 transition-all`}>
                   {selectedFriend.displayName || (lang === 'en' ? 'Unknown User' : 'ผู้ใช้งาน')}
                 </h2>
-                {selectedFriend.statusMessage && (
+                {modalTab !== 'chat' && selectedFriend.statusMessage && (
                   <p className="text-white/80 text-sm italic mb-3">"{selectedFriend.statusMessage}"</p>
                 )}
 
                 {/* Stats row */}
-                <div className="flex gap-3 mt-2">
+                <div className={`gap-3 mt-2 ${modalTab === 'chat' ? 'hidden' : 'flex'}`}>
                   <div className="bg-white/15 backdrop-blur-md px-4 py-2.5 rounded-2xl flex flex-col items-center border border-white/20">
                     <span className="text-orange-300 flex items-center gap-1 font-black text-xl">
                       <Flame size={16} fill="currentColor" /> {selectedFriend.currentStreak || 0}

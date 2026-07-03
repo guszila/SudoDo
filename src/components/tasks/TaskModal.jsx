@@ -1,12 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
-import { motion, AnimatePresence, useDragControls } from 'framer-motion';
+import { motion, AnimatePresence } from 'framer-motion';
 import { X, Trash2, CheckCircle2, Circle, FileText, Coins, Bell } from 'lucide-react';
 
 import { translations } from '../../i18n';
 import { TASK_STATUS, TASK_PRIORITY, DEFAULT_TASK_VALUES } from '../../constants';
 import { useSettings } from '../../contexts/SettingsContext';
+import { useSwipeToClose } from '../../hooks/useSwipeToClose';
 
 const JOB_COLORS = {
   blue: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/20' },
@@ -30,7 +31,7 @@ const toLocalISOString = (dateObj) => {
 export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lang = 'en' }) {
   const t = translations[lang].modal;
   const statusT = translations[lang].status;
-  const dragControls = useDragControls();
+  const { dragProps, handleProps } = useSwipeToClose(onClose);
   const { settings } = useSettings();
 
   const [formData, setFormData] = useState({
@@ -171,22 +172,12 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             exit={{ opacity: 0, y: 50, scale: 0.95 }}
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
             onClick={(e) => e.stopPropagation()}
-            drag="y"
-            dragControls={dragControls}
-            dragListener={false}
-            dragConstraints={{ top: 0, bottom: 0 }}
-            dragElastic={{ top: 0, bottom: 0.5 }}
-            onDragEnd={(e, info) => {
-              if (info.offset.y > 100 || info.velocity.y > 500) {
-                onClose();
-              }
-            }}
+            {...dragProps}
             className="liquid-glass-card w-full max-w-md p-6 relative rounded-t-[32px] md:rounded-[24px] pb-safe max-h-[90vh] overflow-y-auto"
           >
         <div 
-          className="w-12 h-1.5 rounded-full mx-auto mb-6 md:hidden cursor-grab active:cursor-grabbing touch-none" 
+          {...handleProps}
           style={{ backgroundColor: 'var(--glass-border-strong)' }}
-          onPointerDown={(e) => dragControls.start(e)}
         ></div>
         <button 
           onClick={onClose}

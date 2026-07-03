@@ -2,9 +2,11 @@ import React, { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell } from 'lucide-react';
 import OneSignalService from '../../services/OneSignalService';
+import { useSwipeToClose } from '../../hooks/useSwipeToClose';
 
 export default function OneSignalVerificationModal({ lang }) {
   const [isOpen, setIsOpen] = useState(false);
+  const { dragProps, handleProps } = useSwipeToClose(() => setIsOpen(false));
 
   useEffect(() => {
     // Check if already shown
@@ -41,7 +43,7 @@ export default function OneSignalVerificationModal({ lang }) {
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4">
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4">
           <motion.div 
             initial={{ opacity: 0 }} 
             animate={{ opacity: 1 }} 
@@ -49,11 +51,13 @@ export default function OneSignalVerificationModal({ lang }) {
             className="absolute inset-0 bg-black/40 backdrop-blur-sm"
           />
           <motion.div 
-            initial={{ scale: 0.95, opacity: 0, y: 20 }} 
-            animate={{ scale: 1, opacity: 1, y: 0 }} 
-            exit={{ scale: 0.95, opacity: 0, y: 20 }}
-            className="relative w-full max-w-sm bg-white dark:bg-[#1a1a2e] rounded-3xl p-6 shadow-2xl border border-white/20"
+            initial={{ opacity: 0, y: '100%' }} 
+            animate={{ opacity: 1, y: 0 }} 
+            exit={{ opacity: 0, y: '100%' }}
+            {...dragProps}
+            className="relative w-full max-w-sm max-h-[86vh] overflow-y-auto overscroll-contain bg-white dark:bg-[#1a1a2e] rounded-t-[32px] sm:rounded-3xl p-6 shadow-2xl border border-x-0 border-b-0 sm:border-white/20"
           >
+            <div {...handleProps} className={`${handleProps.className} sm:hidden`} />
             <div className="w-16 h-16 bg-blue-500/10 rounded-full flex items-center justify-center mx-auto mb-4">
               <Bell className="w-8 h-8 text-blue-500" />
             </div>

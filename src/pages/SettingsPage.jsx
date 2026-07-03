@@ -1,7 +1,5 @@
 import { useState, useEffect, useRef, useMemo } from 'react';
 import { format } from 'date-fns';
-import jsPDF from 'jspdf';
-import html2canvas from 'html2canvas';
 import PdfStatement from '../components/pdf/PdfStatement';
 import { TASK_STATUS, RATE_TYPE } from '../constants';
 import { calcSSO } from '../utils/socialSecurity';
@@ -26,12 +24,15 @@ import pkg from '../../package.json';
 import { auth } from '../firebase';
 import { signOut, deleteUser, updatePassword, sendPasswordResetEmail } from 'firebase/auth';
 import OneSignalService from '../services/OneSignalService';
+import { useSwipeToClose } from '../hooks/useSwipeToClose';
 
 const ActionSheet = ({ isOpen, onClose, title, children }) => {
+  const { dragProps, handleProps } = useSwipeToClose(onClose);
+
   return (
     <AnimatePresence>
       {isOpen && (
-        <div className="fixed inset-0 z-[100] flex flex-col justify-end">
+        <div className="fixed inset-0 z-[100] flex items-end justify-center p-0 md:items-center md:p-4">
           <motion.div 
             initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
             onClick={onClose}
@@ -40,9 +41,10 @@ const ActionSheet = ({ isOpen, onClose, title, children }) => {
           />
           <motion.div 
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ duration: 0.25, ease: "easeOut" }}
-            className="relative liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl pb-8 pt-4 px-4"
+            {...dragProps}
+            className="relative w-full max-h-[86vh] overflow-y-auto liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl px-4 pb-8 pt-4 md:max-w-md md:rounded-[28px] md:border"
           >
-            <div className="w-12 h-1.5 bg-black/10 dark:bg-white/20 rounded-full mx-auto mb-6" />
+            <div {...handleProps} />
             {title && <h3 className="text-lg font-bold text-center mb-4 text-[#1a1a2e] dark:text-white">{title}</h3>}
             {children}
           </motion.div>
@@ -79,7 +81,7 @@ const SettingsSection = ({ section, children, danger = false }) => {
         </div>
       </div>
       <div className={`relative mx-4 overflow-hidden rounded-[18px] border-[0.5px] border-white/50 dark:border-white/10 bg-[rgba(255,255,255,0.38)] dark:bg-[rgba(255,255,255,0.08)] backdrop-blur-[20px] shadow-sm ${cardClass}`}>
-        <div className={`pointer-events-none absolute inset-x-0 top-0 h-16 bg-gradient-to-r ${section.accent}`} />
+        <div className={`pointer-events-none absolute inset-x-0 top-0 h-24 bg-gradient-to-r ${section.accent} opacity-75 [mask-image:linear-gradient(to_bottom,black,transparent)]`} />
         <div className="relative">
           {children}
         </div>
@@ -304,6 +306,10 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
     }
     setIsExportingPdf(true);
     try {
+      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+        import('html2canvas'),
+        import('jspdf')
+      ]);
       const input = pdfRef.current;
       const canvas = await html2canvas(input, { scale: 2, useCORS: true, logging: false });
       const imgData = canvas.toDataURL('image/png');
@@ -539,7 +545,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
           className="mx-4 mb-4"
         >
           <div className="relative overflow-hidden rounded-[24px] border border-white/50 dark:border-white/10 bg-white/45 dark:bg-white/10 p-5 shadow-sm backdrop-blur-[22px]">
-            <div className="absolute inset-x-0 top-0 h-20 bg-gradient-to-r from-[var(--theme-accent)]/20 via-white/20 to-emerald-400/10" />
+            <div className="absolute inset-x-0 top-0 h-24 bg-gradient-to-r from-[var(--theme-accent)]/20 via-white/20 to-emerald-400/10 [mask-image:linear-gradient(to_bottom,black,transparent)]" />
             <div className="relative flex items-start justify-between gap-4">
               <div>
                 <p className="text-[12px] font-bold uppercase tracking-[0.08em] text-[var(--theme-section-label)]">{t.version} {pkg.version || '1.0.0'}</p>
