@@ -287,14 +287,14 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
       className="space-y-4"
     >
       {/* Month Pills */}
-      <div className="flex gap-2 overflow-x-auto pb-2 -mx-1 px-1 snap-x hide-scrollbar">
+      <div className="flex gap-2 overflow-x-auto py-1.5 pb-3 -mx-3 px-3 snap-x scroll-px-3 hide-scrollbar">
         {monthsList.map(mStr => (
           <button
             key={mStr}
             onClick={() => { setSelectedMonth(mStr); setSelectedCompany(null); }}
             className={`snap-start whitespace-nowrap px-5 py-2.5 rounded-full text-sm flex-shrink-0 border font-bold transition-all ${
               selectedMonth === mStr
-                ? 'bg-primary-500/20 border-primary-500/50 text-primary-600 dark:text-primary-300 scale-105'
+                ? 'bg-primary-500/20 border-primary-500/50 text-primary-600 dark:text-primary-300 shadow-md shadow-primary-500/10'
                 : 'bg-white/30 dark:bg-black/30 border-white/40 dark:border-white/10 text-main/60 hover:bg-white/50 dark:hover:bg-white/10'
             }`}
           >

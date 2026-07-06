@@ -110,7 +110,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
   });
   const [showGoalModal, setShowGoalModal] = useState(false);
   const [tempGoal, setTempGoal] = useState({ goalAmount: 5000, goalMonth: new Date().toISOString().slice(0, 7), isRecurring: true });
-  const extraFormSheet = useSwipeToClose(() => setShowAddExtraForm(false));
+  const extraFormSheet = useSwipeToClose(() => setShowAddExtraForm(false), { dragFromSheet: true });
   const widgetSelectorSheet = useSwipeToClose(() => setShowWidgetSelector(false));
   const goalSheet = useSwipeToClose(() => setShowGoalModal(false));
 
@@ -127,8 +127,30 @@ export default function PartTimePage({ user, lang = 'en' }) {
     amount: '',
     date: new Date().toISOString().slice(0, 10),
     month: new Date().toISOString().slice(0, 7),
+    incomeCategory: 'tip',
     isPercentage: false,
   });
+
+  const getInitialExtraFormData = () => ({
+    title: '',
+    amount: '',
+    date: new Date().toISOString().slice(0, 10),
+    month: new Date().toISOString().slice(0, 7),
+    incomeCategory: 'tip',
+    isPercentage: false,
+  });
+
+  const incomeCategories = [
+    { id: 'tip', label: 'ทิป' },
+    { id: 'commission', label: 'ค่าคอมมิชชั่น' },
+    { id: 'bonus', label: 'โบนัส' },
+    { id: 'freelance', label: 'ฟรีแลนซ์' },
+    { id: 'other', label: 'อื่น ๆ' },
+  ];
+
+  const getIncomeCategoryLabel = (categoryId) => (
+    incomeCategories.find(category => category.id === categoryId)?.label || 'อื่น ๆ'
+  );
 
   const daysOfWeek = [
     { id: 1, label: 'จ.' },
@@ -852,15 +874,35 @@ export default function PartTimePage({ user, lang = 'en' }) {
     setSuccessShiftData(successData);
     setIsMutating(false);
   };
+  const openExtraItemForm = (type) => {
+    setExtraFormType(type);
+    setExtraFormData(getInitialExtraFormData());
+    setShowExtraActionSheet(false);
+    setShowAddForm(false);
+    setShowAddExtraForm(true);
+  };
+
   const handleAddExtraItem = async (e) => {
     e.preventDefault();
+    if (isMutating) return;
+
+    const title = extraFormData.title.trim();
+    const amount = Number(extraFormData.amount);
+    const month = extraFormData.month || new Date().toISOString().slice(0, 7);
+    const startDate = new Date(`${month}-01T00:00:00`);
+
+    if (!title || !Number.isFinite(amount) || amount <= 0 || Number.isNaN(startDate.getTime())) {
+      showToast(lang === 'en' ? 'Please check the item details.' : 'กรุณาตรวจสอบข้อมูลรายการ');
+      return;
+    }
+
     setIsMutating(true);
+    try {
     
-    let extraDateStr = `${extraFormData.month}-01`;
-    const startDateTime = new Date(`${extraDateStr}T00:00:00`).toISOString();
+    const startDateTime = startDate.toISOString();
     
     const extraTask = {
-      title: extraFormData.title,
+      title,
       description: '',
       start: startDateTime,
       end: startDateTime,
@@ -869,25 +911,33 @@ export default function PartTimePage({ user, lang = 'en' }) {
       isPartTime: true,
       isExpense: extraFormType === 'expense',
       isExtraIncome: extraFormType === 'income',
-      amount: extraFormData.amount,
+      amount,
+      incomeCategory: extraFormType === 'income' ? extraFormData.incomeCategory : '',
       isPercentage: false
     };
     
     if (extraFormData.id) {
-      await saveTask('EDIT', { ...extraTask, id: extraFormData.id }, user.uid);
+      const result = await saveTask('EDIT', { ...extraTask, id: extraFormData.id }, user.uid);
+      if (!result) throw new Error('Save failed');
       showToast('บันทึกการแก้ไขเรียบร้อยแล้ว');
     } else {
-      await saveTask('ADD', extraTask, user.uid);
+      const result = await saveTask('ADD', extraTask, user.uid);
+      if (!result) throw new Error('Save failed');
       setSuccessExtraData({
         title: extraTask.title,
         amount: extraTask.amount,
-        month: extraFormData.month,
+        month,
         type: extraFormType
       });
     }
     setShowAddExtraForm(false);
-    setExtraFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10), month: new Date().toISOString().slice(0, 7), isPercentage: false });
-    setIsMutating(false);
+    setExtraFormData(getInitialExtraFormData());
+    } catch (error) {
+      console.error('Failed to save extra item:', error);
+      showToast(lang === 'en' ? 'Could not save this item.' : 'บันทึกรายการนี้ไม่สำเร็จ');
+    } finally {
+      setIsMutating(false);
+    }
   };
 
 
@@ -900,6 +950,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       amount: item.amount,
       date: isNaN(startD.getTime()) ? new Date().toISOString().slice(0, 10) : startD.toISOString().slice(0, 10),
       month: isNaN(startD.getTime()) ? new Date().toISOString().slice(0, 7) : startD.toISOString().slice(0, 7),
+      incomeCategory: item.incomeCategory || 'tip',
       isPercentage: false
     });
     setShowAddExtraForm(true);
@@ -1116,19 +1167,27 @@ export default function PartTimePage({ user, lang = 'en' }) {
         <div className="flex gap-2 w-full md:w-auto">
             <button 
               onClick={() => { 
-                if (!showAddExtraForm) {
-                  setExtraFormData({ title: '', amount: '', date: new Date().toISOString().slice(0, 10), month: new Date().toISOString().slice(0, 7), isPercentage: false });
-                }
-                if (showAddExtraForm) {
+                if (showAddExtraForm && extraFormType === 'expense') {
                   setShowAddExtraForm(false);
                 } else {
-                  setShowExtraActionSheet(true);
+                  openExtraItemForm('expense');
                 }
-                setShowAddForm(false); 
               }}
-              className={`flex-1 md:flex-none justify-center items-center gap-2 flex px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-sm ${showAddExtraForm ? (extraFormType === 'income' ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-red-500 text-white hover:bg-red-600') : 'bg-white/20 text-amber-500 dark:text-amber-400 hover:bg-amber-500/10'}`}
+              className={`flex-1 md:flex-none justify-center items-center gap-2 flex px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-sm ${showAddExtraForm && extraFormType === 'expense' ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-white/20 text-red-600 dark:text-red-400 hover:bg-red-500/10'}`}
             >
-              <Plus size={16} /> {showAddExtraForm ? t.close : 'เพิ่มรายการอื่น'}
+              <Plus size={16} /> {showAddExtraForm && extraFormType === 'expense' ? t.close : t.addExpense}
+            </button>
+            <button 
+              onClick={() => { 
+                if (showAddExtraForm && extraFormType === 'income') {
+                  setShowAddExtraForm(false);
+                } else {
+                  openExtraItemForm('income');
+                }
+              }}
+              className={`flex-1 md:flex-none justify-center items-center gap-2 flex px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-sm ${showAddExtraForm && extraFormType === 'income' ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-white/20 text-green-600 dark:text-green-400 hover:bg-green-500/10'}`}
+            >
+              <Banknote size={16} /> {showAddExtraForm && extraFormType === 'income' ? t.close : 'รายได้พิเศษ'}
             </button>
             <button 
               onClick={() => { setShowAddForm(!showAddForm); setShowAddExtraForm(false); }}
@@ -1207,6 +1266,23 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     </label>
                     <input type="text" value={extraFormData.title} onChange={e => setExtraFormData({...extraFormData, title: e.target.value})} required className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder={extraFormType === 'income' ? 'เช่น ทิป, ค่าคอมมิชชัน' : t.expenseTitlePlaceholder} />
                   </div>
+                  {extraFormType === 'income' && (
+                    <div>
+                      <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
+                        หมวดหมู่รายได้
+                      </label>
+                      <select
+                        value={extraFormData.incomeCategory}
+                        onChange={e => setExtraFormData({...extraFormData, incomeCategory: e.target.value})}
+                        className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-main font-bold"
+                        style={{ backgroundColor: 'var(--glass-bg-input)' }}
+                      >
+                        {incomeCategories.map(category => (
+                          <option key={category.id} value={category.id}>{category.label}</option>
+                        ))}
+                      </select>
+                    </div>
+                  )}
                   <div>
                     <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.amount}</label>
                     <div className="relative">
@@ -1356,7 +1432,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
               })()}
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-main mb-2 opacity-80">วันในสัปดาห์ (ไม่เลือก = ทุกวัน)</label>
+                <label className="block text-sm font-medium text-main mb-1 opacity-80">เลือกวันที่ทำงาน</label>
+                <p className="text-xs text-main/45 mb-2">ถ้าไม่เลือกวัน ระบบจะเพิ่มกะให้ทุกวันในช่วงวันที่ที่เลือก</p>
                 <div className="flex flex-wrap gap-2">
                   {daysOfWeek.map(day => (
                     <button
@@ -1735,7 +1812,10 @@ export default function PartTimePage({ user, lang = 'en' }) {
                           >
                             <div className="flex-1 min-w-0">
                               <p className="font-bold text-sm text-main truncate">{task.title}</p>
-                              <p className="text-[10px] text-main/40">{task.isExtraIncome ? 'รายได้พิเศษ' : 'รายจ่าย'} · {fDate(task.start)}</p>
+                              <p className="text-[10px] text-main/40">
+                                {task.isExtraIncome && `${getIncomeCategoryLabel(task.incomeCategory)} · `}
+                                {task.isExtraIncome ? 'รายได้พิเศษ' : 'รายจ่าย'} · {fDate(task.start)}
+                              </p>
                             </div>
                             <p className={`text-sm font-black flex-shrink-0 ${task.isExtraIncome ? 'text-green-500' : 'text-red-500'}`}>
                               {task.isExtraIncome ? '+' : '-'}฿{expenseAmount.toLocaleString(undefined,{maximumFractionDigits:0})}
@@ -1993,11 +2073,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       <ActionSheet isOpen={showExtraActionSheet} onClose={() => setShowExtraActionSheet(false)} title="เพิ่มรายการอื่น">
         <div className="flex flex-col gap-3 py-2">
           <button 
-            onClick={() => {
-              setExtraFormType('income');
-              setShowAddExtraForm(true);
-              setShowExtraActionSheet(false);
-            }}
+            onClick={() => openExtraItemForm('income')}
             className="w-full flex items-center gap-4 p-4 rounded-2xl bg-green-500/10 border border-green-500/20 hover:bg-green-500/20 transition-colors"
           >
             <div className="w-12 h-12 rounded-xl bg-green-500 text-white flex items-center justify-center shadow-lg shadow-green-500/30">
@@ -2010,11 +2086,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
           </button>
           
           <button 
-            onClick={() => {
-              setExtraFormType('expense');
-              setShowAddExtraForm(true);
-              setShowExtraActionSheet(false);
-            }}
+            onClick={() => openExtraItemForm('expense')}
             className="w-full flex items-center gap-4 p-4 rounded-2xl bg-red-500/10 border border-red-500/20 hover:bg-red-500/20 transition-colors"
           >
             <div className="w-12 h-12 rounded-xl bg-red-500 text-white flex items-center justify-center shadow-lg shadow-red-500/30">

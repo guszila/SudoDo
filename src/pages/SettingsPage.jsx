@@ -54,6 +54,25 @@ const ActionSheet = ({ isOpen, onClose, title, children }) => {
   );
 };
 
+const waitForPdfRender = () => new Promise((resolve) => {
+  requestAnimationFrame(() => requestAnimationFrame(resolve));
+});
+
+const sha256Hex = async (value) => {
+  const text = JSON.stringify(value);
+  if (window.crypto?.subtle) {
+    const buffer = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+};
+
 const SettingsSection = ({ section, children, danger = false }) => {
   const Icon = section.icon;
   const cardClass = danger
@@ -239,6 +258,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
 
   const [exportMonth, setExportMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [isExportingPdf, setIsExportingPdf] = useState(false);
+  const [pdfVerification, setPdfVerification] = useState(null);
   const pdfRef = useRef(null);
 
   const exportData = useMemo(() => {
@@ -306,30 +326,72 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
     }
     setIsExportingPdf(true);
     try {
-      const [{ default: html2canvas }, { default: jsPDF }] = await Promise.all([
+      const [{ default: html2canvas }, { default: jsPDF }, { default: QRCode }] = await Promise.all([
         import('html2canvas'),
-        import('jspdf')
+        import('jspdf'),
+        import('qrcode')
       ]);
+      const verificationRows = exportData.shiftsList.map((item) => ({
+        id: item.id,
+        title: item.title,
+        start: item.start,
+        end: item.end,
+        actualStart: item.actualStart,
+        actualEnd: item.actualEnd,
+        amount: item.amount,
+        hourlyRate: item.hourlyRate,
+        rateType: item.rateType,
+        breakHours: item.breakHours,
+        status: item.status,
+        isExpense: !!item.isExpense,
+        isExtraIncome: !!item.isExtraIncome,
+        isHolidayPay: !!item.isHolidayPay,
+      }));
+      const verificationSource = {
+        app: 'SudoDo',
+        type: 'monthly-income-statement',
+        month: exportMonth,
+        userId: user?.uid || '',
+        displayName: user?.displayName || '',
+        summary: {
+          totalIncome: Number(exportData.summary.totalIncome || 0).toFixed(2),
+          ssoDeduct: Number(exportData.summary.ssoDeduct || 0).toFixed(2),
+          finalIncome: Number(exportData.summary.finalIncome || 0).toFixed(2),
+          totalHours: Number(exportData.summary.totalHours || 0).toFixed(1),
+          shiftCount: exportData.summary.shiftCount || 0,
+          recordCount: exportData.shiftsList.length,
+        },
+        rows: verificationRows,
+      };
+      const hash = await sha256Hex(verificationSource);
+      const verifyId = `SD-${exportMonth.replace('-', '')}-${hash.slice(0, 10).toUpperCase()}`;
+      const generatedAt = new Date().toISOString();
+      const qrText = [
+        'SUDODO',
+        `ID=${verifyId}`,
+        `M=${exportMonth}`,
+        `R=${exportData.shiftsList.length}`,
+        `H=${hash.slice(0, 16).toUpperCase()}`,
+      ].join('|');
+      const qrDataUrl = await QRCode.toDataURL(qrText, {
+        errorCorrectionLevel: 'L',
+        margin: 3,
+        width: 220,
+        color: {
+          dark: '#0F172A',
+          light: '#FFFFFF',
+        },
+      });
+      setPdfVerification({ id: verifyId, hash, qrDataUrl, generatedAt });
+      await waitForPdfRender();
       const input = pdfRef.current;
       const canvas = await html2canvas(input, { scale: 2, useCORS: true, logging: false });
       const imgData = canvas.toDataURL('image/png');
       const pdf = new jsPDF('p', 'mm', 'a4');
       const pdfWidth = pdf.internal.pageSize.getWidth();
-      const pdfHeight = (canvas.height * pdfWidth) / canvas.width;
       const pageHeight = pdf.internal.pageSize.getHeight();
-      
-      let heightLeft = pdfHeight;
-      let position = 0;
 
-      pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-      heightLeft -= pageHeight;
-
-      while (heightLeft > 0) {
-        position = heightLeft - pdfHeight;
-        pdf.addPage();
-        pdf.addImage(imgData, 'PNG', 0, position, pdfWidth, pdfHeight);
-        heightLeft -= pageHeight;
-      }
+      pdf.addImage(imgData, 'PNG', 0, 0, pdfWidth, pageHeight);
 
       pdf.save(`Statement_${exportMonth}.pdf`);
       showToast(lang === 'en' ? 'PDF Exported Successfully' : 'บันทึก PDF สำเร็จ!');
@@ -1146,6 +1208,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
             summary={exportData.summary}
             shiftsList={exportData.shiftsList}
             user={user}
+            verification={pdfVerification}
           />
         </div>
       </ActionSheet>

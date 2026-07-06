@@ -116,8 +116,9 @@ const Avatar = ({ src, name, size = 'md', pulse = false }) => {
 // Today Schedule Card (shown on friend list item)
 // ────────────────────────────────────────────────
 const TodaySchedulePreview = ({ schedule = [], lang }) => {
-  if (!schedule || schedule.length === 0) return null;
-  const first = schedule[0];
+  const shiftSchedule = getShiftSchedule(schedule);
+  if (!shiftSchedule || shiftSchedule.length === 0) return null;
+  const first = shiftSchedule[0];
   return (
     <div className="flex items-center gap-1.5 mt-1">
       <Clock size={11} className="text-primary-500 flex-shrink-0" />
@@ -127,14 +128,16 @@ const TodaySchedulePreview = ({ schedule = [], lang }) => {
         {first.endTime && formatTime(first.endTime)}
         {!first.startTime && !first.endTime && (first.title || '')}
       </span>
-      {schedule.length > 1 && (
+      {shiftSchedule.length > 1 && (
         <span className="text-[10px] font-bold text-primary-500/60 bg-primary-500/10 px-1.5 py-0.5 rounded-full flex-shrink-0">
-          +{schedule.length - 1}
+          +{shiftSchedule.length - 1}
         </span>
       )}
     </div>
   );
 };
+
+const getShiftSchedule = (schedule = []) => schedule.filter(item => item.isPartTime);
 
 // ────────────────────────────────────────────────
 // Main Component
@@ -299,6 +302,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
   };
 
   const activeToday = friends.filter(f => f.hasWorkedToday).length;
+  const selectedFriendShiftSchedule = getShiftSchedule(selectedFriend?.todaySchedule);
 
   const leaderboardData = useMemo(() => {
     if (!myProfile && friends.length === 0) return [];
@@ -848,12 +852,15 @@ export default function FriendsPage({ user, lang = 'th' }) {
                     })()}
                   </div>
 
-                  {friend.statusMessage
-                    ? <p className="text-xs text-main/50 truncate mt-0.5">"{friend.statusMessage}"</p>
-                    : friend.hasWorkedToday && friend.todaySchedule?.length > 0
-                      ? <TodaySchedulePreview schedule={friend.todaySchedule} lang={lang} />
-                      : null
-                  }
+                  {(() => {
+                    const shiftSchedule = getShiftSchedule(friend.todaySchedule);
+                    if (friend.statusMessage) {
+                      return <p className="text-xs text-main/50 truncate mt-0.5">"{friend.statusMessage}"</p>;
+                    }
+                    return friend.hasWorkedToday && shiftSchedule.length > 0
+                      ? <TodaySchedulePreview schedule={shiftSchedule} lang={lang} />
+                      : null;
+                  })()}
 
                   <div className="flex items-center gap-2 mt-2">
                     <span className="text-xs font-bold text-orange-500 flex items-center gap-1 bg-orange-500/10 px-2 py-1 rounded-full">
@@ -1034,16 +1041,16 @@ export default function FriendsPage({ user, lang = 'th' }) {
                     </span>
                   </h3>
 
-                  {!selectedFriend.todaySchedule || selectedFriend.todaySchedule.length === 0 ? (
+                  {selectedFriendShiftSchedule.length === 0 ? (
                     <div className="flex items-center gap-3 py-4 text-center justify-center">
                       <Circle size={14} className="text-main/20" />
                       <p className="text-sm text-main/40">
-                        {lang === 'en' ? 'No tasks scheduled for today' : 'ไม่มีงานวันนี้'}
+                        {lang === 'en' ? 'No shifts scheduled for today' : 'ไม่มีกะงานวันนี้'}
                       </p>
                     </div>
                   ) : (
                     <div className="space-y-2">
-                      {selectedFriend.todaySchedule.map((task, i) => (
+                      {selectedFriendShiftSchedule.map((task, i) => (
                         <motion.div
                           key={task.id || i}
                           initial={{ opacity: 0, x: -10 }}

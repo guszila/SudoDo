@@ -451,28 +451,34 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
 
           <div className="flex gap-[4px] flex-shrink-0">
             <button 
+              type="button"
               onClick={goToBack}
               style={{
                 width: '32px', height: '32px', borderRadius: '50%',
                 background: 'rgba(255,255,255,0.35)',
                 border: '0.5px solid rgba(255,255,255,0.4)',
-                padding: 0
+                padding: 0,
+                lineHeight: 0,
+                boxSizing: 'border-box'
               }}
-              className="flex items-center justify-center hover:bg-white/50 dark:hover:bg-white/10 transition-colors active:scale-90"
+              className="inline-flex shrink-0 items-center justify-center hover:bg-white/50 dark:hover:bg-white/10 transition-colors active:scale-90"
             >
-              <ChevronLeft size={14} color="var(--theme-nav-active)" />
+              <ChevronLeft size={14} color="var(--theme-nav-active)" className="block -translate-x-[0.5px]" strokeWidth={2.5} />
             </button>
             <button 
+              type="button"
               onClick={goToNext}
               style={{
                 width: '32px', height: '32px', borderRadius: '50%',
                 background: 'rgba(255,255,255,0.35)',
                 border: '0.5px solid rgba(255,255,255,0.4)',
-                padding: 0
+                padding: 0,
+                lineHeight: 0,
+                boxSizing: 'border-box'
               }}
-              className="flex items-center justify-center hover:bg-white/50 dark:hover:bg-white/10 transition-colors active:scale-90"
+              className="inline-flex shrink-0 items-center justify-center hover:bg-white/50 dark:hover:bg-white/10 transition-colors active:scale-90"
             >
-              <ChevronRight size={14} color="var(--theme-nav-active)" />
+              <ChevronRight size={14} color="var(--theme-nav-active)" className="block translate-x-[0.5px]" strokeWidth={2.5} />
             </button>
           </div>
         </div>
@@ -483,6 +489,12 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
               type="button"
               key={name}
               className={`${view === name ? 'rbc-active' : ''} min-w-[64px] flex-1 md:flex-none`}
+              style={view === name ? {
+                background: 'var(--theme-nav-active)',
+                color: '#fff',
+                borderColor: 'var(--theme-nav-active)',
+                boxShadow: 'inset 0 1px 2px rgba(0,0,0,0.12), 0 8px 18px rgba(56, 139, 253, 0.18)'
+              } : undefined}
               onClick={() => onView(name)}
             >
               {t.calendarMessages[name] || name}
@@ -495,9 +507,12 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
 
   const exportToICS = () => {
     let icsContent = "BEGIN:VCALENDAR\nVERSION:2.0\nPRODID:-//SudoDo App//EN\n";
+    const todayStart = startOfDay(new Date());
     
     tasks.forEach(task => {
       if (!task.start || !task.end) return;
+      const taskEndDate = new Date(task.end);
+      if (isNaN(taskEndDate.getTime()) || isBefore(taskEndDate, todayStart)) return;
       
       const formatICSDate = (dateString) => {
         const d = new Date(dateString);
@@ -618,7 +633,9 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
             events={tasks}
             startAccessor="start"
             endAccessor="end"
-            style={{ height: 'calc(100vh - 180px)', minHeight: '500px' }}
+            style={currentView === 'month'
+              ? { height: 'clamp(380px, 58vh, 520px)', minHeight: '380px' }
+              : { height: 'calc(100vh - 180px)', minHeight: '500px' }}
             onSelectSlot={handleSelectSlot}
             onSelectEvent={handleSelectEvent}
             selectable
@@ -648,6 +665,22 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
             onEventDrop={onEventDrop}
             onEventResize={onEventResize}
           />
+
+          {currentView === 'month' && (
+            <div className="mt-3 mb-1 px-2 flex flex-wrap items-center justify-center gap-x-3 gap-y-2 text-[11px] font-bold text-main/55">
+              {[
+                { label: lang === 'en' ? 'Shift' : 'กะงาน', className: 'bg-green-400 dark:bg-green-500 shadow-[0_0_6px_rgba(34,197,94,0.45)]' },
+                { label: lang === 'en' ? 'Task' : 'งาน', className: 'bg-blue-400 dark:bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.45)]' },
+                { label: lang === 'en' ? 'Payday' : 'เงินออก', className: 'bg-amber-400 dark:bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.45)]' },
+                { label: lang === 'en' ? 'Reminder' : 'เตือน', className: 'bg-rose-400 dark:bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.45)]' },
+              ].map(item => (
+                <span key={item.label} className="inline-flex items-center gap-1.5 whitespace-nowrap">
+                  <span className={`w-2 h-2 rounded-full ${item.className}`} />
+                  {item.label}
+                </span>
+              ))}
+            </div>
+          )}
 
           {selectedDateFilter && (
             <div className="mt-6 mb-24 animate-slide-up">
@@ -724,7 +757,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
           animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
           exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: routeDirection * -16 }}
           transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="relative z-[2] min-h-screen transform-gpu will-change-transform"
+          className="relative min-h-screen"
         >
           <React.Suspense fallback={<PageFallback />}>
             <Routes location={location}>
@@ -786,7 +819,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       
       {/* Global Add Button — only on calendar pages */}
       {(location.pathname === '/' || location.pathname === '/calendar') && (
-        <div className="fixed bottom-24 right-4 md:bottom-24 md:right-8 z-[45]">
+        <div className="fixed bottom-28 right-4 md:bottom-28 md:right-8 z-[45]">
           <button 
             onClick={() => { 
               setSelectedTask(selectedDateFilter ? { start: selectedDateFilter, end: selectedDateFilter } : null); 

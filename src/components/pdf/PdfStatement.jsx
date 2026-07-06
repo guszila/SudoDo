@@ -4,9 +4,20 @@ import { th } from 'date-fns/locale';
 import { TASK_STATUS, RATE_TYPE } from '../../constants';
 import { calcSSO } from '../../utils/socialSecurity';
 
-const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
+const PdfStatement = forwardRef(({ month, summary, shiftsList, user, verification }, ref) => {
   const monthDate = new Date(`${month}-01T00:00:00`);
   const sortedShifts = [...(shiftsList || [])].sort((a, b) => new Date(a.start) - new Date(b.start));
+  const rowCount = sortedShifts.length;
+  const compactLevel = rowCount > 24 ? 2 : rowCount > 18 ? 1 : 0;
+  const pageX = compactLevel > 0 ? '16px' : '24px';
+  const headerPad = compactLevel > 0 ? '10px 18px 8px' : '16px 24px 14px';
+  const summaryPad = compactLevel > 0 ? '7px 16px' : '12px 24px';
+  const tablePad = compactLevel > 0 ? '10px 16px 8px' : '16px 24px 16px';
+  const tableFontSize = compactLevel === 2 ? '9.7px' : compactLevel === 1 ? '10.5px' : '12.5px';
+  const headerCellPad = compactLevel > 0 ? '4px 7px' : '6px 12px';
+  const cellPad = compactLevel === 2 ? '2px 7px' : compactLevel === 1 ? '3px 8px' : '6px 12px';
+  const totalPad = compactLevel > 0 ? '6px 8px' : '12px';
+  const footerMargin = compactLevel > 0 ? `0 ${pageX} 10px` : '0 24px 20px';
 
   const fmtBaht = (n) => {
     const num = Number(n);
@@ -44,20 +55,83 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
         top: '-10000px',
         left: '-10000px',
         width: '210mm',
-        minHeight: '297mm',
+        height: '297mm',
         backgroundColor: '#ffffff',
         color: GRAY_800,
         fontFamily: '"Sarabun", "Noto Sans Thai", "Kanit", sans-serif',
         boxSizing: 'border-box',
-        fontSize: '13px',
-        lineHeight: '1.6',
+        fontSize: compactLevel > 0 ? '11px' : '13px',
+        lineHeight: compactLevel > 0 ? '1.25' : '1.6',
+        overflow: 'hidden',
       }}
       className="pdf-statement"
     >
+      <style>{`
+        .pdf-excel-table {
+          border: 1px solid #B7C9D9;
+          background: #ffffff;
+          table-layout: fixed;
+        }
+
+        .pdf-excel-table th,
+        .pdf-excel-table td {
+          border: 1px solid #B7C9D9 !important;
+          vertical-align: middle;
+        }
+
+        .pdf-excel-table thead th {
+          background: #EAF2F8 !important;
+          color: #1F4E78 !important;
+          font-weight: 800 !important;
+        }
+
+        .pdf-excel-table tbody tr {
+          background: #ffffff !important;
+        }
+
+        .pdf-excel-table tbody tr:nth-child(even) {
+          background: #F8FAFC !important;
+        }
+
+        .pdf-excel-table tfoot tr:first-child td {
+          background: #D9EAF7 !important;
+          color: #1E293B !important;
+        }
+
+        .pdf-excel-table tfoot tr:last-child td {
+          background: #E2F0D9 !important;
+          color: #375623 !important;
+        }
+      `}</style>
+      <div style={{
+        position: 'absolute',
+        inset: 0,
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        pointerEvents: 'none',
+        zIndex: 0,
+      }}>
+        <div style={{
+          transform: 'rotate(-28deg)',
+          fontSize: '64px',
+          fontWeight: 900,
+          letterSpacing: '0.08em',
+          color: '#1E293B',
+          opacity: 0.055,
+          border: '3px solid rgba(30, 41, 59, 0.18)',
+          padding: '18px 34px',
+          borderRadius: '14px',
+          textAlign: 'center',
+          whiteSpace: 'nowrap',
+        }}>
+          SUDODO VERIFIED
+        </div>
+      </div>
       {/* ─── HEADER BAND ─── */}
       <div style={{
         background: `linear-gradient(135deg, ${PURPLE_DARK} 0%, ${PURPLE} 60%, #7C3AED 100%)`,
-        padding: '16px 24px 14px',
+        padding: headerPad,
         color: '#fff',
       }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
@@ -103,7 +177,7 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
 
       {/* ─── SUMMARY CARDS ─── */}
       <div style={{ display: 'flex', borderBottom: `1px solid ${GRAY_200}` }}>
-        <div style={{ flex: 1, padding: '12px 24px', borderRight: `1px solid ${GRAY_200}`, backgroundColor: GRAY_50 }}>
+        <div style={{ flex: 1, padding: summaryPad, borderRight: `1px solid ${GRAY_200}`, backgroundColor: GRAY_50 }}>
           <p style={{ margin: '0 0 4px', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: GRAY_400 }}>รายได้รวม</p>
           <p style={{ margin: '0 0 2px', fontSize: '18px', fontWeight: 800, color: PURPLE, letterSpacing: '-0.02em' }}>
             {fmtBaht(totalIncomeVal)}
@@ -112,7 +186,7 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
             {summary?.shiftCount || 0} กะ · {(summary?.totalHours || 0).toFixed(1)} ชม.
           </p>
         </div>
-        <div style={{ flex: 1, padding: '12px 24px', borderRight: `1px solid ${GRAY_200}`, backgroundColor: ssoDeductVal > 0 ? RED_BG : GRAY_50 }}>
+        <div style={{ flex: 1, padding: summaryPad, borderRight: `1px solid ${GRAY_200}`, backgroundColor: ssoDeductVal > 0 ? RED_BG : GRAY_50 }}>
           <p style={{ margin: '0 0 4px', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: GRAY_400 }}>หักประกันสังคม</p>
           <p style={{ margin: '0 0 2px', fontSize: '18px', fontWeight: 800, color: ssoDeductVal > 0 ? RED : GRAY_400, letterSpacing: '-0.02em' }}>
             {ssoDeductVal > 0 ? `-${fmtBaht(ssoDeductVal)}` : '—'}
@@ -121,7 +195,7 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
             {ssoDeductVal > 0 ? 'อัตรา 5% (สูงสุด ฿750)' : 'ไม่มีการหัก'}
           </p>
         </div>
-        <div style={{ flex: 1, padding: '12px 24px', backgroundColor: finalIncomeVal > 0 ? GREEN_BG : GRAY_50 }}>
+        <div style={{ flex: 1, padding: summaryPad, backgroundColor: finalIncomeVal > 0 ? GREEN_BG : GRAY_50 }}>
           <p style={{ margin: '0 0 4px', fontSize: '10px', fontWeight: 700, letterSpacing: '0.1em', textTransform: 'uppercase', color: GRAY_400 }}>ยอดรับสุทธิ</p>
           <p style={{ margin: '0 0 2px', fontSize: '20px', fontWeight: 800, color: finalIncomeVal > 0 ? GREEN : GRAY_400, letterSpacing: '-0.02em' }}>
             {fmtBaht(finalIncomeVal)}
@@ -131,7 +205,7 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
       </div>
 
       {/* ─── TABLE SECTION ─── */}
-      <div style={{ padding: '16px 24px 16px' }}>
+      <div style={{ padding: tablePad }}>
         <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
           <h2 style={{ margin: 0, fontSize: '13px', fontWeight: 700, color: GRAY_800 }}>รายละเอียดกะงาน</h2>
           <span style={{
@@ -142,15 +216,15 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
           </span>
         </div>
 
-        <table style={{ width: '100%', borderCollapse: 'collapse', fontSize: '12.5px' }}>
+        <table className="pdf-excel-table" style={{ width: '100%', borderCollapse: 'collapse', fontSize: tableFontSize }}>
           <thead>
             <tr style={{ backgroundColor: GRAY_800, color: '#fff' }}>
-              <th style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em', width: '12%' }}>วันที่</th>
-              <th style={{ padding: '6px 12px', textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em', width: '28%' }}>งาน / สถานที่</th>
-              <th style={{ padding: '6px 12px', textAlign: 'center', fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em', width: '18%' }}>เวลา</th>
-              <th style={{ padding: '6px 12px', textAlign: 'center', fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em', width: '10%' }}>ชม.</th>
-              <th style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em', width: '16%' }}>อัตราค่าจ้าง</th>
-              <th style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em', width: '16%' }}>รวม</th>
+              <th style={{ padding: headerCellPad, textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em', width: '12%' }}>วันที่</th>
+              <th style={{ padding: headerCellPad, textAlign: 'left', fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em', width: '28%' }}>งาน / สถานที่</th>
+              <th style={{ padding: headerCellPad, textAlign: 'center', fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em', width: '18%' }}>เวลา</th>
+              <th style={{ padding: headerCellPad, textAlign: 'center', fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em', width: '10%' }}>ชม.</th>
+              <th style={{ padding: headerCellPad, textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em', width: '16%' }}>อัตราค่าจ้าง</th>
+              <th style={{ padding: headerCellPad, textAlign: 'right', fontWeight: 700, fontSize: '11px', letterSpacing: '0.05em', width: '16%' }}>รวม</th>
             </tr>
           </thead>
           <tbody>
@@ -164,14 +238,14 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
               if (shift.isExpense) {
                 return (
                   <tr key={shift.id} style={{ backgroundColor: isEven ? '#FFF5F5' : RED_BG }}>
-                    <td style={{ padding: '6px 12px', color: GRAY_600, fontSize: '12px' }}>{format(start, 'dd MMM', { locale: th })}</td>
-                    <td style={{ padding: '6px 12px', color: RED, fontWeight: 600 }}>
+                    <td style={{ padding: cellPad, color: GRAY_600, fontSize: compactLevel > 0 ? '10px' : '12px' }}>{format(start, 'dd MMM', { locale: th })}</td>
+                    <td style={{ padding: cellPad, color: RED, fontWeight: 600 }}>
                       📤 {shift.title}{shift.isPercentage && ' (หัก %)'}
                     </td>
-                    <td style={{ padding: '6px 12px', textAlign: 'center', color: GRAY_400 }}>—</td>
-                    <td style={{ padding: '6px 12px', textAlign: 'center', color: GRAY_400 }}>—</td>
-                    <td style={{ padding: '6px 12px', textAlign: 'right', color: GRAY_400 }}>—</td>
-                    <td style={{ padding: '6px 12px', textAlign: 'right', color: RED, fontWeight: 800 }}>
+                    <td style={{ padding: cellPad, textAlign: 'center', color: GRAY_400 }}>—</td>
+                    <td style={{ padding: cellPad, textAlign: 'center', color: GRAY_400 }}>—</td>
+                    <td style={{ padding: cellPad, textAlign: 'right', color: GRAY_400 }}>—</td>
+                    <td style={{ padding: cellPad, textAlign: 'right', color: RED, fontWeight: 800 }}>
                       -{fmtBaht(shift.amount || 0)}
                     </td>
                   </tr>
@@ -181,14 +255,14 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
               if (shift.isExtraIncome) {
                 return (
                   <tr key={shift.id} style={{ backgroundColor: isEven ? '#F0FFF4' : GREEN_BG }}>
-                    <td style={{ padding: '6px 12px', color: GRAY_600, fontSize: '12px' }}>{format(start, 'dd MMM', { locale: th })}</td>
-                    <td style={{ padding: '6px 12px', color: GREEN, fontWeight: 600 }}>
+                    <td style={{ padding: cellPad, color: GRAY_600, fontSize: compactLevel > 0 ? '10px' : '12px' }}>{format(start, 'dd MMM', { locale: th })}</td>
+                    <td style={{ padding: cellPad, color: GREEN, fontWeight: 600 }}>
                       📥 {shift.title}
                     </td>
-                    <td style={{ padding: '6px 12px', textAlign: 'center', color: GRAY_400 }}>—</td>
-                    <td style={{ padding: '6px 12px', textAlign: 'center', color: GRAY_400 }}>—</td>
-                    <td style={{ padding: '6px 12px', textAlign: 'right', color: GRAY_400 }}>—</td>
-                    <td style={{ padding: '6px 12px', textAlign: 'right', color: GREEN, fontWeight: 800 }}>
+                    <td style={{ padding: cellPad, textAlign: 'center', color: GRAY_400 }}>—</td>
+                    <td style={{ padding: cellPad, textAlign: 'center', color: GRAY_400 }}>—</td>
+                    <td style={{ padding: cellPad, textAlign: 'right', color: GRAY_400 }}>—</td>
+                    <td style={{ padding: cellPad, textAlign: 'right', color: GREEN, fontWeight: 800 }}>
                       +{fmtBaht(shift.amount || 0)}
                     </td>
                   </tr>
@@ -212,10 +286,10 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
 
               return (
                 <tr key={shift.id} style={{ backgroundColor: isDone ? rowBg : GRAY_100, opacity: isDone ? 1 : 0.65 }}>
-                  <td style={{ padding: '6px 12px', color: GRAY_600, fontSize: '12px' }}>
+                  <td style={{ padding: cellPad, color: GRAY_600, fontSize: compactLevel > 0 ? '10px' : '12px' }}>
                     {format(start, 'dd MMM', { locale: th })}
                   </td>
-                  <td style={{ padding: '6px 12px', fontWeight: isDone ? 600 : 400, color: isDone ? GRAY_800 : GRAY_400 }}>
+                  <td style={{ padding: cellPad, fontWeight: isDone ? 600 : 400, color: isDone ? GRAY_800 : GRAY_400 }}>
                     {shift.title}
                     {shift.isHolidayPay && (
                       <span style={{ fontSize: '9px', backgroundColor: '#FEF9C3', color: '#854D0E', padding: '1px 5px', borderRadius: '4px', marginLeft: '6px', fontWeight: 700 }}>OT×2</span>
@@ -224,18 +298,18 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
                       <span style={{ fontSize: '10px', color: GRAY_400, marginLeft: '6px' }}>(ยังไม่จบกะ)</span>
                     )}
                   </td>
-                  <td style={{ padding: '6px 12px', textAlign: 'center', color: isDone ? GRAY_600 : GRAY_400, fontFamily: 'monospace', fontSize: '12px' }}>
+                  <td style={{ padding: cellPad, textAlign: 'center', color: isDone ? GRAY_600 : GRAY_400, fontFamily: 'monospace', fontSize: compactLevel > 0 ? '10px' : '12px' }}>
                     {format(start, 'HH:mm')} – {format(end, 'HH:mm')}
                   </td>
-                  <td style={{ padding: '6px 12px', textAlign: 'center', color: isDone ? GRAY_600 : GRAY_400, fontFamily: 'monospace' }}>
+                  <td style={{ padding: cellPad, textAlign: 'center', color: isDone ? GRAY_600 : GRAY_400, fontFamily: 'monospace' }}>
                     {isDone ? hours.toFixed(1) : '—'}
                   </td>
-                  <td style={{ padding: '6px 12px', textAlign: 'right', color: GRAY_400, fontSize: '11px' }}>
+                  <td style={{ padding: cellPad, textAlign: 'right', color: GRAY_400, fontSize: compactLevel > 0 ? '9px' : '11px' }}>
                     {isDone
                       ? (shift.rateType === RATE_TYPE.DAILY ? `฿${rate.toLocaleString()}/วัน` : `฿${rate.toLocaleString()}/ชม.`)
                       : '—'}
                   </td>
-                  <td style={{ padding: '6px 12px', textAlign: 'right', fontWeight: 800, color: isDone ? GRAY_800 : GRAY_400 }}>
+                  <td style={{ padding: cellPad, textAlign: 'right', fontWeight: 800, color: isDone ? GRAY_800 : GRAY_400 }}>
                     {isDone ? fmtBaht(earnings) : '—'}
                   </td>
                 </tr>
@@ -246,30 +320,30 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
           {/* Totals footer */}
           <tfoot>
             <tr style={{ backgroundColor: GRAY_800, color: '#fff', borderTop: `3px solid ${GRAY_800}` }}>
-              <td colSpan={3} style={{ padding: '12px', fontWeight: 700, fontSize: '13px' }}>รวมทั้งสิ้น</td>
-              <td style={{ padding: '12px', textAlign: 'center', fontFamily: 'monospace', fontWeight: 700 }}>
+              <td colSpan={3} style={{ padding: totalPad, fontWeight: 700, fontSize: compactLevel > 0 ? '11px' : '13px' }}>รวมทั้งสิ้น</td>
+              <td style={{ padding: totalPad, textAlign: 'center', fontFamily: 'monospace', fontWeight: 700 }}>
                 {(summary?.totalHours || 0).toFixed(1)}
               </td>
-              <td style={{ padding: '12px' }}></td>
-              <td style={{ padding: '12px', textAlign: 'right', fontWeight: 800, fontSize: '14px' }}>
+              <td style={{ padding: totalPad }}></td>
+              <td style={{ padding: totalPad, textAlign: 'right', fontWeight: 800, fontSize: compactLevel > 0 ? '12px' : '14px' }}>
                 {fmtBaht(totalIncomeVal)}
               </td>
             </tr>
             {ssoDeductVal > 0 && (
               <tr style={{ backgroundColor: RED_BG }}>
-                <td colSpan={5} style={{ padding: '6px 12px', color: RED, fontWeight: 600, fontSize: '12px' }}>
+                <td colSpan={5} style={{ padding: cellPad, color: RED, fontWeight: 600, fontSize: compactLevel > 0 ? '10px' : '12px' }}>
                   หักประกันสังคม (5% · สูงสุด ฿750/เดือน)
                 </td>
-                <td style={{ padding: '6px 12px', textAlign: 'right', color: RED, fontWeight: 800, fontSize: '13px' }}>
+                <td style={{ padding: cellPad, textAlign: 'right', color: RED, fontWeight: 800, fontSize: compactLevel > 0 ? '11px' : '13px' }}>
                   -{fmtBaht(ssoDeductVal)}
                 </td>
               </tr>
             )}
             <tr style={{ backgroundColor: GREEN_BG }}>
-              <td colSpan={5} style={{ padding: '12px', color: GREEN, fontWeight: 700, fontSize: '13px' }}>
+              <td colSpan={5} style={{ padding: totalPad, color: GREEN, fontWeight: 700, fontSize: compactLevel > 0 ? '11px' : '13px' }}>
                 ยอดรับสุทธิ
               </td>
-              <td style={{ padding: '12px', textAlign: 'right', color: GREEN, fontWeight: 900, fontSize: '16px' }}>
+              <td style={{ padding: totalPad, textAlign: 'right', color: GREEN, fontWeight: 900, fontSize: compactLevel > 0 ? '13px' : '16px' }}>
                 {fmtBaht(finalIncomeVal)}
               </td>
             </tr>
@@ -279,8 +353,8 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
 
       {/* ─── FOOTER STRIP ─── */}
       <div style={{
-        margin: '0 24px 20px',
-        padding: '10px 16px',
+        margin: footerMargin,
+        padding: compactLevel > 0 ? '4px 10px' : '6px 14px',
         backgroundColor: PURPLE_LIGHT,
         borderRadius: '10px',
         display: 'flex',
@@ -318,9 +392,35 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user }, ref) => {
             <text x="110" y="76" fontFamily="system-ui,sans-serif" fontSize="10" fontWeight="500" fill="#9d8ec0" letterSpacing="4">TASK MANAGER</text>
           </svg>
         </div>
-        <p style={{ margin: 0, fontSize: '11px', color: GRAY_400 }}>
-          สร้างอัตโนมัติ · {format(new Date(), 'dd/MM/yyyy HH:mm', { locale: th })}
-        </p>
+        <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'right' }}>
+          <div>
+            <p style={{ margin: '0 0 2px', fontSize: '10px', fontWeight: 800, color: GRAY_800 }}>
+              Scan to verify
+            </p>
+            <p style={{ margin: '0 0 2px', fontSize: '9px', color: GRAY_600, fontFamily: 'monospace' }}>
+              {verification?.id || 'Generating...'}
+            </p>
+            <p style={{ margin: '0 0 2px', fontSize: '7.5px', color: GRAY_400, fontFamily: 'monospace' }}>
+              {verification?.hash ? `HASH ${verification.hash.slice(0, 16).toUpperCase()}` : ''}
+            </p>
+            <p style={{ margin: 0, fontSize: '8px', color: GRAY_400 }}>
+              {format(new Date(), 'dd/MM/yyyy HH:mm', { locale: th })}
+            </p>
+          </div>
+          {verification?.qrDataUrl && (
+            <img
+              src={verification.qrDataUrl}
+              alt="Document verification QR"
+              style={{
+                width: compactLevel > 0 ? '70px' : '82px',
+                height: compactLevel > 0 ? '70px' : '82px',
+                border: `1px solid ${GRAY_200}`,
+                backgroundColor: '#fff',
+                padding: '4px',
+              }}
+            />
+          )}
+        </div>
       </div>
     </div>
   );

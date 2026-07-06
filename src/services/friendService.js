@@ -47,15 +47,11 @@ export const syncPublicProfile = async (user, tasks) => {
       return false;
     });
 
-    // Build today's schedule (part-time shifts or tasks due today)
+    // Build today's schedule from part-time shifts only.
     const todaySchedule = tasks
       .filter(t => {
         if (t.isPartTime && !t.isExpense && !t.isExtraIncome) {
-          // Part-time shift: check if it's scheduled for today
           return isSameDay(new Date(t.start), today);
-        } else if (!t.isPartTime) {
-          // Regular task: due today
-          return isSameDay(new Date(t.end), today);
         }
         return false;
       })
