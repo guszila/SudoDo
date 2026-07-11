@@ -403,7 +403,7 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user, verificatio
               {verification?.hash ? `HASH ${verification.hash.slice(0, 16).toUpperCase()}` : ''}
             </p>
             <p style={{ margin: 0, fontSize: '8px', color: GRAY_400 }}>
-              {format(new Date(), 'dd/MM/yyyy HH:mm', { locale: th })}
+              {format(verification?.generatedAt ? new Date(verification.generatedAt) : new Date(), 'dd/MM/yyyy HH:mm', { locale: th })}
             </p>
           </div>
           {verification?.qrDataUrl && (
