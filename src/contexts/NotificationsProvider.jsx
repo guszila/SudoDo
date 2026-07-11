@@ -9,7 +9,7 @@
  * - markAllRead() is exposed for explicit user action (not called automatically).
  */
 
-import React, { useState, useEffect, useCallback, useRef } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { writeBatch, doc, arrayUnion } from 'firebase/firestore';
 import { db } from '../firebase';
 import { NotificationsContext } from './NotificationsContext';
@@ -30,7 +30,8 @@ export default function NotificationsProvider({ children, user }) {
   const [systemNotifications, setSystemNotifications] = useState([]);
   
   // Combine both types of notifications, sort by date (newest first)
-  const notifications = [...friendNotifications, ...systemNotifications].sort((a, b) => getNotificationTime(b) - getNotificationTime(a));
+  const visibleFriendNotifications = friends?.length === 0 ? [] : friendNotifications;
+  const notifications = [...visibleFriendNotifications, ...systemNotifications].sort((a, b) => getNotificationTime(b) - getNotificationTime(a));
 
   const notificationsRef = useRef([]);
 
@@ -42,7 +43,6 @@ export default function NotificationsProvider({ children, user }) {
   // Subscribe to friends list in real-time
   useEffect(() => {
     if (!user?.uid) {
-      setFriends(null);
       return;
     }
     const unsub = subscribeToFriends(user.uid, (list) => {
@@ -58,7 +58,6 @@ export default function NotificationsProvider({ children, user }) {
     if (friends === null) return; // still loading — don't touch notifications yet
 
     if (friends.length === 0) {
-      setFriendNotifications([]);
       return;
     }
 
@@ -94,7 +93,7 @@ export default function NotificationsProvider({ children, user }) {
     } catch (err) {
       console.error('markAllRead error:', err);
     }
-  }, [user?.uid]);
+  }, [user]);
 
   const clearAllNotifications = useCallback(async () => {
     const items = notificationsRef.current;
@@ -118,7 +117,7 @@ export default function NotificationsProvider({ children, user }) {
     } catch (err) {
       console.error('clearAllNotifications error:', err);
     }
-  }, [user?.uid]);
+  }, [user]);
 
   return (
     <NotificationsContext.Provider

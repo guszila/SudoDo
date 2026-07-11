@@ -1,8 +1,7 @@
-import React, { forwardRef } from 'react';
+import { forwardRef } from 'react';
 import { format } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { TASK_STATUS, RATE_TYPE } from '../../constants';
-import { calcSSO } from '../../utils/socialSecurity';
 
 const PdfStatement = forwardRef(({ month, summary, shiftsList, user, verification }, ref) => {
   const monthDate = new Date(`${month}-01T00:00:00`);

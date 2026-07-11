@@ -1,13 +1,13 @@
-import React, { useState, useEffect, useCallback, useMemo } from 'react';
+/* eslint-disable no-useless-escape */
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
-  Users, UserPlus, Copy, Check, Search, Trash2, Award, Flame, X,
-  Clock, MapPin, Briefcase, ChevronRight, Share2, QrCode, Sparkles,
-  Calendar, Activity, ArrowRight, CheckCircle2, Circle, RefreshCw, Bell, BellOff,
-  MessageCircle, CalendarDays, Trophy, Medal, Crown, TrendingUp
+  Users, UserPlus, Copy, Check, Trash2, Award, Flame, X,
+  Clock, Briefcase, ChevronRight, Share2, Sparkles,
+  Calendar, Activity, ArrowRight, CheckCircle2, Circle, RefreshCw, Bell,
+  Trophy, Crown
 } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
-import { getFriends, subscribeToFriends, addFriendByCode, removeFriend, subscribeToPendingRequests, acceptFriendRequest, declineFriendRequest } from '../services/friendService';
+import { subscribeToFriends, addFriendByCode, removeFriend, subscribeToPendingRequests, acceptFriendRequest, declineFriendRequest } from '../services/friendService';
 import { useToast } from '../contexts/ToastContext';
 import { useNotifications } from '../contexts/NotificationsContext';
 import { doc, getDoc, setDoc } from 'firebase/firestore';
@@ -45,7 +45,7 @@ const formatTime = (timeStr) => {
       const hour = parseInt(h);
       return `${hour.toString().padStart(2,'0')}:${m}`;
     }
-  } catch {}
+  } catch { /* Return an empty time when parsing fails. */ }
   return '';
 };
 
@@ -115,7 +115,7 @@ const Avatar = ({ src, name, size = 'md', pulse = false }) => {
 // ────────────────────────────────────────────────
 // Today Schedule Card (shown on friend list item)
 // ────────────────────────────────────────────────
-const TodaySchedulePreview = ({ schedule = [], lang }) => {
+const TodaySchedulePreview = ({ schedule = [] }) => {
   const shiftSchedule = getShiftSchedule(schedule);
   if (!shiftSchedule || shiftSchedule.length === 0) return null;
   const first = shiftSchedule[0];
@@ -143,7 +143,6 @@ const getShiftSchedule = (schedule = []) => schedule.filter(item => item.isPartT
 // Main Component
 // ────────────────────────────────────────────────
 export default function FriendsPage({ user, lang = 'th' }) {
-  const navigate = useNavigate();
   const { showToast } = useToast();
   const { notifications: notificationFeed } = useNotifications();
   const notifications = useMemo(
@@ -203,12 +202,15 @@ export default function FriendsPage({ user, lang = 'th' }) {
   }, [user]);
 
   // Load profile metadata
-  useEffect(() => { loadData(); }, [loadData]);
+  useEffect(() => {
+    // Initial profile loading is an external Firestore synchronization.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
+    loadData();
+  }, [loadData]);
 
   // Subscribe to friends list in real-time
   useEffect(() => {
     if (!user?.uid) return;
-    setIsLoading(true);
     const unsub = subscribeToFriends(user.uid, (list) => {
       setFriends(list);
       setIsLoading(false);
@@ -237,7 +239,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
       ? `Add me on SudoDo! My friend code is: ${myCode}`
       : `เพิ่มฉันเป็นเพื่อนใน SudoDo! รหัสเพื่อนของฉัน: ${myCode}`;
     if (navigator.share) {
-      try { await navigator.share({ title: 'SudoDo', text }); } catch {}
+      try { await navigator.share({ title: 'SudoDo', text }); } catch { /* User cancelled sharing. */ }
     } else {
       navigator.clipboard.writeText(text);
       showToast(lang === 'en' ? 'Copied to clipboard!' : 'คัดลอกแล้ว!');
@@ -680,7 +682,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
                       name={req.fromName}
                       size="md"
                     />
-                    
+
                     <div className="flex-1 min-w-0">
                       <h4 className="font-bold text-main truncate">
                         {req.fromName || (lang === 'en' ? 'Unknown' : 'ผู้ใช้งาน')}
@@ -768,8 +770,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
 
                     const isFirst = u.uid === top3[0]?.uid;
                     const isSecond = top3.length > 1 && u.uid === top3[1]?.uid;
-                    const isThird = top3.length > 2 && u.uid === top3[2]?.uid;
-                    
+
                     const heightClass = isFirst ? 'h-[110px]' : isSecond ? 'h-[80px]' : 'h-[60px]';
                     const colorClass = isFirst ? 'from-amber-400 to-orange-500' : isSecond ? 'from-slate-300 to-slate-400 dark:from-slate-600 dark:to-slate-700' : 'from-orange-300 to-orange-400 dark:from-orange-800 dark:to-orange-900';
                     const glowClass = isFirst ? 'shadow-[0_0_20px_rgba(245,158,11,0.5)] z-10' : 'opacity-90';
@@ -858,7 +859,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
                       return <p className="text-xs text-main/50 truncate mt-0.5">"{friend.statusMessage}"</p>;
                     }
                     return friend.hasWorkedToday && shiftSchedule.length > 0
-                      ? <TodaySchedulePreview schedule={shiftSchedule} lang={lang} />
+                      ? <TodaySchedulePreview schedule={shiftSchedule} />
                       : null;
                   })()}
 

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
@@ -6,9 +6,8 @@ import { Loader2, AlertCircle, Eye, EyeOff } from 'lucide-react';
 
 import Logo from '../layout/Logo';
 import { auth } from '../../firebase';
-import { translations } from '../../i18n';
 
-export default function Login({ lang }) {
+export default function Login() {
   const [isLogin, setIsLogin] = useState(true);
   const [isResetPassword, setIsResetPassword] = useState(false);
   const [email, setEmail] = useState('');
@@ -17,10 +16,6 @@ export default function Login({ lang }) {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
-
-
-
-  const t = translations[lang];
 
 
 

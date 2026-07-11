@@ -112,7 +112,7 @@ export const getGamificationStats = (tasks, streaks) => {
       earned = Number(t.amount) || 0;
     } else {
       const rate = Number(t.hourlyRate) || 0;
-      let hours = 0;
+      let hours;
       if (t.actualStart && t.actualEnd) {
         hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
       } else {
@@ -195,7 +195,7 @@ export const getUnlockedBadges = (tasks, streaks) => {
       earned = Number(t.amount) || 0;
     } else {
       const rate = Number(t.hourlyRate) || 0;
-      let hours = 0;
+      let hours;
       if (t.actualStart && t.actualEnd) {
         hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
       } else {
@@ -224,4 +224,3 @@ export const getUnlockedBadges = (tasks, streaks) => {
 
   return unlocked;
 };
-

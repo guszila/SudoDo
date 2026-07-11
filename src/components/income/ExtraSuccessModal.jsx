@@ -1,4 +1,3 @@
-import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Calendar, Banknote, X, Check, Award } from 'lucide-react';
@@ -45,6 +44,7 @@ export default function ExtraSuccessModal({ isOpen, onClose, data, lang = 'th' }
           className="fixed inset-0 backdrop-blur-md"
           style={{ backgroundColor: 'var(--overlay-bg)' }}
           onClick={onClose}
+          aria-hidden="true"
         />
 
         <motion.div
@@ -53,11 +53,18 @@ export default function ExtraSuccessModal({ isOpen, onClose, data, lang = 'th' }
           exit={{ opacity: 0, y: '100%' }}
           transition={{ type: 'spring', damping: 25, stiffness: 350 }}
           {...dragProps}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="extra-success-title"
+          tabIndex={-1}
+          onKeyDown={(event) => { if (event.key === 'Escape') onClose(); }}
           className="relative w-full max-w-md max-h-[86vh] overflow-y-auto overscroll-contain liquid-glass-card border border-white/20 dark:border-white/10 border-x-0 border-b-0 sm:border shadow-2xl p-6 md:p-8 rounded-t-[32px] sm:rounded-3xl z-10 flex flex-col bg-white/80 dark:bg-zinc-900/80"
         >
           <div {...handleProps} className={`${handleProps.className} sm:hidden`} />
           <button
+            type="button"
             onClick={onClose}
+            aria-label={lang === 'en' ? 'Close' : 'ปิด'}
             className="absolute top-4 right-4 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main/50 hover:text-main"
           >
             <X size={18} />
@@ -102,7 +109,7 @@ export default function ExtraSuccessModal({ isOpen, onClose, data, lang = 'th' }
               </motion.svg>
             </div>
 
-            <h3 className="text-xl font-bold text-main tracking-tight">เพิ่มรายการเสร็จสิ้น!</h3>
+            <h3 id="extra-success-title" className="text-xl font-bold text-main tracking-tight">เพิ่มรายการเสร็จสิ้น!</h3>
             <p className="text-sm text-main/60 mt-1">
               ระบบบันทึก{isIncome ? 'รายได้พิเศษ' : 'รายจ่าย'}ของคุณเรียบร้อยแล้ว
             </p>

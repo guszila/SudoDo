@@ -122,7 +122,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
   const [isCountingStorage, setIsCountingStorage] = useState(true);
 
   // Sheets & Dialogs State
-  const [activeSheet, setActiveSheet] = useState(null); // 'themeMode', 'language', 'weekStart', 'resetIncome', 'manageJobs', 'editJob', 'themePicker', 'exportPdf'
+  const [activeSheet, setActiveSheet] = useState(null); // 'themeMode', 'language', 'weekStart', 'resetIncome', 'manageJobs', 'editJob', 'themePicker', 'exportPdf', 'storage'
   const [showChangelog, setShowChangelog] = useState(false);
   
   // Job Management State
@@ -207,6 +207,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
     resetIncomeSub: lang === 'en' ? 'Clear history, start from ฿0' : 'ล้างประวัติ เริ่มนับใหม่จาก ฿0',
     storage: lang === 'en' ? 'Storage Usage' : 'ข้อมูลที่ใช้',
     storageSub: lang === 'en' ? `${storageCounts.tasks} tasks · ${storageCounts.shifts} shifts` : `งาน ${storageCounts.tasks} รายการ · กะ ${storageCounts.shifts} รายการ`,
+    storageDetails: lang === 'en' ? 'Counts are based on the tasks currently stored in your account.' : 'จำนวนนี้นับจากงานที่บันทึกอยู่ในบัญชีของคุณตอนนี้',
     about: lang === 'en' ? 'About' : 'เกี่ยวกับ',
     version: lang === 'en' ? 'Version' : 'เวอร์ชัน',
     whatsNew: lang === 'en' ? "What's New" : 'มีอะไรใหม่',
@@ -273,8 +274,8 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
       if (format(taskDate, 'yyyy-MM') === exportMonth) {
         shiftsInMonth.push(t);
         const isDone = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
-        let hours = 0;
-        let earnings = 0;
+        let hours;
+        let earnings;
 
         if (t.isExpense) {
            earnings = -(Number(t.amount) || 0);
@@ -406,6 +407,8 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
 
   useEffect(() => {
     if (location.state?.openSheet) {
+      // Open a sheet requested by navigation state.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setActiveSheet(location.state.openSheet);
       // Clear the state so it doesn't reopen on reload
       window.history.replaceState({}, document.title);
@@ -472,7 +475,8 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
     try {
       const historyTasks = tasks.filter(t => t.isPartTime);
       for (const task of historyTasks) {
-        await saveTask('DELETE', { id: task.id }, user.uid);
+        const result = await saveTask('DELETE', { id: task.id }, user.uid);
+        if (!result) throw new Error('Failed to delete income history item');
       }
       showToast(t.resetSuccess, { duration: 3000 });
       setActiveSheet(null);
@@ -490,7 +494,8 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
     setIsDeleting(true);
     try {
       for (const task of tasks) {
-        await saveTask('DELETE', { id: task.id }, user.uid);
+        const result = await saveTask('DELETE', { id: task.id }, user.uid);
+        if (!result) throw new Error('Failed to delete task');
       }
       showToast(t.deleteSuccess, { duration: 3000 });
       setDeleteConfirmStep(0);
@@ -508,7 +513,8 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
     setIsDeletingAccount(true);
     try {
       for (const task of tasks) {
-        await saveTask('DELETE', { id: task.id }, user.uid);
+        const result = await saveTask('DELETE', { id: task.id }, user.uid);
+        if (!result) throw new Error('Failed to delete task');
       }
       await deleteUser(auth.currentUser);
       // It will auto redirect to login via auth listener
@@ -715,17 +721,17 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
           <Row 
             icon={Bell} iconBgClass="bg-amber-500/15" iconColorClass="text-amber-600 dark:text-amber-400"
             title={t.notifyTasks} subtitle={t.notifyTasksSub}
-            rightElement={<Toggle checked={settings?.notifyTasks ?? true} onChange={(val) => handleToggle('notifyTasks', val)} />}
+            rightElement={<Toggle label={t.notifyTasks} checked={settings?.notifyTasks ?? true} onChange={(val) => handleToggle('notifyTasks', val)} />}
           />
           <Row 
             icon={Clock} iconBgClass="bg-amber-500/15" iconColorClass="text-amber-600 dark:text-amber-400"
             title={t.notifyShifts} subtitle={t.notifyShiftsSub}
-            rightElement={<Toggle checked={settings?.notifyShifts ?? true} onChange={(val) => handleToggle('notifyShifts', val)} />}
+            rightElement={<Toggle label={t.notifyShifts} checked={settings?.notifyShifts ?? true} onChange={(val) => handleToggle('notifyShifts', val)} />}
           />
           <Row 
             icon={Flame} iconBgClass="bg-amber-500/15" iconColorClass="text-amber-600 dark:text-amber-400"
             title={t.notifyStreak} subtitle={t.notifyStreakSub}
-            rightElement={<Toggle checked={settings?.notifyStreak ?? false} onChange={(val) => handleToggle('notifyStreak', val)} />}
+            rightElement={<Toggle label={t.notifyStreak} checked={settings?.notifyStreak ?? false} onChange={(val) => handleToggle('notifyStreak', val)} />}
             isLast
           />
         </SettingsSection>
@@ -763,7 +769,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
               <div className="h-3 w-32 bg-main/10 animate-pulse rounded mt-1"></div>
             ) : t.storageSub}
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
-            onClick={() => {}}
+             onClick={() => setActiveSheet('storage')}
             isLast
           />
         </SettingsSection>
@@ -785,7 +791,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
             title={t.restartTour} 
             rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
             onClick={() => {
-              localStorage.removeItem('tourCompleted');
+              localStorage.removeItem('tourCompleted_v1.1');
               window.location.reload();
             }}
             isLast
@@ -1162,6 +1168,30 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
           >
             {sendingReset ? <Loader2 size={16} className="animate-spin" /> : <Mail size={16} />}
             {lang === 'en' ? 'Forgot password? Send reset link' : 'ลืมรหัสผ่าน? ส่งลิงก์ตั้งรหัสผ่านใหม่ไปยังอีเมล'}
+          </button>
+        </div>
+      </ActionSheet>
+
+      {/* Storage Details Sheet */}
+      <ActionSheet isOpen={activeSheet === 'storage'} onClose={() => setActiveSheet(null)} title={t.storage}>
+        <div className="space-y-4">
+          <div className="grid grid-cols-2 gap-3">
+            <div className="rounded-2xl bg-black/5 dark:bg-white/10 p-4 text-center">
+              <p className="text-2xl font-black text-primary-500">{storageCounts.tasks}</p>
+              <p className="text-sm text-main/60">{lang === 'en' ? 'Tasks' : 'งาน'}</p>
+            </div>
+            <div className="rounded-2xl bg-black/5 dark:bg-white/10 p-4 text-center">
+              <p className="text-2xl font-black text-primary-500">{storageCounts.shifts}</p>
+              <p className="text-sm text-main/60">{lang === 'en' ? 'Shifts' : 'กะงาน'}</p>
+            </div>
+          </div>
+          <p className="text-sm leading-relaxed text-main/65 text-center">{t.storageDetails}</p>
+          <button
+            type="button"
+            onClick={() => setActiveSheet(null)}
+            className="w-full rounded-2xl bg-black/5 dark:bg-white/10 p-4 font-bold text-main"
+          >
+            {t.cancel}
           </button>
         </div>
       </ActionSheet>

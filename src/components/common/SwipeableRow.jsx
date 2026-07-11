@@ -1,24 +1,19 @@
-import React, { useState } from 'react';
 import { motion, useAnimation } from 'framer-motion';
 import { Trash2 } from 'lucide-react';
 
 export default function SwipeableRow({ children, onDelete }) {
   const controls = useAnimation();
-  const [isRevealed, setIsRevealed] = useState(false);
   const swipeThreshold = -60;
 
   const handleDragEnd = (event, info) => {
     if (info.offset.x < swipeThreshold) {
-      setIsRevealed(true);
       controls.start({ x: -80 });
     } else {
-      setIsRevealed(false);
       controls.start({ x: 0 });
     }
   };
 
   const handleClose = () => {
-    setIsRevealed(false);
     controls.start({ x: 0 });
   };
 

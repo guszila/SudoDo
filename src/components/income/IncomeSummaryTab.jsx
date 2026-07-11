@@ -1,10 +1,10 @@
-import React, { useState, useMemo } from 'react';
+import { useState, useMemo } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { format, subMonths, getDaysInMonth, getWeekOfMonth, startOfWeek, endOfWeek } from 'date-fns';
 import { th } from 'date-fns/locale';
 import {
   CheckCircle2, Clock, Calendar as CalendarIcon,
-  ArrowDown, ArrowUp, CalendarOff, Banknote, SlidersHorizontal, X,
+  CalendarOff, Banknote, X,
   TrendingUp, TrendingDown, Minus, ChevronUp, ChevronDown
 } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
@@ -21,14 +21,38 @@ import { calcSSO } from '../../utils/socialSecurity';
 const COMPANY_COLORS = ['#6C63FF', '#EC4899', '#10B981', '#F59E0B', '#8B5CF6', '#3B82F6'];
 const COMPANY_BG_CLASSES = ['bg-violet-500', 'bg-pink-500', 'bg-emerald-500', 'bg-amber-500', 'bg-purple-500', 'bg-blue-500'];
 
+const CustomTooltip = ({ active, payload }) => {
+  if (!active || !payload?.length) return null;
+  return (
+    <div className="liquid-glass-card px-3 py-2 rounded-xl shadow-lg text-sm">
+      <p className="text-primary-500 font-bold">฿{payload[0].value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
+    </div>
+  );
+};
+
 export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem }) {
   const { tasks: allTasks } = useTasks();
   const { showToast } = useToast();
   const { settings } = useSettings();
+  const weekStartsOn = settings?.weekStart === 'จันทร์' || settings?.weekStart === 'Monday' ? 1 : 0;
+  const ui = lang === 'en'
+    ? {
+        netIncome: 'Net income', shift: 'Shifts', hours: 'Hours', perShift: '฿/shift', perHour: '฿/hour',
+        monthlySummary: 'Monthly income summary', daily: 'Daily', weekly: 'Weekly',
+        noCompleted: 'No completed items yet', companyBreakdown: 'By workplace', expenseTotal: 'Expenses this month',
+        shiftList: 'Shift list', records: 'records', noMonthData: 'No data for this month',
+        compareLast: 'Compared with last month', average6: '6-month average', hoursUnit: 'hrs', shiftsUnit: 'shifts'
+      }
+    : {
+        netIncome: 'รายได้สุทธิ', shift: 'กะงาน', hours: 'ชั่วโมง', perShift: '฿/กะ', perHour: '฿/ชม.',
+        monthlySummary: 'สรุปรายได้ (เดือนนี้)', daily: 'รายวัน', weekly: 'รายสัปดาห์',
+        noCompleted: 'ยังไม่มีรายการที่เสร็จแล้ว', companyBreakdown: 'สัดส่วนตามบริษัท', expenseTotal: 'รวมรายจ่ายเดือนนี้',
+        shiftList: 'รายการกะงาน', records: 'รายการ', noMonthData: 'ไม่มีข้อมูลเดือนนี้',
+        compareLast: 'เทียบเดือนที่แล้ว', average6: 'เฉลี่ย 6 เดือน', hoursUnit: 'ชม.', shiftsUnit: 'กะ'
+      };
 
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
   const [deleteConfirmTask, setDeleteConfirmTask] = useState(null);
-  const [isDeleting, setIsDeleting] = useState(false);
   const [selectedCompany, setSelectedCompany] = useState(null); // null = all
   const [isShiftListCollapsed, setIsShiftListCollapsed] = useState(false);
   const [chartMode, setChartMode] = useState('daily'); // 'daily' | 'weekly'
@@ -49,10 +73,17 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
     if (!deleteConfirmTask) return;
     const taskToDelete = { ...deleteConfirmTask };
     setDeleteConfirmTask(null);
-    await saveTask('DELETE', { id: taskToDelete.id }, user.uid);
+    const result = await saveTask('DELETE', { id: taskToDelete.id }, user.uid);
+    if (!result) {
+      showToast(lang === 'en' ? 'Could not delete this item.' : 'ลบรายการไม่สำเร็จ', { isError: true });
+      return;
+    }
     showToast('ลบเรียบร้อยแล้ว', {
       duration: 5000,
-      onUndo: async () => { await saveTask('ADD', taskToDelete, user.uid); }
+      onUndo: async () => {
+        const undoResult = await saveTask('ADD', taskToDelete, user.uid);
+        if (!undoResult) showToast(lang === 'en' ? 'Could not undo the deletion.' : 'ยกเลิกการลบไม่สำเร็จ', { isError: true });
+      }
     });
   };
 
@@ -75,7 +106,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
       shiftsInMonth.push(t);
 
       const isDone = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
-      let hours = 0, earnings = 0;
+      let hours, earnings = 0;
 
       if (t.isExpense) {
         earnings = -(Number(t.amount) || 0);
@@ -115,7 +146,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
 
       if (isDone) {
         const day = taskDate.getDate();
-        const weekNum = getWeekOfMonth(taskDate, { weekStartsOn: 1 });
+         const weekNum = getWeekOfMonth(taskDate, { weekStartsOn });
         if (!weeklyIncomeMap[weekNum]) weeklyIncomeMap[weekNum] = { week: `W${weekNum}`, weekNum, income: 0 };
 
         if (dailyIncomeMap[day]) {
@@ -186,7 +217,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
         avgChange: getChange(netIncome, avg6)
       }
     };
-  }, [partTimeTasks, selectedMonth, settings]);
+  }, [partTimeTasks, selectedMonth, settings, weekStartsOn]);
 
   // Derived: unique companies for filter
   const companies = useMemo(() => {
@@ -211,10 +242,10 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
 
     filteredShifts.forEach(task => {
       const taskDate = new Date(task.start);
-      const weekNum = getWeekOfMonth(taskDate, { weekStartsOn: 1 });
+       const weekNum = getWeekOfMonth(taskDate, { weekStartsOn });
       
-      const startD = startOfWeek(taskDate, { weekStartsOn: 1 });
-      const endD = endOfWeek(taskDate, { weekStartsOn: 1 });
+       const startD = startOfWeek(taskDate, { weekStartsOn });
+       const endD = endOfWeek(taskDate, { weekStartsOn });
       const startStr = format(startD, 'd MMM', { locale: th });
       const endStr = format(endD, 'd MMM', { locale: th });
       const yearStr = (endD.getFullYear() + 543).toString().slice(-2);
@@ -257,7 +288,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
     });
 
     return Array.from(groupsMap.values()).sort((a, b) => b.weekNum - a.weekNum);
-  }, [filteredShifts]);
+  }, [filteredShifts, weekStartsOn]);
 
   const formatThMonth = (s) => {
     const d = new Date(`${s}-01`);
@@ -266,15 +297,6 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
   const formatFullThMonth = (s) => {
     const d = new Date(`${s}-01`);
     return `${format(d, 'MMMM', { locale: th })} ${d.getFullYear() + 543}`;
-  };
-
-  const CustomTooltip = ({ active, payload }) => {
-    if (!active || !payload?.length) return null;
-    return (
-      <div className="liquid-glass-card px-3 py-2 rounded-xl shadow-lg text-sm">
-        <p className="text-primary-500 font-bold">฿{payload[0].value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</p>
-      </div>
-    );
   };
 
   const avgPerShift = summary.shiftCount > 0 ? summary.totalGross / summary.shiftCount : 0;
@@ -318,7 +340,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
         <div className="absolute bottom-0 left-0 w-28 h-28 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl pointer-events-none" />
 
         <div className="relative z-10 p-6">
-          <p className="text-white/70 text-xs font-bold mb-1">{formatFullThMonth(selectedMonth)} · รายได้สุทธิ</p>
+          <p className="text-white/70 text-xs font-bold mb-1">{formatFullThMonth(selectedMonth)} · {ui.netIncome}</p>
           <motion.h2
             key={summary.netIncome}
             initial={{ opacity: 0, y: 6 }}
@@ -337,10 +359,10 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
           {/* 4-stat grid */}
           <div className="grid grid-cols-4 gap-1.5 mt-5">
             {[
-              { label: 'กะงาน', value: `${summary.shiftCount}` },
-              { label: 'ชั่วโมง', value: `${summary.totalHours % 1 === 0 ? summary.totalHours : summary.totalHours.toFixed(1)}` },
-              { label: '฿/กะ', value: `${avgPerShift.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
-              { label: '฿/ชม.', value: `${avgPerHour.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+              { label: ui.shift, value: `${summary.shiftCount}` },
+              { label: ui.hours, value: `${summary.totalHours % 1 === 0 ? summary.totalHours : summary.totalHours.toFixed(1)}` },
+              { label: ui.perShift, value: `${avgPerShift.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
+              { label: ui.perHour, value: `${avgPerHour.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` },
             ].map(item => (
               <div key={item.label} className="bg-black/20 backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/10 shadow-inner">
                 <p className="text-white font-black text-[16px] sm:text-[17px] leading-tight">{item.value}</p>
@@ -354,16 +376,16 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
       {/* ── Bar Chart ── */}
       <div className="liquid-glass-card p-4 rounded-[24px]">
         <div className="flex justify-between items-center mb-3">
-          <p className="text-main/60 text-xs font-bold">สรุปรายได้ (เดือนนี้)</p>
+          <p className="text-main/60 text-xs font-bold">{ui.monthlySummary}</p>
           <div className="flex bg-main/5 dark:bg-white/5 rounded-full p-0.5">
-            <button onClick={() => setChartMode('daily')} className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-all ${chartMode === 'daily' ? 'bg-primary-500 text-white shadow-sm' : 'text-main/50 hover:text-main'}`}>รายวัน</button>
-            <button onClick={() => setChartMode('weekly')} className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-all ${chartMode === 'weekly' ? 'bg-primary-500 text-white shadow-sm' : 'text-main/50 hover:text-main'}`}>รายสัปดาห์</button>
+            <button onClick={() => setChartMode('daily')} className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-all ${chartMode === 'daily' ? 'bg-primary-500 text-white shadow-sm' : 'text-main/50 hover:text-main'}`}>{ui.daily}</button>
+            <button onClick={() => setChartMode('weekly')} className={`px-2.5 py-1 text-[10px] font-bold rounded-full transition-all ${chartMode === 'weekly' ? 'bg-primary-500 text-white shadow-sm' : 'text-main/50 hover:text-main'}`}>{ui.weekly}</button>
           </div>
         </div>
         {(chartMode === 'daily' ? chartData : weeklyChartData).length === 0 ? (
           <div className="h-[100px] flex flex-col items-center justify-center">
             <CalendarOff className="w-7 h-7 text-primary-500/30 mb-2" />
-            <p className="text-main/40 text-xs font-bold">ยังไม่มีรายการที่เสร็จแล้ว</p>
+            <p className="text-main/40 text-xs font-bold">{ui.noCompleted}</p>
           </div>
         ) : (
           <div className="h-[160px]">
@@ -387,7 +409,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
                         {(chartMode === 'daily' ? chartData : weeklyChartData).map((entry, i) => {
                           const isCurrent = chartMode === 'daily'
                             ? entry.fullDay === new Date().getDate() && selectedMonth === format(new Date(), 'yyyy-MM')
-                            : entry.weekNum === getWeekOfMonth(new Date(), { weekStartsOn: 1 }) && selectedMonth === format(new Date(), 'yyyy-MM');
+                            : entry.weekNum === getWeekOfMonth(new Date(), { weekStartsOn }) && selectedMonth === format(new Date(), 'yyyy-MM');
                           return (
                             <Cell key={i} fill={isCurrent
                               ? 'var(--theme-accent)'
@@ -406,7 +428,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
       {/* ── Company Breakdown ── */}
       {companyChartData.length > 0 && (
         <div className="liquid-glass-card p-5 rounded-[24px]">
-          <h3 className="text-main/80 font-bold text-sm mb-4">สัดส่วนตามบริษัท</h3>
+          <h3 className="text-main/80 font-bold text-sm mb-4">{ui.companyBreakdown}</h3>
           <div className="space-y-3.5">
             {companyChartData.map((c, i) => {
               const pct = summary.totalGross > 0 ? (c.value / summary.totalGross) * 100 : 0;
@@ -420,7 +442,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
                       <span className="text-sm font-bold text-main">{c.name}</span>
                       {stats && (
                         <span className="text-[10px] text-main/40 font-medium">
-                          {stats.shifts} กะ · {stats.hours % 1 === 0 ? stats.hours : stats.hours.toFixed(1)} ชม.
+                          {stats.shifts} {ui.shiftsUnit} · {stats.hours % 1 === 0 ? stats.hours : stats.hours.toFixed(1)} {ui.hoursUnit}
                         </span>
                       )}
                     </div>
@@ -448,7 +470,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
       {expensesList.length > 0 && (
         <div className="liquid-glass-card p-5 rounded-[24px]">
           <div className="flex justify-between items-center mb-4">
-            <h3 className="text-main/80 font-bold text-sm">รวมรายจ่ายเดือนนี้</h3>
+            <h3 className="text-main/80 font-bold text-sm">{ui.expenseTotal}</h3>
             <span className="text-sm font-bold text-red-500">
               -฿{expensesList.reduce((sum, exp) => sum + (Number(exp.amount) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
             </span>
@@ -476,8 +498,8 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
       {/* ── Comparison Cards ── */}
       <div className="grid grid-cols-2 gap-3">
         {[
-          { label: 'เทียบเดือนที่แล้ว', amount: comparison.lastMonth, change: comparison.lastMonthChange },
-          { label: 'เฉลี่ย 6 เดือน', amount: comparison.avg6Months, change: comparison.avgChange }
+          { label: ui.compareLast, amount: comparison.lastMonth, change: comparison.lastMonthChange },
+          { label: ui.average6, amount: comparison.avg6Months, change: comparison.avgChange }
         ].map(item => {
           const isUp = item.change > 0;
           const isFlat = item.change === 0;
@@ -503,8 +525,8 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
             onClick={() => setIsShiftListCollapsed(!isShiftListCollapsed)}
             className="flex items-center gap-2 active:scale-[0.98] transition-transform text-left"
           >
-            <h3 className="text-main/80 font-bold text-sm">รายการกะงาน</h3>
-            <span className="text-main/40 text-xs">{filteredShifts.length} รายการ</span>
+            <h3 className="text-main/80 font-bold text-sm">{ui.shiftList}</h3>
+            <span className="text-main/40 text-xs">{filteredShifts.length} {ui.records}</span>
             <div className="p-1 rounded-full bg-black/5 dark:bg-white/5 ml-1">
               {isShiftListCollapsed ? <ChevronDown size={14} className="text-main/60" /> : <ChevronUp size={14} className="text-main/60" />}
             </div>
@@ -557,7 +579,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
                 {groupedShifts.length === 0 ? (
                   <div className="liquid-glass-card rounded-[24px] p-8 text-center flex flex-col items-center">
                     <CalendarIcon className="w-12 h-12 text-main/20 mb-3" />
-                    <p className="text-main/60 font-bold text-sm">ไม่มีข้อมูลเดือนนี้</p>
+                    <p className="text-main/60 font-bold text-sm">{ui.noMonthData}</p>
                   </div>
                 ) : (
                   groupedShifts.map(group => (
@@ -589,10 +611,6 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
                         }
                         const taskDate = new Date(task.start);
                         const isFuture = taskDate > new Date() && !isCompleted;
-                        const job = (settings.jobs || []).find(j => j.name === task.title);
-                        const jobColorIdx = companyChartData.findIndex(c => c.name === task.title);
-                        const dotColor = COMPANY_COLORS[jobColorIdx >= 0 ? jobColorIdx % COMPANY_COLORS.length : 0];
-
                         return (
                           <SwipeableRow key={task.id} onDelete={() => setDeleteConfirmTask(task)}>
                             <motion.div

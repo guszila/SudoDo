@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState } from 'react';
 import { useSettings } from './SettingsContext';
 import { THEMES, DEFAULT_THEME } from '../constants/themes';
 
@@ -19,6 +19,9 @@ export function ThemeProvider({ children }) {
   // Sync local state when settings loads or changes from elsewhere
   useEffect(() => {
     if (!isLoading && settings?.theme) {
+      // Sync the persisted theme into local state after the settings subscription resolves.
+      // This is an intentional external-store synchronization.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setCurrentThemeId(settings.theme);
       localStorage.setItem('color_theme', settings.theme);
     }

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
@@ -50,6 +50,8 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
 
   useEffect(() => {
     if (task) {
+      // Reset the form when opening a different task or switching to a new task.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setFormData({
         title: task.title || '',
         description: task.description || '',
@@ -96,6 +98,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
 
   const [tagInput, setTagInput] = useState('');
   const [subtaskInput, setSubtaskInput] = useState('');
+  const [isSaving, setIsSaving] = useState(false);
 
   const addTag = (e) => {
     e.preventDefault();
@@ -143,14 +146,20 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
     setFormData(prev => ({ ...prev, [name]: value }));
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
-    onSave({ 
-      ...task, 
-      ...formData, 
-      start: new Date(formData.start).toISOString(), 
-      end: new Date(formData.end).toISOString() 
-    });
+    if (isSaving) return;
+    setIsSaving(true);
+    try {
+      await onSave({
+        ...task,
+        ...formData,
+        start: new Date(formData.start).toISOString(),
+        end: new Date(formData.end).toISOString()
+      });
+    } finally {
+      setIsSaving(false);
+    }
   };
 
   if (typeof document === 'undefined') return null;
@@ -163,6 +172,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           animate={{ opacity: 1 }}
           exit={{ opacity: 0 }}
           onClick={onClose}
+          aria-hidden="true"
           className="fixed inset-0 z-50 flex items-end md:items-center justify-center backdrop-blur-sm font-sans"
           style={{ backgroundColor: 'var(--overlay-bg)' }}
         >
@@ -173,6 +183,11 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             transition={{ type: "spring", stiffness: 300, damping: 25 }}
             onClick={(e) => e.stopPropagation()}
             {...dragProps}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="task-modal-title"
+            tabIndex={-1}
+            onKeyDown={(event) => { if (event.key === 'Escape') onClose(); }}
             className="liquid-glass-card w-full max-w-md p-6 relative rounded-t-[32px] md:rounded-[24px] pb-safe max-h-[90vh] overflow-y-auto"
           >
         <div 
@@ -180,14 +195,16 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           style={{ backgroundColor: 'var(--glass-border-strong)' }}
         ></div>
         <button 
+          type="button"
           onClick={onClose}
+          aria-label={t.cancel}
           className="absolute top-4 right-4 p-2 rounded-full transition-colors hidden md:block text-main opacity-60 hover:opacity-100"
           style={{ ':hover': { backgroundColor: 'var(--glass-bg-strong)' } }}
         >
           <X size={20} />
         </button>
         
-        <h2 className="text-2xl font-bold mb-4 text-main">
+        <h2 id="task-modal-title" className="text-2xl font-bold mb-4 text-main">
           {task?.id 
             ? (formData.isNote ? t.editNote : (formData.isPartTime ? t.editShift : t.editTask)) 
             : (formData.isNote ? t.newNote : (formData.isPartTime ? t.newShift : t.newTask))}
@@ -215,7 +232,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           </button>
         )}
         
-        <form onSubmit={handleSubmit} className="space-y-4">
+        <form onSubmit={handleSubmit} aria-busy={isSaving} className="space-y-4">
           {/* Type Selector */}
           <div>
             <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.itemType}</label>
@@ -394,7 +411,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           
           <div>
             <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
-              {formData.isPartTime ? 'หมายเหตุ (เช่น ทำกะแทนใคร)' : (formData.isNote ? 'รายละเอียดบันทึก' : t.description)}
+              {formData.isPartTime ? t.partTimeNote : (formData.isNote ? t.noteDetails : t.description)}
             </label>
             <textarea 
               name="description" 
@@ -403,14 +420,14 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
               rows={3}
               className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main transition-shadow"
               style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-              placeholder={formData.isNote ? "รายละเอียดเพิ่มเติม..." : t.descriptionPlaceholder}
+              placeholder={formData.isNote ? t.descriptionPlaceholder : t.descriptionPlaceholder}
             />
           </div>
 
           {/* Tags */}
           {!formData.isPartTime && !formData.isNote && (
             <div>
-              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">Tags / หมวดหมู่</label>
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.tags}</label>
               {formData.tags.length > 0 && (
                 <div className="flex flex-wrap gap-2 mb-2">
                   {formData.tags.map(tag => (
@@ -429,9 +446,9 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                   onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); addTag(e); } }}
                   className="flex-1 px-4 py-2 rounded-[12px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm text-main"
                   style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                  placeholder="พิมพ์ Tag แล้วกด Enter..."
+                  placeholder={t.tagsPlaceholder}
                 />
-                <button type="button" onClick={addTag} className="px-3 py-2 bg-primary-500 text-white rounded-[12px] text-sm font-bold shadow-sm active:scale-95 transition-transform">เพิ่ม</button>
+                <button type="button" onClick={addTag} className="px-3 py-2 bg-primary-500 text-white rounded-[12px] text-sm font-bold shadow-sm active:scale-95 transition-transform">{t.add}</button>
               </div>
             </div>
           )}
@@ -439,7 +456,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           {/* Subtasks */}
           {!formData.isPartTime && !formData.isNote && (
             <div>
-              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">Checklist งานย่อย</label>
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.checklist}</label>
               {formData.subtasks.length > 0 && (
                 <div className="space-y-2 mb-2 max-h-32 overflow-y-auto pr-1">
                   {formData.subtasks.map(st => (
@@ -461,9 +478,9 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                   onKeyDown={(e) => { if(e.key === 'Enter') { e.preventDefault(); addSubtask(e); } }}
                   className="flex-1 px-4 py-2 rounded-[12px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-sm text-main"
                   style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
-                  placeholder="ชื่องานย่อย แล้วกด Enter..."
+                  placeholder={t.checklistPlaceholder}
                 />
-                <button type="button" onClick={addSubtask} className="px-3 py-2 bg-primary-500 text-white rounded-[12px] text-sm font-bold shadow-sm active:scale-95 transition-transform">เพิ่ม</button>
+                <button type="button" onClick={addSubtask} className="px-3 py-2 bg-primary-500 text-white rounded-[12px] text-sm font-bold shadow-sm active:scale-95 transition-transform">{t.add}</button>
               </div>
             </div>
           )}
@@ -471,16 +488,16 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           {/* Recurring */}
           {!formData.isPartTime && !formData.isNote && (
             <div>
-              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">ตั้งเวลาทำซ้ำ (Recurring)</label>
+              <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.recurring}</label>
               <select 
                 value={formData.recurring}
                 onChange={(e) => setFormData(prev => ({ ...prev, recurring: e.target.value }))}
                 className="w-full px-4 py-3 rounded-[16px] focus:outline-none focus:ring-2 focus:ring-primary-500 text-main text-sm font-bold appearance-none cursor-pointer transition-colors hover:bg-black/5 dark:hover:bg-white/5"
                 style={{ backgroundColor: 'var(--glass-bg-input)', border: '1px solid var(--glass-border)' }}
               >
-                <option value="none">ไม่ทำซ้ำ (ทำครั้งเดียว)</option>
-                <option value="daily">ทุกวัน (Daily)</option>
-                <option value="weekly">ทุกสัปดาห์ (Weekly)</option>
+                <option value="none">{t.noRepeat}</option>
+                <option value="daily">{t.daily}</option>
+                <option value="weekly">{t.weekly}</option>
               </select>
             </div>
           )}
@@ -646,6 +663,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
               <button 
                 type="button" 
                 onClick={() => onDelete(task.id)}
+                disabled={isSaving}
                 className="flex items-center gap-2 px-4 py-3 text-sm font-medium text-red-500 bg-red-50/50 rounded-[16px] hover:bg-red-100/50 transition-colors"
               >
                 <Trash2 size={18} /> <span className="hidden sm:inline">{t.delete}</span>
@@ -656,6 +674,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
               <button 
                 type="button" 
                 onClick={onClose}
+                disabled={isSaving}
                 className="px-6 py-3 text-sm font-medium text-main rounded-[16px] transition-colors"
                 style={{ backgroundColor: 'var(--glass-bg)', border: '1px solid var(--glass-border)' }}
               >
@@ -663,10 +682,11 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
               </button>
               <button 
                 type="submit"
+                disabled={isSaving}
                 className="px-6 py-3 text-sm font-bold text-white bg-primary-500 rounded-[16px] hover:bg-primary-600 focus:outline-none focus:ring-2 focus:ring-primary-500 focus:ring-offset-2 transition-all shadow-md active:scale-95 border"
                 style={{ borderColor: 'var(--glass-border)' }}
               >
-                {formData.isNote ? 'บันทึก' : t.saveTask}
+                {isSaving ? (lang === 'en' ? 'Saving...' : 'กำลังบันทึก...') : (formData.isNote ? t.saveNote : t.saveTask)}
               </button>
             </div>
           </div>

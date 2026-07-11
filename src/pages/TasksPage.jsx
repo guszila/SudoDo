@@ -2,10 +2,7 @@ import { useState, useMemo } from 'react';
 import { createPortal } from 'react-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { format } from 'date-fns';
-import { th } from 'date-fns/locale';
-import { ArrowLeft, CheckCircle2, Edit, ListTodo, Plus, Trash2, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { CheckCircle2, Edit, ListTodo, Trash2, Search, Filter, ChevronDown, ChevronUp } from 'lucide-react';
 
 import TaskModal from '../components/tasks/TaskModal';
 import TaskCard from '../components/tasks/TaskCard';
@@ -21,14 +18,12 @@ export default function TasksPage({ user, lang = 'en' }) {
   const { tasks, isLoading } = useTasks();
   const { showToast } = useToast();
   const t = translations[lang].tasks;
-  const tCommon = translations[lang];
-  const navigate = useNavigate();
   
   const [activeStatus, setActiveStatus] = useState('pending'); // 'pending' | 'done'
   const [priorityFilter, setPriorityFilter] = useState('all'); // 'all' | 'high' | 'normal' | 'low'
   const [editingTask, setEditingTask] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
-  const [isMutating, setIsMutating] = useState(false);
+  const [, setIsMutating] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [sortBy, setSortBy] = useState('date-desc');
   const [showFilters, setShowFilters] = useState(false);
@@ -100,9 +95,12 @@ export default function TasksPage({ user, lang = 'en' }) {
         subtasks: originalTask.subtasks ? originalTask.subtasks.map(s => ({...s, done: false})) : []
       };
       delete recurringTask.id;
-      await saveTask('ADD', recurringTask, user.uid);
+      const result = await saveTask('ADD', recurringTask, user.uid);
+      if (!result) return false;
       showToast(lang === 'th' ? `สร้างงานสำหรับรอบถัดไปอัตโนมัติแล้ว` : `Next recurring task created`, { duration: 3000 });
+      return true;
     }
+    return true;
   };
 
   const handleMarkDone = async (task) => {
@@ -114,9 +112,16 @@ export default function TasksPage({ user, lang = 'en' }) {
       status: isNowDone ? TASK_STATUS.DONE : TASK_STATUS.TODO
     };
     setIsMutating(true);
-    await saveTask('EDIT', updated, user.uid);
-    if (isNowDone) await generateRecurringTask(task);
-    setIsMutating(false);
+    try {
+      const result = await saveTask('EDIT', updated, user.uid);
+      if (!result) {
+        showToast(lang === 'en' ? 'Could not update this task.' : 'อัปเดตงานไม่สำเร็จ', { isError: true });
+        return;
+      }
+      if (isNowDone) await generateRecurringTask(task);
+    } finally {
+      setIsMutating(false);
+    }
   };
 
   const confirmDelete = async (taskToDelete) => {
@@ -126,13 +131,18 @@ export default function TasksPage({ user, lang = 'en' }) {
     // Backup for undo
     const backupTask = { ...taskToDelete };
     
-    await saveTask('DELETE', { id: taskToDelete.id }, user.uid);
+    const result = await saveTask('DELETE', { id: taskToDelete.id }, user.uid);
     setIsMutating(false);
+    if (!result) {
+      showToast(lang === 'en' ? 'Could not delete this task.' : 'ลบงานไม่สำเร็จ', { isError: true });
+      return;
+    }
     
     showToast('ลบเรียบร้อยแล้ว', {
       duration: 5000,
       onUndo: async () => {
-        await saveTask('ADD', backupTask, user.uid);
+        const undoResult = await saveTask('ADD', backupTask, user.uid);
+        if (!undoResult) showToast(lang === 'en' ? 'Could not undo the deletion.' : 'ยกเลิกการลบไม่สำเร็จ', { isError: true });
       }
     });
   };
@@ -147,20 +157,28 @@ export default function TasksPage({ user, lang = 'en' }) {
     const backupTasks = [...tasksToDelete];
     
     // Delete one by one since we don't have a bulk API currently
+    let allSucceeded = true;
     for (const task of tasksToDelete) {
-      await saveTask('DELETE', { id: task.id }, user.uid);
+      const result = await saveTask('DELETE', { id: task.id }, user.uid);
+      if (!result) allSucceeded = false;
     }
     
     setSelectedTaskIds(new Set());
     setIsSelectionMode(false);
     setIsMutating(false);
+
+    if (!allSucceeded) {
+      showToast(lang === 'en' ? 'Some tasks could not be deleted.' : 'ลบบางงานไม่สำเร็จ', { isError: true });
+      return;
+    }
     
     showToast(`ลบ ${tasksToDelete.length} งานเรียบร้อยแล้ว`, {
       duration: 5000,
       onUndo: async () => {
         // Restore all
         for (const task of backupTasks) {
-          await saveTask('ADD', task, user.uid);
+          const undoResult = await saveTask('ADD', task, user.uid);
+          if (!undoResult) showToast(lang === 'en' ? 'Could not restore all tasks.' : 'กู้คืนงานบางรายการไม่สำเร็จ', { isError: true });
         }
       }
     });
@@ -185,18 +203,26 @@ export default function TasksPage({ user, lang = 'en' }) {
   };
 
   const handleEditSave = async (taskData) => {
-    setIsModalOpen(false);
     setIsMutating(true);
     
     const wasDone = editingTask?.status === TASK_STATUS.DONE;
     const isNowDone = taskData.status === TASK_STATUS.DONE;
     
-    await saveTask(taskData.id ? 'EDIT' : 'ADD', taskData, user.uid);
+    const result = await saveTask(taskData.id ? 'EDIT' : 'ADD', taskData, user.uid);
+    if (!result) {
+      showToast(lang === 'en' ? 'Could not save this task.' : 'บันทึกงานไม่สำเร็จ', { isError: true });
+      setIsMutating(false);
+      return;
+    }
     
     if (taskData.id && !wasDone && isNowDone) {
       await generateRecurringTask(taskData);
     }
     
+    setIsModalOpen(false);
+    showToast(taskData.id
+      ? (lang === 'en' ? 'Task updated.' : 'อัปเดตงานแล้ว')
+      : (lang === 'en' ? 'Task added.' : 'เพิ่มงานแล้ว'));
     setIsMutating(false);
   };
 
@@ -204,8 +230,9 @@ export default function TasksPage({ user, lang = 'en' }) {
 
   if (isLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#121212]">
+      <div role="status" aria-live="polite" className="min-h-screen flex flex-col gap-3 items-center justify-center bg-gray-50 dark:bg-[#121212] text-main/60">
         <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-sm font-medium">{lang === 'en' ? 'Loading tasks...' : 'กำลังโหลดงาน...'}</span>
       </div>
     );
   }
@@ -365,11 +392,21 @@ export default function TasksPage({ user, lang = 'en' }) {
 
       <div className="space-y-3 relative min-h-[200px]">
         {displayedTasks.length === 0 && (
-          <div className="text-center py-16 liquid-glass-card rounded-[24px]">
+          <div className="text-center py-16 px-6 liquid-glass-card rounded-[24px]">
              <ListTodo className="w-16 h-16 text-main opacity-20 mx-auto mb-4" />
              <p className="text-main opacity-60 font-medium text-lg">
                {t.noTasks}
              </p>
+             <p className="text-sm text-main/60 mt-2 mb-5">
+               {lang === 'en' ? 'Create a task to get started.' : 'เพิ่มงานแรกของคุณเพื่อเริ่มต้น'}
+             </p>
+             <button
+               type="button"
+               onClick={() => { setEditingTask(null); setIsModalOpen(true); }}
+               className="px-5 py-2.5 rounded-full bg-primary-500 text-white font-bold hover:bg-primary-600 transition-colors active:scale-95"
+             >
+               {lang === 'en' ? 'Add task' : 'เพิ่มงาน'}
+             </button>
           </div>
         )}
 
@@ -419,6 +456,7 @@ export default function TasksPage({ user, lang = 'en' }) {
       <ActionSheet 
         isOpen={!!actionTask}
         onClose={() => setActionTask(null)}
+        lang={lang}
         options={[
           {
             label: 'แก้ไข',
@@ -436,9 +474,12 @@ export default function TasksPage({ user, lang = 'en' }) {
 
       <ConfirmDialog 
         isOpen={!!deleteConfirmTask}
-        title="ยืนยันการลบ"
-        message={`ลบงาน '${deleteConfirmTask?.title}' ใช่ไหม?\nการกระทำนี้ไม่สามารถย้อนกลับได้`}
-        confirmText="ลบ"
+        lang={lang}
+        title={lang === 'en' ? 'Confirm deletion' : 'ยืนยันการลบ'}
+        message={lang === 'en'
+          ? `Delete task '${deleteConfirmTask?.title}'?\nThis action cannot be undone.`
+          : `ลบงาน '${deleteConfirmTask?.title}' ใช่ไหม?\nการกระทำนี้ไม่สามารถย้อนกลับได้`}
+        confirmText={lang === 'en' ? 'Delete' : 'ลบ'}
         isDanger={true}
         onConfirm={() => confirmDelete(deleteConfirmTask)}
         onCancel={() => setDeleteConfirmTask(null)}

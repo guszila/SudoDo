@@ -8,6 +8,24 @@ export default defineConfig({
   server: {
     host: true
   },
+  build: {
+    rolldownOptions: {
+      output: {
+        manualChunks(id) {
+          if (!id.includes('node_modules')) return undefined;
+          if (id.includes('react-big-calendar')) return 'calendar-vendor';
+          if (id.includes('recharts')) return 'charts-vendor';
+          if (id.includes('framer-motion')) return 'motion-vendor';
+          if (id.includes('date-fns')) return 'date-vendor';
+          if (id.includes('/firebase/')) return 'firebase-vendor';
+          if (id.includes('lucide-react')) return 'icons-vendor';
+          if (id.includes('react-router')) return 'router-vendor';
+          if (id.includes('/react/') || id.includes('/react-dom/')) return 'react-vendor';
+          return undefined;
+        }
+      }
+    }
+  },
   plugins: [
     react(), 
     tailwindcss(),

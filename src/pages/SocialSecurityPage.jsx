@@ -124,7 +124,7 @@ export default function SocialSecurityPage({ lang }) {
       historyData: history,
       totalDeducted: sumDeducted
     };
-  }, [tasks, lang]);
+  }, [tasks, lang, settings.jobs, settings.socialSecurity]);
 
   return (
     <motion.div 

@@ -1,10 +1,10 @@
-import React, { useEffect, useState } from 'react';
+import { useEffect, useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Bell } from 'lucide-react';
 import OneSignalService from '../../services/OneSignalService';
 import { useSwipeToClose } from '../../hooks/useSwipeToClose';
 
-export default function OneSignalVerificationModal({ lang }) {
+export default function OneSignalVerificationModal() {
   const [isOpen, setIsOpen] = useState(false);
   const { dragProps, handleProps } = useSwipeToClose(() => setIsOpen(false));
 

@@ -1,8 +1,7 @@
-import React from 'react';
 import { Calendar as CalendarIcon, Users, Home, Banknote, Settings } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
-export default function BottomNav({ lang, currentView, setCurrentView, unreadCount = 0 }) {
+export default function BottomNav({ lang, setCurrentView, unreadCount = 0 }) {
   const navigate = useNavigate();
   const location = useLocation();
 

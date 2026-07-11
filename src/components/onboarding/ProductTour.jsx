@@ -1,42 +1,39 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 
 export default function ProductTour({ steps, onComplete, lang }) {
   const [currentStep, setCurrentStep] = useState(0);
   const [targetRect, setTargetRect] = useState(null);
 
-  const updateRect = () => {
-    // Find the first visible element matching the selector
-    const elements = document.querySelectorAll(steps[currentStep].target);
-    const target = Array.from(elements).find(el => {
-      const rect = el.getBoundingClientRect();
-      return rect.width > 0 && rect.height > 0 && window.getComputedStyle(el).display !== 'none';
-    });
-
-    if (target) {
-      // Ensure element is in view if possible
-      if (currentStep > 0 && currentStep !== steps.length - 1) { // dont scroll on first or last randomly
-         target.scrollIntoView({ behavior: 'smooth', block: 'center' });
-      }
-      
-      const rect = target.getBoundingClientRect();
-      setTargetRect({
-        x: rect.left - 8,
-        y: rect.top - 8,
-        width: rect.width + 16,
-        height: rect.height + 16,
-        rx: steps[currentStep].borderRadius || 16,
-        top: rect.top,
-        bottom: rect.bottom,
-      });
-    } else {
-      // If target not found or not visible, we can either wait or gracefully skip.
-      // We just set null to hide it temporarily.
-      setTargetRect(null);
-    }
-  };
-
   useEffect(() => {
+    const updateRect = () => {
+      // Find the first visible element matching the selector
+      const elements = document.querySelectorAll(steps[currentStep].target);
+      const target = Array.from(elements).find(el => {
+        const rect = el.getBoundingClientRect();
+        return rect.width > 0 && rect.height > 0 && window.getComputedStyle(el).display !== 'none';
+      });
+
+      if (target) {
+        if (currentStep > 0 && currentStep !== steps.length - 1) {
+          target.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        }
+
+        const rect = target.getBoundingClientRect();
+        setTargetRect({
+          x: rect.left - 8,
+          y: rect.top - 8,
+          width: rect.width + 16,
+          height: rect.height + 16,
+          rx: steps[currentStep].borderRadius || 16,
+          top: rect.top,
+          bottom: rect.bottom,
+        });
+      } else {
+        setTargetRect(null);
+      }
+    };
+
     // Small delay to ensure DOM is fully rendered before calculating rect
     const timer = setTimeout(updateRect, 100);
     window.addEventListener('resize', updateRect);
@@ -50,7 +47,7 @@ export default function ProductTour({ steps, onComplete, lang }) {
       window.removeEventListener('scroll', updateRect, true);
       observer.disconnect();
     };
-  }, [currentStep]);
+  }, [currentStep, steps]);
 
   const step = steps[currentStep];
   

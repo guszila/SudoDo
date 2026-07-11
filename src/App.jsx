@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDropLib from 'react-big-calendar/lib/addons/dragAndDrop';
 import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { format, parse, startOfWeek, getDay, isBefore, startOfDay, endOfDay, differenceInDays, isSameDay } from 'date-fns';
 import { enUS, th } from 'date-fns/locale';
-import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Home, Settings, ListTodo, User, Briefcase, ChevronLeft, ChevronRight, X, FileText, Coins, Bell } from 'lucide-react';
+import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Briefcase, ChevronLeft, ChevronRight, X, FileText, Coins, Bell } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
@@ -15,7 +15,6 @@ import StatsBar from './components/tasks/StatsBar';
 import TaskCard from './components/tasks/TaskCard';
 import Login from './components/auth/Login';
 import SplashScreen from './components/auth/SplashScreen';
-import Logo from './components/layout/Logo';
 import BottomNav from './components/layout/BottomNav';
 import ProductTour from './components/onboarding/ProductTour';
 import ErrorBoundary from './components/common/ErrorBoundary';
@@ -29,8 +28,9 @@ import { translations } from './i18n';
 import { auth } from './firebase';
 import { TasksProvider, useTasks } from './contexts/TasksContext';
 import { ToastProvider } from './contexts/ToastContext';
+import { useToast } from './contexts/ToastContext';
 import { SettingsProvider, useSettings } from './contexts/SettingsContext';
-import { ThemeProvider, useTheme } from './contexts/ThemeContext';
+import { ThemeProvider } from './contexts/ThemeContext';
 import { useNotifications } from './contexts/NotificationsContext';
 import NotificationsProvider from './contexts/NotificationsProvider';
 
@@ -43,18 +43,37 @@ const TasksPage = React.lazy(() => import('./pages/TasksPage'));
 const FriendsPage = React.lazy(() => import('./pages/FriendsPage'));
 const OneSignalVerificationModal = React.lazy(() => import('./components/common/OneSignalVerificationModal'));
 
-const PAGE_ORDER = ['/', '/calendar', '/tasks', '/part-time', '/friends', '/profile', '/settings', '/social-security'];
-
-const getPageIndex = (pathname) => {
-  const index = PAGE_ORDER.indexOf(pathname);
-  return index === -1 ? PAGE_ORDER.length : index;
-};
-
 const PageFallback = () => (
   <div className="min-h-[100dvh] flex items-center justify-center pb-[calc(7rem+env(safe-area-inset-bottom))] pt-safe">
     <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
   </div>
 );
+
+function NotFoundPage({ lang = 'th' }) {
+  const navigate = useNavigate();
+  const isEnglish = lang === 'en';
+
+  return (
+    <div className="min-h-[70vh] flex items-center justify-center px-6 text-center">
+      <div className="liquid-glass-card max-w-md p-8 rounded-3xl">
+        <div className="text-6xl font-black text-primary-500 mb-3">404</div>
+        <h1 className="text-2xl font-bold text-main mb-2">
+          {isEnglish ? 'Page not found' : 'ไม่พบหน้านี้'}
+        </h1>
+        <p className="text-main/60 mb-6">
+          {isEnglish ? 'The page may have moved or the link is invalid.' : 'หน้านี้อาจถูกย้าย หรือลิงก์ไม่ถูกต้อง'}
+        </p>
+        <button
+          type="button"
+          onClick={() => navigate('/')}
+          className="px-5 py-3 rounded-2xl bg-primary-500 text-white font-bold hover:bg-primary-600 transition-colors"
+        >
+          {isEnglish ? 'Back to home' : 'กลับหน้าหลัก'}
+        </button>
+      </div>
+    </div>
+  );
+}
 
 
 
@@ -63,14 +82,6 @@ const locales = {
   'en-US': enUS,
   'th': th,
 };
-
-const localizer = dateFnsLocalizer({
-  format,
-  parse,
-  startOfWeek,
-  getDay,
-  locales,
-});
 
 const withDragAndDrop = typeof withDragAndDropLib === 'function' ? withDragAndDropLib : withDragAndDropLib.default;
 const DnDCalendar = withDragAndDrop(Calendar);
@@ -84,8 +95,16 @@ const StatusIcon = ({ status, className = "" }) => {
 };
 
 function MainApp({ user, lang, setLang, theme, setThemeMode }) {
-  const { currentTheme } = useTheme();
   const { settings } = useSettings();
+  const { showToast } = useToast();
+  const weekStartsOn = settings?.weekStart === 'จันทร์' || settings?.weekStart === 'Monday' ? 1 : 0;
+  const calendarLocalizer = useMemo(() => dateFnsLocalizer({
+    format,
+    parse,
+    startOfWeek: (date, options = {}) => startOfWeek(date, { ...options, weekStartsOn }),
+    getDay,
+    locales,
+  }), [weekStartsOn]);
   
   useEffect(() => {
     if (settings?.themeMode) {
@@ -93,11 +112,8 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
     }
   }, [settings?.themeMode, setThemeMode]);
 
-  const navigate = useNavigate();
   const location = useLocation();
   const prefersReducedMotion = useReducedMotion();
-  const previousPathRef = React.useRef(location.pathname);
-  const routeDirection = getPageIndex(location.pathname) >= getPageIndex(previousPathRef.current) ? 1 : -1;
   const { tasks, isLoading } = useTasks();
   
   const [isModalOpen, setIsModalOpen] = useState(false);
@@ -125,12 +141,10 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
 
   const t = translations[lang];
 
-  useEffect(() => {
-    previousPathRef.current = location.pathname;
-  }, [location.pathname]);
-
   const handleSelectSlot = ({ start }) => {
-    setSelectedDateFilter(start);
+    const selected = new Date(start);
+    if (Number.isNaN(selected.getTime())) return;
+    setSelectedDateFilter(selected);
     // Smooth scroll to the bottom if on mobile
     setTimeout(() => {
       window.scrollTo({ top: document.body.scrollHeight, behavior: 'smooth' });
@@ -143,24 +157,56 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
   };
 
   const handleSaveTask = async (taskData) => {
-    setIsModalOpen(false);
     const action = taskData.id ? 'EDIT' : 'ADD';
-    await saveTask(action, taskData, user.uid);
+    const result = await saveTask(action, taskData, user.uid);
+    if (!result) {
+      showToast(lang === 'en' ? 'Could not save this task.' : 'บันทึกงานไม่สำเร็จ', { isError: true });
+      return false;
+    }
+    setIsModalOpen(false);
+    showToast(action === 'ADD'
+      ? (lang === 'en' ? 'Task added.' : 'เพิ่มงานแล้ว')
+      : (lang === 'en' ? 'Task updated.' : 'อัปเดตงานแล้ว'));
+    return true;
+  };
+
+  const handleOpenNewTask = () => {
+    if (selectedDateFilter && !Number.isNaN(new Date(selectedDateFilter).getTime())) {
+      const start = new Date(selectedDateFilter);
+      // A date selected from the month view has no end time; give new tasks a usable one-hour range.
+      const end = new Date(start.getTime() + 60 * 60 * 1000);
+      setSelectedTask({ start, end });
+    } else {
+      setSelectedTask(null);
+    }
+    setIsModalOpen(true);
   };
 
   const onEventDrop = async ({ event, start, end }) => {
     const updatedEvent = { ...event, start: start.toISOString(), end: end.toISOString() };
-    await saveTask('EDIT', updatedEvent, user.uid);
+    const result = await saveTask('EDIT', updatedEvent, user.uid);
+    if (!result) {
+      showToast(lang === 'en' ? 'Could not move this task.' : 'ย้ายงานไม่สำเร็จ', { isError: true });
+    }
   };
 
   const onEventResize = async ({ event, start, end }) => {
     const updatedEvent = { ...event, start: start.toISOString(), end: end.toISOString() };
-    await saveTask('EDIT', updatedEvent, user.uid);
+    const result = await saveTask('EDIT', updatedEvent, user.uid);
+    if (!result) {
+      showToast(lang === 'en' ? 'Could not resize this task.' : 'เปลี่ยนเวลางานไม่สำเร็จ', { isError: true });
+    }
   };
 
   const handleDeleteTask = async (taskId) => {
+    const result = await saveTask('DELETE', { id: taskId }, user.uid);
+    if (!result) {
+      showToast(lang === 'en' ? 'Could not delete this task.' : 'ลบงานไม่สำเร็จ', { isError: true });
+      return false;
+    }
     setIsModalOpen(false);
-    await saveTask('DELETE', { id: taskId }, user.uid);
+    showToast(lang === 'en' ? 'Task deleted.' : 'ลบงานแล้ว');
+    return true;
   };
 
   const handleToggleStatus = async (task) => {
@@ -217,7 +263,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
           <StatusIcon status={event.status} className="w-3 h-3 md:w-3.5 md:h-3.5 flex-shrink-0 cursor-pointer" />
         </button>
         <span className="truncate text-main text-[9px] md:text-xs font-medium flex-1">{event.title}</span>
-        {isOverdue && <span className="bg-red-500 text-white text-[8px] md:text-[9px] px-0.5 md:px-1 rounded-[4px] font-bold ml-auto flex-shrink-0">เกินกำหนด</span>}
+        {isOverdue && <span className="bg-red-500 text-white text-[8px] md:text-[9px] px-0.5 md:px-1 rounded-[4px] font-bold ml-auto flex-shrink-0">{translations[lang].overdue}</span>}
       </div>
     );
   };
@@ -302,7 +348,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
     };
   };
 
-  const CustomDateHeader = ({ label, date, onDrillDown }) => {
+  const CustomDateHeader = ({ label, date }) => {
     const now = new Date();
     const hasOverdue = tasks.some(t => {
       if (t.status === TASK_STATUS.DONE) return false;
@@ -406,14 +452,9 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
     const goToToday = () => onNavigate('TODAY');
 
     const now = new Date();
-    let isCurrent = false;
-    if (view === 'month') {
-      isCurrent = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    } else if (view === 'day') {
-      isCurrent = date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    } else {
-      isCurrent = date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
-    }
+    const isCurrent = view === 'day'
+      ? date.getDate() === now.getDate() && date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear()
+      : date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
 
     return (
       <div className="rbc-toolbar flex-col gap-0 mb-4 border-none bg-transparent p-0">
@@ -427,8 +468,10 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
         }} className="flex justify-between items-center w-full shadow-sm">
           
           <button 
+            type="button"
             onClick={goToToday}
             disabled={isCurrent}
+            aria-label={lang === 'en' ? 'Go to today' : 'ไปวันนี้'}
             style={{
               padding: '5px 12px',
               borderRadius: '20px',
@@ -453,6 +496,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
             <button 
               type="button"
               onClick={goToBack}
+              aria-label={lang === 'en' ? 'Previous period' : 'ช่วงเวลาก่อนหน้า'}
               style={{
                 width: '32px', height: '32px', borderRadius: '50%',
                 background: 'rgba(255,255,255,0.35)',
@@ -468,6 +512,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
             <button 
               type="button"
               onClick={goToNext}
+              aria-label={lang === 'en' ? 'Next period' : 'ช่วงเวลาถัดไป'}
               style={{
                 width: '32px', height: '32px', borderRadius: '50%',
                 background: 'rgba(255,255,255,0.35)',
@@ -567,27 +612,6 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
     document.body.removeChild(link);
   };
 
-  const monthSuccess = React.useMemo(() => {
-    const currentMonth = currentDate.getMonth();
-    const currentYear = currentDate.getFullYear();
-    
-    let total = 0;
-    let completed = 0;
-    
-    tasks.forEach(t => {
-      const d = new Date(t.start);
-      if (d.getMonth() === currentMonth && d.getFullYear() === currentYear && !t.isExpense && !t.isExtraIncome && !t.isNote) {
-        total++;
-        if (t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd)) {
-          completed++;
-        }
-      }
-    });
-    
-    if (total === 0) return 0;
-    return Math.round((completed / total) * 100);
-  }, [tasks, currentDate]);
-
   const CalendarView = (
     <motion.div 
       initial={{ opacity: 0, scale: 0.98 }}
@@ -601,9 +625,9 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
           <div>
             <h1 className="text-3xl md:text-4xl font-black text-main flex items-center gap-2 mb-1">
               <CalendarIcon size={32} className="text-primary-500" />
-              ปฏิทิน
+              {t.calendarTitle}
             </h1>
-            <p className="text-main/60 font-medium text-sm">จัดการตารางเวลาและวันสำคัญของคุณ</p>
+            <p className="text-main/60 font-medium text-sm">{t.calendarSubtitle}</p>
           </div>
           <button 
             onClick={exportToICS}
@@ -627,7 +651,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
           <StatsBar tasks={tasks} />
 
           <DnDCalendar
-            localizer={localizer}
+            localizer={calendarLocalizer}
             culture={lang === 'en' ? 'en-US' : 'th'}
             messages={t.calendarMessages}
             events={tasks}
@@ -659,7 +683,6 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
             onView={setCurrentView}
             date={currentDate}
             onNavigate={setCurrentDate}
-            onDrillDown={() => {}}
             popup
             resizable
             onEventDrop={onEventDrop}
@@ -690,7 +713,9 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
                   {format(selectedDateFilter, 'd MMMM yyyy', { locale: lang === 'th' ? th : enUS })}
                 </h3>
                 <button 
+                  type="button"
                   onClick={() => setSelectedDateFilter(null)} 
+                  aria-label={lang === 'en' ? 'Close date details' : 'ปิดรายละเอียดวันที่'}
                   className="w-8 h-8 flex items-center justify-center bg-black/5 dark:bg-white/10 rounded-full hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
                 >
                   <X size={16} />
@@ -706,7 +731,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
                   if (!hasContent) {
                     return (
                       <div className="text-center py-8 liquid-glass-card rounded-[20px] text-main/50 font-medium border border-dashed border-main/20">
-                        ไม่มีกิจกรรมในวันนี้
+                        {t.noActivity}
                       </div>
                     );
                   }
@@ -719,7 +744,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
                             <span className="text-lg">🇹🇭</span>
                           </div>
                           <div className="flex-1">
-                            <p className="text-xs text-red-500 font-bold mb-0.5">วันหยุดประเทศไทย</p>
+                            <p className="text-xs text-red-500 font-bold mb-0.5">{t.thaiHoliday}</p>
                             <h3 className="font-bold text-lg text-main">{holiday}</h3>
                           </div>
                         </div>
@@ -752,10 +777,9 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       <AnimatePresence mode="wait">
         <motion.div
           key={location.pathname}
-          custom={routeDirection}
-          initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: routeDirection * 16 }}
+          initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: 16 }}
           animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
-          exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: routeDirection * -16 }}
+          exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: -16 }}
           transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
           className="relative min-h-screen"
         >
@@ -769,6 +793,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
               <Route path="/social-security" element={<SocialSecurityPage lang={lang} />} />
               <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
               <Route path="/friends" element={<FriendsPage user={user} lang={lang} />} />
+              <Route path="*" element={<NotFoundPage lang={lang} />} />
             </Routes>
           </React.Suspense>
         </motion.div>
@@ -821,10 +846,9 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       {(location.pathname === '/' || location.pathname === '/calendar') && (
         <div className="fixed bottom-28 right-4 md:bottom-28 md:right-8 z-[45]">
           <button 
-            onClick={() => { 
-              setSelectedTask(selectedDateFilter ? { start: selectedDateFilter, end: selectedDateFilter } : null); 
-              setIsModalOpen(true); 
-            }}
+            type="button"
+            onClick={handleOpenNewTask}
+            aria-label={lang === 'en' ? 'Add task or shift' : 'เพิ่มงานหรือกะงาน'}
             className="tour-add-btn w-14 h-14 bg-[var(--theme-accent)] text-[var(--theme-accent-light)] rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:scale-105 active:scale-95 transition-all group"
           >
             <span className="absolute inset-0 rounded-full bg-[var(--theme-accent)] opacity-20 group-hover:animate-ping"></span>

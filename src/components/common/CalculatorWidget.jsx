@@ -1,7 +1,27 @@
-import React, { useState } from 'react';
+import { useState } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Delete } from 'lucide-react';
 import { useSwipeToClose } from '../../hooks/useSwipeToClose';
+
+const Button = ({ children, onClick, variant = 'default', className = '' }) => {
+  let baseClass = "text-xl font-bold h-16 rounded-[20px] transition-all active:scale-95 flex items-center justify-center ";
+
+  if (variant === 'default') {
+    baseClass += "bg-white/10 hover:bg-white/20 text-main shadow-sm border border-white/5";
+  } else if (variant === 'operator') {
+    baseClass += "bg-primary-500/20 hover:bg-primary-500/30 text-primary-500 shadow-sm border border-primary-500/10";
+  } else if (variant === 'accent') {
+    baseClass += "bg-primary-500 hover:bg-primary-600 text-white shadow-md";
+  } else if (variant === 'clear') {
+    baseClass += "bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/10";
+  }
+
+  return (
+    <button onClick={onClick} className={`${baseClass} ${className}`}>
+      {children}
+    </button>
+  );
+};
 
 export default function CalculatorWidget({ isOpen, onClose, lang = 'th' }) {
   const { dragProps, handleProps } = useSwipeToClose(onClose);
@@ -76,26 +96,6 @@ export default function CalculatorWidget({ isOpen, onClose, lang = 'th' }) {
 
   const handleOperatorClick = (op) => {
     performOperation(op);
-  };
-
-  const Button = ({ children, onClick, variant = 'default', className = '' }) => {
-    let baseClass = "text-xl font-bold h-16 rounded-[20px] transition-all active:scale-95 flex items-center justify-center ";
-    
-    if (variant === 'default') {
-      baseClass += "bg-white/10 hover:bg-white/20 text-main shadow-sm border border-white/5";
-    } else if (variant === 'operator') {
-      baseClass += "bg-primary-500/20 hover:bg-primary-500/30 text-primary-500 shadow-sm border border-primary-500/10";
-    } else if (variant === 'accent') {
-      baseClass += "bg-primary-500 hover:bg-primary-600 text-white shadow-md";
-    } else if (variant === 'clear') {
-      baseClass += "bg-red-500/10 hover:bg-red-500/20 text-red-500 border border-red-500/10";
-    }
-
-    return (
-      <button onClick={onClick} className={`${baseClass} ${className}`}>
-        {children}
-      </button>
-    );
   };
 
   return (

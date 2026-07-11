@@ -1,9 +1,11 @@
+/* The widget renderer intentionally declares per-case values in this switch. */
+/* eslint-disable no-case-declarations */
 import { useState, useEffect, useMemo, useCallback } from 'react';
 
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, isBefore, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Flame, Banknote, Check, ArrowLeft, Maximize2, X, Trash2, Bell, Edit2, Zap, Briefcase, Settings, GripHorizontal, LayoutGrid, Plus, Calendar, CloudRain, Timer, Play, Pause, RotateCcw, RefreshCw, Users, Sun, Cloud, CloudFog, CloudLightning, Droplets } from 'lucide-react';
+import { Flame, Banknote, Check, Maximize2, X, Trash2, Bell, Briefcase, GripHorizontal, LayoutGrid, ListTodo, Plus, Calendar, ArrowRight, CloudRain, Timer, Play, Pause, RotateCcw, RefreshCw, Sun, Cloud, CloudFog, CloudLightning, Droplets } from 'lucide-react';
 import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -166,6 +168,7 @@ export default function TodayPage({ user, lang = 'th' }) {
   const { tasks, isLoading: tasksLoading } = useTasks();
   const gamificationStreaks = useMemo(() => calculateStreaks(tasks), [tasks]);
   const { settings } = useSettings();
+  const weekStartsOn = settings?.weekStart === 'จันทร์' || settings?.weekStart === 'Monday' ? 1 : 0;
   const [streakData, setStreakData] = useState({ currentStreak: 0, bestStreak: 0, history: [] });
   const [isLoadingStreak, setIsLoadingStreak] = useState(true);
   const [chartType, setChartType] = useState('bar'); // 'bar' or 'line'
@@ -224,7 +227,9 @@ export default function TodayPage({ user, lang = 'th' }) {
       }, 1000);
     } else if (pomodoroState.isActive && pomodoroState.timeLeft === 0) {
       const isBreakNow = !pomodoroState.isBreak;
-      setPomodoroState(prev => ({
+      // Transition the timer to its next phase after the external interval completes.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+        setPomodoroState(() => ({
         isActive: false,
         isBreak: isBreakNow,
         timeLeft: isBreakNow ? 5 * 60 : 25 * 60
@@ -255,7 +260,7 @@ export default function TodayPage({ user, lang = 'th' }) {
             setWeatherData(cached.data);
             return;
           }
-        } catch (e) {}
+        } catch { /* Ignore malformed weather cache. */ }
       }
       
       setWeatherLoading(true);
@@ -303,7 +308,7 @@ export default function TodayPage({ user, lang = 'th' }) {
         lat = position.coords.latitude;
         lon = position.coords.longitude;
         isLocal = true;
-      } catch (err) {
+      } catch {
         console.log("Geolocation failed or denied, using fallback BKK.");
       }
 
@@ -378,7 +383,7 @@ export default function TodayPage({ user, lang = 'th' }) {
     initData();
   }, [user]);
 
-  const [incomeGoal, setIncomeGoal] = useState(() => {
+  const [incomeGoal] = useState(() => {
     const saved = localStorage.getItem('income_goal');
     return saved ? JSON.parse(saved) : { goalAmount: 5000, goalMonth: format(new Date(), 'yyyy-MM'), isRecurring: true };
   });
@@ -509,8 +514,8 @@ export default function TodayPage({ user, lang = 'th' }) {
     const cData = monthKeys6.map(k => monthlyIncome[k]);
     const fcData = monthKeys12.map(k => fullMonthlyIncome[k]);
 
-    const weekStart = startOfWeek(now, { weekStartsOn: 1 });
-    const weekEnd = endOfWeek(now, { weekStartsOn: 1 });
+    const weekStart = startOfWeek(now, { weekStartsOn });
+    const weekEnd = endOfWeek(now, { weekStartsOn });
     const weekDays = eachDayOfInterval({ start: weekStart, end: weekEnd });
     
     const wStreak = weekDays.map(d => ({
@@ -601,7 +606,7 @@ export default function TodayPage({ user, lang = 'th' }) {
       currentWorkStreak,
       bestWorkStreak
     };
-  }, [tasks, streakData, now, settings.socialSecurity, settings.showInIncome]);
+  }, [tasks, streakData, now, weekStartsOn, settings.jobs, settings.socialSecurity]);
 
   const pendingTasksList = useMemo(() => {
     return todayTasks.filter(t => t.status !== TASK_STATUS.DONE);
@@ -627,14 +632,6 @@ export default function TodayPage({ user, lang = 'th' }) {
     }
   }, [isChartExpanded]);
 
-  const getGreeting = () => {
-    const hour = now.getHours();
-    if (hour >= 5 && hour < 12) return t.goodMorning;
-    if (hour >= 12 && hour < 17) return t.goodAfternoon;
-    if (hour >= 17 && hour < 21) return t.goodEvening;
-    return t.goodNight;
-  };
-
   const getStatusColor = (status, priority) => {
     if (status === TASK_STATUS.DONE) return 'bg-green-500';
     if (priority === TASK_PRIORITY.HIGH) return 'bg-red-500';
@@ -652,6 +649,7 @@ export default function TodayPage({ user, lang = 'th' }) {
 
   const avatarInitial = user?.displayName ? user.displayName.charAt(0).toUpperCase() : (user?.email ? user.email.charAt(0).toUpperCase() : 'U');
   const avatarUrl = user?.uid ? (localStorage.getItem(`avatar_${user.uid}`) || '') : '';
+  const nextTask = pendingTasksList[0] || null;
 
   const renderWidget = (id) => {
     switch (id) {
@@ -1072,6 +1070,56 @@ export default function TodayPage({ user, lang = 'th' }) {
             </div>
           </div>
         </header>
+
+        {!isEditWidgetMode && (
+          <motion.section
+            initial={{ opacity: 0, y: 10 }}
+            animate={{ opacity: 1, y: 0 }}
+            transition={{ delay: 0.12, duration: 0.3 }}
+            aria-label={lang === 'en' ? 'Today focus' : 'สิ่งสำคัญวันนี้'}
+            className="mb-6 grid gap-3 md:grid-cols-[minmax(0,1fr)_auto]"
+          >
+            <div className="relative overflow-hidden rounded-[24px] border border-primary-500/20 bg-primary-500/10 p-5 shadow-sm">
+              <div className="absolute -right-8 -top-10 h-32 w-32 rounded-full bg-primary-500/15 blur-2xl" aria-hidden="true" />
+              <p className="relative z-10 text-xs font-bold uppercase tracking-[0.12em] text-primary-600 dark:text-primary-300">
+                {lang === 'en' ? 'Next up' : 'งานถัดไป'}
+              </p>
+              {nextTask ? (
+                <>
+                  <h2 className="relative z-10 mt-2 truncate text-xl font-black text-main md:text-2xl">{nextTask.title}</h2>
+                  <p className="relative z-10 mt-1 text-sm font-medium text-main/65">
+                    {format(new Date(nextTask.start), 'HH:mm')} – {format(new Date(nextTask.end), 'HH:mm')}
+                    {nextTask.isPartTime && <span className="ml-2 text-green-600 dark:text-green-400">· {t.workShift}</span>}
+                  </p>
+                  <button
+                    type="button"
+                    onClick={() => navigate(nextTask.isPartTime ? '/part-time' : '/tasks')}
+                    className="relative z-10 mt-4 inline-flex items-center gap-2 rounded-full bg-primary-500 px-4 py-2 text-sm font-bold text-white shadow-sm transition-transform hover:bg-primary-600 active:scale-95"
+                  >
+                    {lang === 'en' ? 'Open task' : 'เปิดงาน'} <ArrowRight size={15} />
+                  </button>
+                </>
+              ) : (
+                <>
+                  <h2 className="relative z-10 mt-2 text-xl font-black text-main md:text-2xl">{lang === 'en' ? 'You are all clear' : 'วันนี้ยังไม่มีงานค้าง'}</h2>
+                  <p className="relative z-10 mt-1 text-sm font-medium text-main/65">{lang === 'en' ? 'Enjoy the moment or plan something new.' : 'พักได้เลย หรือวางแผนงานใหม่สำหรับวันนี้'}</p>
+                </>
+              )}
+            </div>
+
+            <div className="grid grid-cols-3 gap-2 md:w-[270px] md:grid-cols-1">
+              <button type="button" onClick={() => navigate('/tasks')} className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl border border-main/10 bg-black/5 px-2 text-xs font-bold text-main/75 transition-all hover:border-primary-500/30 hover:text-primary-500 active:scale-95 dark:bg-white/5">
+                <ListTodo size={17} />{lang === 'en' ? 'Tasks' : 'งานทั้งหมด'}
+              </button>
+              <button type="button" onClick={() => navigate('/calendar')} className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl border border-main/10 bg-black/5 px-2 text-xs font-bold text-main/75 transition-all hover:border-primary-500/30 hover:text-primary-500 active:scale-95 dark:bg-white/5">
+                <Calendar size={17} />{lang === 'en' ? 'Calendar' : 'ปฏิทิน'}
+              </button>
+              <button type="button" onClick={() => navigate('/part-time')} className="flex min-h-16 flex-col items-center justify-center gap-1 rounded-2xl border border-main/10 bg-black/5 px-2 text-xs font-bold text-main/75 transition-all hover:border-primary-500/30 hover:text-primary-500 active:scale-95 dark:bg-white/5">
+                <Banknote size={17} />{lang === 'en' ? 'Income' : 'รายได้'}
+              </button>
+            </div>
+          </motion.section>
+        )}
 
         <Reorder.Group 
           axis="y"

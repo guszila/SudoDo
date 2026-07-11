@@ -1,4 +1,4 @@
-import React, { useRef, useState, useEffect } from 'react';
+import { useRef, useState, useEffect } from 'react';
 import { motion } from 'framer-motion';
 import { format, isBefore, endOfDay, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
@@ -47,7 +47,7 @@ export default function TaskCard({
     setIsPressing(false);
   };
 
-  const handleClick = (e) => {
+  const handleClick = () => {
     if (isSelectionMode) {
       onToggleSelect(task.id);
     } else {

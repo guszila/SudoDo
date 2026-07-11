@@ -1,4 +1,3 @@
-import React from 'react';
 import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { useSwipeToClose } from '../../hooks/useSwipeToClose';
@@ -8,7 +7,8 @@ export default function ActionSheet({
   onClose, 
   options = [], // array of { label, icon, onClick, isDanger }
   children,
-  title
+  title,
+  lang = 'th'
 }) {
   const { dragProps, handleProps } = useSwipeToClose(onClose);
 
@@ -25,6 +25,7 @@ export default function ActionSheet({
             className="fixed inset-0 backdrop-blur-md z-[90]"
             style={{ backgroundColor: 'var(--overlay-bg)' }}
             onClick={onClose}
+            aria-hidden="true"
           />
           <motion.div 
             initial={{ opacity: 0, y: '100%' }}
@@ -32,16 +33,23 @@ export default function ActionSheet({
             exit={{ opacity: 0, y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             {...dragProps}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="action-sheet-title"
+            aria-label={title ? undefined : (lang === 'en' ? 'Actions' : 'การดำเนินการ')}
+            tabIndex={-1}
+            onKeyDown={(event) => { if (event.key === 'Escape') onClose(); }}
             className="fixed bottom-0 left-0 right-0 z-[100] liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl px-4 pb-8 pt-4 max-h-[86vh] overflow-y-auto overscroll-contain md:max-w-md md:mx-auto md:rounded-[28px] md:border"
           >
             <div {...handleProps} />
-            {title && <h3 className="text-xl font-bold text-main mb-4 text-center">{title}</h3>}
+            {title && <h3 id="action-sheet-title" className="text-xl font-bold text-main mb-4 text-center">{title}</h3>}
             
             <div className="flex flex-col gap-2">
               {children}
               {options.map((option, idx) => (
                 <button
                   key={idx}
+                  type="button"
                   onClick={() => {
                     option.onClick();
                     onClose();
@@ -58,10 +66,11 @@ export default function ActionSheet({
               ))}
               
               <button
+                type="button"
                 onClick={onClose}
                 className="mt-2 p-4 w-full rounded-2xl bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 transition-all font-bold text-main active:scale-95 text-center"
               >
-                ยกเลิก
+                {lang === 'en' ? 'Cancel' : 'ยกเลิก'}
               </button>
             </div>
           </motion.div>

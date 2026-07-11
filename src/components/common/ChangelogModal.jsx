@@ -1,4 +1,3 @@
-import React from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Sparkles, Bug, Palette, Rocket, LayoutDashboard } from 'lucide-react';
 import pkg from '../../../package.json';
@@ -62,6 +61,11 @@ export default function ChangelogModal({ isOpen, onClose, lang = 'th' }) {
             exit={{ opacity: 0, y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             {...dragProps}
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="changelog-modal-title"
+            tabIndex={-1}
+            onKeyDown={(event) => { if (event.key === 'Escape') onClose(); }}
             className="w-full max-w-md max-h-[86vh] flex flex-col bg-white dark:bg-[#1a1a2e] rounded-t-[32px] sm:rounded-[32px] shadow-2xl overflow-hidden relative border border-x-0 border-b-0 sm:border-black/5 dark:sm:border-white/10"
             onClick={e => e.stopPropagation()}
           >
@@ -75,14 +79,16 @@ export default function ChangelogModal({ isOpen, onClose, lang = 'th' }) {
                   <Sparkles size={24} className="text-white animate-pulse" />
                 </div>
                 <div>
-                  <h2 className="text-2xl font-black text-main leading-tight">
+                  <h2 id="changelog-modal-title" className="text-2xl font-black text-main leading-tight">
                     {lang === 'en' ? "What's New" : 'มีอะไรใหม่?'}
                   </h2>
                   <p className="text-xs font-bold text-primary-500">เวอร์ชันล่าสุด v{pkg.version}</p>
                 </div>
               </div>
               <button 
+                type="button"
                 onClick={onClose}
+                aria-label={lang === 'en' ? 'Close changelog' : 'ปิดบันทึกการเปลี่ยนแปลง'}
                 className="p-2 bg-black/5 dark:bg-white/10 text-main rounded-full hover:bg-black/10 dark:hover:bg-white/20 transition-colors"
               >
                 <X size={20} />

@@ -14,7 +14,6 @@ import {
   serverTimestamp,
   doc,
   setDoc,
-  getDoc,
   writeBatch,
 } from 'firebase/firestore';
 import { db } from '../firebase';

@@ -1,15 +1,14 @@
-import React, { useState, useEffect } from 'react';
+import { useState, useEffect } from 'react';
 import { updateProfile, sendEmailVerification } from 'firebase/auth';
 import { useNavigate } from 'react-router-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { 
-  ArrowLeft, User, Loader2, Check, Lock, AlertTriangle, Camera, Mail, 
+  User, Loader2, Check, Lock, AlertTriangle, Camera, Mail,
   Send, Calendar, Flame, Award, Medal, CheckCircle2, X, Users, Settings,
   ZoomIn, ZoomOut, Palette
 } from 'lucide-react';
 
 import { useTasks } from '../contexts/TasksContext';
-import { useToast } from '../contexts/ToastContext';
 import { BADGE_LIST, getUnlockedBadges, calculateStreaks, getGamificationStats } from '../utils/gamification';
 import { getPublicProfile, updatePublicProfileSettings, syncPublicProfile } from '../services/friendService';
 import { useSwipeToClose } from '../hooks/useSwipeToClose';
@@ -25,7 +24,6 @@ const PRESET_BANNERS = [
 
 export default function ProfilePage({ user, lang = 'th' }) {
   const navigate = useNavigate();
-  const { showToast } = useToast();
   
   const [activeTab, setActiveTab] = useState('private'); // 'private', 'public', 'achievements'
   const [badgePage, setBadgePage] = useState(0);
@@ -57,6 +55,8 @@ export default function ProfilePage({ user, lang = 'th' }) {
 
   useEffect(() => {
     if (user) {
+      // Hydrate the editable profile form from the authenticated user.
+      // eslint-disable-next-line react-hooks/set-state-in-effect
       setDisplayName(user.displayName || '');
       setAvatarUrl(localStorage.getItem(`avatar_${user.uid}`) || '');
       
@@ -240,7 +240,7 @@ export default function ProfilePage({ user, lang = 'th' }) {
       } else {
         setErrorMsg('เกิดข้อผิดพลาดในการบันทึกโปรไฟล์สาธารณะ');
       }
-    } catch (err) {
+    } catch {
       setErrorMsg('เกิดข้อผิดพลาดในการบันทึกโปรไฟล์สาธารณะ');
     } finally {
       setIsSavingPublic(false);

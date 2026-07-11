@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 import { getUserSettings, updateUserSettings } from '../services/userService';
 import { useToast } from './ToastContext';
 
@@ -27,19 +27,6 @@ export function SettingsProvider({ children, user }) {
 
   useEffect(() => {
     if (!user) {
-      setSettings({
-        socialSecurity: false,
-        showInIncome: false,
-        darkMode: false,
-        themeMode: 'system',
-        language: 'th',
-        weekStart: 'อาทิตย์',
-        notifyTasks: true,
-        notifyShifts: true,
-        notifyStreak: false,
-        jobs: []
-      });
-      setIsLoading(false);
       return;
     }
 

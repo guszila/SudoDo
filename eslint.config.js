@@ -18,4 +18,16 @@ export default defineConfig([
       parserOptions: { ecmaFeatures: { jsx: true } },
     },
   },
+  {
+    files: ['generate-icons.js'],
+    languageOptions: { globals: globals.node },
+  },
+  {
+    files: ['public/OneSignalSDKWorker.js'],
+    languageOptions: { globals: globals.serviceworker },
+  },
+  {
+    files: ['src/contexts/*.{js,jsx}'],
+    rules: { 'react-refresh/only-export-components': 'off' },
+  },
 ])

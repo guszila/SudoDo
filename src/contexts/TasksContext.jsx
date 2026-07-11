@@ -1,4 +1,4 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import { createContext, useContext, useState, useEffect } from 'react';
 
 import { subscribeToTasks, saveTask } from '../services/taskService';
 import { syncTasksToGAS } from '../services/syncService';
@@ -89,12 +89,9 @@ export const TasksProvider = ({ children, user }) => {
 
   useEffect(() => {
     if (!user) {
-      setTasks([]);
-      setIsLoading(false);
       return;
     }
 
-    setIsLoading(true);
     const unsubscribe = subscribeToTasks(user.uid, (data) => {
       try {
         const formattedData = data.map((item) => ({

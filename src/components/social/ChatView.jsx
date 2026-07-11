@@ -1,6 +1,6 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
-import { Send, X, Briefcase, Clock, ChevronDown, ChevronUp, Paperclip, CheckCircle2, CalendarDays } from 'lucide-react';
+import { Send, X, Clock, ChevronDown, ChevronUp, CheckCircle2, CalendarDays } from 'lucide-react';
 import { format, startOfDay } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { getChatId, subscribeToChat, sendMessage, sendShiftMessage, markMessagesAsRead } from '../../services/chatService';
@@ -170,7 +170,7 @@ const MessageBubble = ({ msg, isMine, showAvatar, lang = 'th' }) => {
 };
 
 // ── Shift Picker — upcoming shifts only ───────────────────
-const ShiftPicker = ({ tasks, onSelect, onClose, lang }) => {
+const ShiftPicker = ({ tasks, onSelect, onClose }) => {
   const today = startOfDay(new Date());
 
   const upcoming = tasks

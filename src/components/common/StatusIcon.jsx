@@ -1,4 +1,3 @@
-import React from 'react';
 import { CheckCircle2, Clock, CircleDashed } from 'lucide-react';
 import { TASK_STATUS } from '../../constants';
 

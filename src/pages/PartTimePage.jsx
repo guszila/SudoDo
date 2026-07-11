@@ -1,9 +1,9 @@
-import React, { useState, useMemo, useRef } from 'react';
+import { useState, useMemo, useRef, useEffect } from 'react';
 
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
-import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameMonth, isSameDay, parseISO } from 'date-fns';
+import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Clock, CheckCircle2, Check, Plus, ArrowLeft, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, PieChart, GripHorizontal, Flame, ChevronRight, ChevronDown, Banknote, Receipt, Calculator } from 'lucide-react';
+import { CheckCircle2, Check, Plus, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, GripHorizontal, Flame, ChevronDown, Banknote, Receipt, Calculator } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -21,7 +21,6 @@ import { saveTask } from '../services/taskService';
 import { calcSSO } from '../utils/socialSecurity';
 import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE, DEFAULT_TASK_VALUES } from '../constants';
 import { translations } from '../i18n';
-import confetti from 'canvas-confetti';
 import { useSwipeToClose } from '../hooks/useSwipeToClose';
 
 const JOB_COLORS = {
@@ -39,6 +38,26 @@ export default function PartTimePage({ user, lang = 'en' }) {
   const { tasks: allTasks, isLoading: isTasksLoading } = useTasks();
   const { settings } = useSettings();
   const navigate = useNavigate();
+  const weekStartsOn = settings?.weekStart === 'จันทร์' || settings?.weekStart === 'Monday' ? 1 : 0;
+  const ui = lang === 'en'
+    ? {
+        shifts: 'Shifts', summary: 'Income summary', editWidgets: 'Edit widgets', done: 'Done', addWidget: 'Add widget',
+        select: 'Select', cancelSelect: 'Cancel selection', list: 'List', calendar: 'Calendar',
+        extraIncome: 'Extra income', editExtraIncome: 'Edit extra income', addExtraIncome: 'Add extra income',
+        manageJobs: 'Manage workplaces', selectWorkDate: 'Select workdays', selectWorkDateHelp: 'If no days are selected, a shift is added for every day in the date range.',
+        noDateData: 'No shifts on', chooseWidgets: 'Choose widgets', cancel: 'Cancel', save: 'Save',
+        editSelected: 'Edit selected shifts', bulkHelp: 'Choose the fields to change for the selected shifts (leave blank to keep unchanged)',
+        addOther: 'Add other item', noMonthData: 'No data for this month'
+      }
+    : {
+        shifts: 'กะงาน', summary: 'สรุปรายได้', editWidgets: 'แก้ไข Widget', done: 'เสร็จสิ้น', addWidget: 'เพิ่ม Widget',
+        select: 'เลือก', cancelSelect: 'ยกเลิกเลือก', list: 'ลิสต์', calendar: 'ปฏิทิน',
+        extraIncome: 'รายได้พิเศษ', editExtraIncome: 'แก้ไขรายได้พิเศษ', addExtraIncome: 'เพิ่มรายได้พิเศษ',
+        manageJobs: 'จัดการบริษัท', selectWorkDate: 'เลือกวันที่ทำงาน', selectWorkDateHelp: 'ถ้าไม่เลือกวัน ระบบจะเพิ่มกะให้ทุกวันในช่วงวันที่ที่เลือก',
+        noDateData: 'ไม่มีกะงานในวันที่', chooseWidgets: 'เลือก Widget ที่ต้องการแสดง', cancel: 'ยกเลิก', save: 'บันทึก',
+        editSelected: 'แก้ไขกะที่เลือก', bulkHelp: 'เลือกข้อมูลที่ต้องการเปลี่ยนสำหรับกะที่เลือก (ปล่อยว่างไว้ถ้าไม่ต้องการเปลี่ยน)',
+        addOther: 'เพิ่มรายการอื่น', noMonthData: 'ไม่มีข้อมูลเดือนนี้'
+      };
   
   const tasks = useMemo(() => {
     const partTimeTasks = allTasks.filter(t => t.isPartTime);
@@ -71,7 +90,6 @@ export default function PartTimePage({ user, lang = 'en' }) {
   });
   const previousShiftsState = useRef(null);
 
-  const [achievementToShow, setAchievementToShow] = useState(null);
   const [showAddForm, setShowAddForm] = useState(false);
   const [showAddExtraForm, setShowAddExtraForm] = useState(false);
   const [showExtraActionSheet, setShowExtraActionSheet] = useState(false);
@@ -114,11 +132,11 @@ export default function PartTimePage({ user, lang = 'en' }) {
   const widgetSelectorSheet = useSwipeToClose(() => setShowWidgetSelector(false));
   const goalSheet = useSwipeToClose(() => setShowGoalModal(false));
 
-  React.useEffect(() => {
+  useEffect(() => {
     localStorage.setItem('income_dashboard', JSON.stringify(enabledWidgets));
   }, [enabledWidgets]);
 
-  React.useEffect(() => {
+  useEffect(() => {
     localStorage.setItem('income_goal', JSON.stringify(incomeGoal));
   }, [incomeGoal]);
 
@@ -204,8 +222,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
     }
     
     try {
+      let allSucceeded = true;
       for (const t of updates) {
-        await saveTask('EDIT', t, user?.uid);
+        const result = await saveTask('EDIT', t, user?.uid);
+        if (!result) allSucceeded = false;
+      }
+      if (!allSucceeded) {
+        showToast(lang === 'en' ? 'Some shifts could not be updated.' : 'อัปเดตกะงานบางรายการไม่สำเร็จ', { isError: true });
+        return;
       }
       setShowBulkEditForm(false);
       setIsBulkEditMode(false);
@@ -232,13 +256,13 @@ export default function PartTimePage({ user, lang = 'en' }) {
       const targetDate = parseISO(`${selectedMonth}-01T00:00:00`);
       const monthStart = startOfMonth(targetDate);
       const monthEnd = endOfMonth(monthStart);
-      const startDate = startOfWeek(monthStart, { weekStartsOn: 1 });
-      const endDate = endOfWeek(monthEnd, { weekStartsOn: 1 });
+       const startDate = startOfWeek(monthStart, { weekStartsOn });
+       const endDate = endOfWeek(monthEnd, { weekStartsOn });
       return eachDayOfInterval({ start: startDate, end: endDate });
-    } catch(e) {
+    } catch {
       return [];
     }
-  }, [selectedMonth, viewMode]);
+  }, [selectedMonth, viewMode, weekStartsOn]);
 
   // Derived state
   const { upcomingTasks, historyTasks } = useMemo(() => {
@@ -269,7 +293,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       filteredTasks = sourceTasks.filter(t => {
         try {
           return format(new Date(t.start), 'yyyy-MM-dd') === format(selectedDate, 'yyyy-MM-dd');
-        } catch(e) { return false; }
+        } catch { return false; }
       });
     } else if (viewMode === 'calendar' && !selectedDate) {
       filteredTasks = [];
@@ -282,7 +306,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       groups[title].tasks.push(task);
     });
     return Object.entries(groups).sort((a, b) => a[0].localeCompare(b[0]));
-  }, [upcomingTasks, historyTasks, activeTab, settings.jobs]);
+  }, [upcomingTasks, historyTasks, activeTab, selectedDate, viewMode, settings.jobs]);
 
   // Weekly grouping for list view
   const weeklyGroupedTasks = useMemo(() => {
@@ -292,8 +316,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
     sourceTasks.forEach(task => {
       try {
         const taskDate = new Date(task.start);
-        const wStart = startOfWeek(taskDate, { weekStartsOn: 1 }); // Monday
-        const wEnd = endOfWeek(taskDate, { weekStartsOn: 1 });
+         const wStart = startOfWeek(taskDate, { weekStartsOn });
+         const wEnd = endOfWeek(taskDate, { weekStartsOn });
         const weekKey = format(wStart, 'yyyy-MM-dd');
 
         if (!weekMap[weekKey]) {
@@ -326,7 +350,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
           ? 0
           : (task.isExtraIncome ? (Number(task.amount) || 0) : earnings);
         if (isCompleted && !task.isExpense && !task.isExtraIncome) weekMap[weekKey].completedCount++;
-      } catch {}  
+      } catch { /* Ignore malformed task dates. */ }
     });
 
     return Object.values(weekMap).sort((a, b) =>
@@ -334,7 +358,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         ? a.weekStart - b.weekStart
         : b.weekStart - a.weekStart
     );
-  }, [upcomingTasks, historyTasks, activeTab, settings.jobs]);
+  }, [upcomingTasks, historyTasks, activeTab, weekStartsOn]);
 
   const toggleWeek = (weekKey) => {
     setCollapsedWeeks(prev => {
@@ -370,7 +394,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       if (!breakdown[monthKey][jobTitle]) breakdown[monthKey][jobTitle] = { job, total: 0, deductsSSO };
       
       let taskEarned = 0;
-      let hours = 0;
+      let hours;
       
       if (t.isExtraIncome) {
         taskEarned = Number(t.amount) || 0;
@@ -421,7 +445,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       const expMonthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
       if (expMonthKey !== selectedMonth) return;
       
-      let amt = 0;
+      let amt;
       if (t.isPercentage) {
         const percentage = Number(t.amount) || 0;
         amt = (earned + pending) * (percentage / 100);
@@ -450,7 +474,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       netTotal: earned + pending - ssoDeducted - expenseTotal,
       jobBreakdown
     };
-  }, [tasks, monthlyGross, settings.socialSecurity, selectedMonth]);
+  }, [tasks, monthlyGross, selectedMonth]);
 
   const extraStats = useMemo(() => {
     let shiftCount = 0;
@@ -459,7 +483,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
     tasks.forEach(t => {
       if (t.isExpense || t.isExtraIncome) return;
       shiftCount++;
-      let hours = 0;
+      let hours;
       if (t.actualStart && t.actualEnd) {
         hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
       } else {
@@ -553,64 +577,12 @@ export default function PartTimePage({ user, lang = 'en' }) {
     { id: 'chart', label: 'กราฟรายเดือน (Monthly Chart)' }
   ];
 
-  React.useEffect(() => {
-    return; // TEMPORARILY DISABLED
-    if (isTasksLoading) return;
-    
-    const shown = JSON.parse(localStorage.getItem('achievements_shown') || '{}');
-    const goalAmount = Number(incomeGoal.goalAmount) || 0;
-    const now = new Date();
-    const currentMonthKey = format(now, 'yyyy-MM');
-    const currentMonthIncome = monthlyGross.earned[currentMonthKey] || 0;
-    
-    const milestones = [100, 30, 14, 7, 3];
-    for (const m of milestones) {
-       if (extraStats.currentWorkStreak >= m) {
-           const key = `work_streak_${m}`;
-           if (!shown[key]) {
-               setAchievementToShow({
-                   type: 'streak',
-                   title: '🔥 ไฟลุกซู่!',
-                   message: `ยอดเยี่ยม! คุณทำงาน Part-Time ต่อเนื่องมา ${m} วันแล้ว`,
-                   key
-               });
-               return; 
-           }
-           break; 
-       }
-    }
-    
-    if (currentMonthIncome >= goalAmount && goalAmount > 0) {
-        const key = `goal_${currentMonthKey}`;
-        if (!shown[key]) {
-            setAchievementToShow({
-                type: 'goal',
-                title: '🏆 ทะลุเป้า!',
-                message: `คุณทำรายได้เดือนนี้ทะลุเป้า ฿${goalAmount.toLocaleString()} แล้ว!`,
-                key
-            });
-        }
-    }
-  }, [extraStats.currentWorkStreak, monthlyGross, isTasksLoading, incomeGoal]);
-
-  React.useEffect(() => {
-    // if (achievementToShow) {
-    //    confetti({
-    //        particleCount: 150,
-    //        spread: 70,
-    //        origin: { y: 0.6 },
-    //        colors: ['#3b82f6', '#10b981', '#f59e0b', '#ef4444', '#8b5cf6'],
-    //        zIndex: 1000
-    //    });
-    // }
-  }, [achievementToShow]);
-
   const renderWidgetContent = (id) => {
     switch(id) {
       case 'net':
         return (
           <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-purple-500 h-full">
-            <p className="text-xs text-main opacity-70 font-medium mb-1">รายได้สุทธิ (Net Income)</p>
+            <p className="text-xs text-main opacity-70 font-medium mb-1">{lang === 'en' ? 'Net income' : 'รายได้สุทธิ'}</p>
             <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">฿{stats.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
         );
@@ -679,7 +651,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                   </BarChart>
                </ResponsiveContainer>
              ) : (
-               <div className="flex-1 flex items-center justify-center text-sm opacity-50">ไม่มีข้อมูล</div>
+               <div className="flex-1 flex items-center justify-center text-sm opacity-50">{lang === 'en' ? 'No data' : 'ไม่มีข้อมูล'}</div>
              )}
           </div>
         );
@@ -741,7 +713,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
             ) : (
               <div className="space-y-2">
                 {expensesList.map(exp => {
-                   let amt = 0;
+                   let amt;
                    if (exp.isPercentage) {
                      const d = new Date(exp.start);
                      const monthKey = !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}` : null;
@@ -793,14 +765,6 @@ export default function PartTimePage({ user, lang = 'en' }) {
     }
   };
 
-  const uniqueTitles = useMemo(() => {
-    const titles = new Set();
-    tasks.forEach(t => {
-      if (t.title) titles.add(t.title);
-    });
-    return Array.from(titles);
-  }, [tasks]);
-
   const handleAddShift = async (e) => {
     e.preventDefault();
     
@@ -823,9 +787,6 @@ export default function PartTimePage({ user, lang = 'en' }) {
           endDateObj.setDate(endDateObj.getDate() + 1);
         }
         
-        const shiftHours = (endDateObj - new Date(startDateTime)) / (1000 * 60 * 60);
-        const canBreak = true;
-
         shiftsToAdd.push({
           title: formData.title,
           description: formData.note || '',
@@ -844,13 +805,15 @@ export default function PartTimePage({ user, lang = 'en' }) {
     }
 
     if (shiftsToAdd.length === 0) {
-      alert("ไม่พบวันที่ตรงกับเงื่อนไขในช่วงเวลาที่เลือก");
+      alert(lang === 'en' ? 'No dates matched the selected range.' : 'ไม่พบวันที่ตรงกับเงื่อนไขในช่วงเวลาที่เลือก');
       setIsMutating(false);
       return;
     }
     
     if (shiftsToAdd.length > 31) {
-       if(!window.confirm(`คุณกำลังจะสร้างตารางกะงานทั้งหมด ${shiftsToAdd.length} วัน แน่ใจหรือไม่?`)) {
+       if(!window.confirm(lang === 'en'
+         ? `You are about to create ${shiftsToAdd.length} shifts. Continue?`
+         : `คุณกำลังจะสร้างตารางกะงานทั้งหมด ${shiftsToAdd.length} วัน แน่ใจหรือไม่?`)) {
            setIsMutating(false);
            return;
        }
@@ -869,7 +832,12 @@ export default function PartTimePage({ user, lang = 'en' }) {
       shiftCount: shiftsToAdd.length
     };
 
-    await Promise.all(shiftsToAdd.map(task => saveTask('ADD', task, user.uid)));
+    const results = await Promise.all(shiftsToAdd.map(task => saveTask('ADD', task, user.uid)));
+    if (results.some(result => !result)) {
+      showToast(lang === 'en' ? 'Some shifts could not be saved.' : 'บันทึกกะงานบางรายการไม่สำเร็จ', { isError: true });
+      setIsMutating(false);
+      return;
+    }
     setShowAddForm(false);
     setSuccessShiftData(successData);
     setIsMutating(false);
@@ -919,7 +887,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
     if (extraFormData.id) {
       const result = await saveTask('EDIT', { ...extraTask, id: extraFormData.id }, user.uid);
       if (!result) throw new Error('Save failed');
-      showToast('บันทึกการแก้ไขเรียบร้อยแล้ว');
+      showToast(lang === 'en' ? 'Changes saved.' : 'บันทึกการแก้ไขเรียบร้อยแล้ว');
     } else {
       const result = await saveTask('ADD', extraTask, user.uid);
       if (!result) throw new Error('Save failed');
@@ -964,7 +932,13 @@ export default function PartTimePage({ user, lang = 'en' }) {
       status: TASK_STATUS.DONE
     };
     setIsMutating(true);
-    await saveTask('EDIT', updated, user.uid);
+    const result = await saveTask('EDIT', updated, user.uid);
+    if (!result) {
+      showToast(lang === 'en' ? 'Could not mark this shift as done.' : 'บันทึกสถานะกะงานไม่สำเร็จ', { isError: true });
+      setIsMutating(false);
+      return;
+    }
+    showToast(lang === 'en' ? 'Shift marked as done.' : 'บันทึกกะงานว่าสำเร็จแล้ว');
     setIsMutating(false);
   };
 
@@ -975,26 +949,40 @@ export default function PartTimePage({ user, lang = 'en' }) {
     // Backup for undo
     const backupTask = { ...taskToDelete };
     
-    await saveTask('DELETE', { id: taskToDelete.id }, user.uid);
+    const result = await saveTask('DELETE', { id: taskToDelete.id }, user.uid);
     setIsMutating(false);
+    if (!result) {
+      showToast(lang === 'en' ? 'Could not delete this shift.' : 'ลบกะงานไม่สำเร็จ', { isError: true });
+      return;
+    }
     
     showToast('ลบเรียบร้อยแล้ว', {
       duration: 5000,
       onUndo: async () => {
-        await saveTask('ADD', backupTask, user.uid);
+        const undoResult = await saveTask('ADD', backupTask, user.uid);
+        if (!undoResult) showToast(lang === 'en' ? 'Could not undo the deletion.' : 'ยกเลิกการลบไม่สำเร็จ', { isError: true });
       }
     });
   };
 
   const handleEditSave = async (taskData) => {
+    setIsMutating(true);
+    let result;
+    if (editingTask) {
+      result = await saveTask('EDIT', { ...taskData, id: editingTask.id }, user.uid);
+    } else {
+      result = await saveTask('ADD', taskData, user.uid);
+    }
+    if (!result) {
+      showToast(lang === 'en' ? 'Could not save this shift.' : 'บันทึกกะงานไม่สำเร็จ', { isError: true });
+      setIsMutating(false);
+      return;
+    }
     setIsModalOpen(false);
     setEditingTask(null);
-    setIsMutating(true);
-    if (editingTask) {
-      await saveTask('EDIT', { ...taskData, id: editingTask.id }, user.uid);
-    } else {
-      await saveTask('ADD', taskData, user.uid);
-    }
+    showToast(editingTask
+      ? (lang === 'en' ? 'Shift updated.' : 'อัปเดตกะงานแล้ว')
+      : (lang === 'en' ? 'Shift added.' : 'เพิ่มกะงานแล้ว'));
     setIsMutating(false);
   };
 
@@ -1019,14 +1007,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
   };
 
   const fDate = (d) => format(d, 'EEEEที่ d MMM yyyy', { locale: th });
-  const fMonth = (d) => format(d, 'MMMM yyyy', { locale: th });
   const fTime = (d) => format(d, 'HH:mm');
   const activeTasks = activeTab === 'upcoming' ? upcomingTasks : historyTasks;
 
   if (isTasksLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-gray-50 dark:bg-[#121212]">
+      <div role="status" aria-live="polite" className="min-h-screen flex flex-col gap-3 items-center justify-center bg-gray-50 dark:bg-[#121212] text-main/60">
         <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
+        <span className="text-sm font-medium">{lang === 'en' ? 'Loading shifts...' : 'กำลังโหลดกะงาน...'}</span>
       </div>
     );
   }
@@ -1066,7 +1054,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
             mainTab === 'shifts' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300' : 'text-main/50 hover:text-main'
           }`}
         >
-          <CalendarDays size={14} /> กะงาน
+          <CalendarDays size={14} /> {ui.shifts}
         </button>
         <button
           onClick={() => setMainTab('summary')}
@@ -1074,7 +1062,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
             mainTab === 'summary' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300' : 'text-main/50 hover:text-main'
           }`}
         >
-          <BarChart2 size={14} /> สรุปรายได้
+          <BarChart2 size={14} /> {ui.summary}
         </button>
       </div>
 
@@ -1100,7 +1088,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
           onClick={() => setIsEditWidgetMode(!isEditWidgetMode)} 
           className={`text-sm px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 ${isEditWidgetMode ? 'bg-primary-500 text-white shadow-md' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20'}`}
         >
-          {isEditWidgetMode ? 'เสร็จสิ้น' : <><Settings size={14}/> แก้ไข Widget</>}
+          {isEditWidgetMode ? ui.done : <><Settings size={14}/> {ui.editWidgets}</>}
         </button>
       </div>
 
@@ -1153,7 +1141,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
              onClick={() => setShowWidgetSelector(true)}
              className="w-full py-4 border-2 border-dashed border-main/20 rounded-2xl flex items-center justify-center gap-2 text-main/60 hover:text-main hover:border-main/40 transition-colors bg-white/10"
            >
-             <Plus size={20} /> เพิ่ม Widget
+             <Plus size={20} /> {ui.addWidget}
            </button>
            <p className="text-center text-xs opacity-50 mt-2">แตะ ✕ เพื่อลบ Widget ออกจากหน้าจอ</p>
          </motion.div>
@@ -1163,9 +1151,35 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
 
 
-      <div className="flex flex-col md:flex-row justify-end items-center mb-5 px-2 gap-3">
-        <div className="flex gap-2 w-full md:w-auto">
-            <button 
+      <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-5 px-2 gap-3">
+        <div role="tablist" aria-label={lang === 'en' ? 'Shift status' : 'สถานะกะงาน'} className="grid grid-cols-2 gap-1.5 w-full md:w-auto bg-black/5 dark:bg-white/5 rounded-2xl p-1.5">
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'upcoming'}
+            aria-pressed={activeTab === 'upcoming'}
+            onClick={() => setActiveTab('upcoming')}
+            className={`relative min-w-0 px-3 md:px-4 py-2.5 rounded-xl transition-colors text-xs font-bold truncate ${activeTab === 'upcoming' ? 'text-primary-600 dark:text-primary-300' : 'text-main/60 hover:text-main'}`}
+          >
+            {activeTab === 'upcoming' && <motion.span layoutId="active-shift-tab" transition={{ type: 'spring', stiffness: 420, damping: 32 }} className="absolute inset-0 rounded-xl bg-white dark:bg-white/20 shadow-sm" />}
+            <span className="relative z-10 inline-flex items-center gap-1.5"><CalendarDays size={14} />{t.upcoming}</span>
+          </button>
+          <button
+            type="button"
+            role="tab"
+            aria-selected={activeTab === 'history'}
+            aria-pressed={activeTab === 'history'}
+            onClick={() => setActiveTab('history')}
+            className={`relative min-w-0 px-3 md:px-4 py-2.5 rounded-xl transition-colors text-xs font-bold truncate ${activeTab === 'history' ? 'text-primary-600 dark:text-primary-300' : 'text-main/60 hover:text-main'}`}
+          >
+            {activeTab === 'history' && <motion.span layoutId="active-shift-tab" transition={{ type: 'spring', stiffness: 420, damping: 32 }} className="absolute inset-0 rounded-xl bg-white dark:bg-white/20 shadow-sm" />}
+            <span className="relative z-10 inline-flex items-center gap-1.5"><History size={14} />{t.history}</span>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 md:flex gap-2 w-full md:w-auto">
+            <button
+              type="button"
               onClick={() => { 
                 if (showAddExtraForm && extraFormType === 'expense') {
                   setShowAddExtraForm(false);
@@ -1173,11 +1187,12 @@ export default function PartTimePage({ user, lang = 'en' }) {
                   openExtraItemForm('expense');
                 }
               }}
-              className={`flex-1 md:flex-none justify-center items-center gap-2 flex px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-sm ${showAddExtraForm && extraFormType === 'expense' ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-white/20 text-red-600 dark:text-red-400 hover:bg-red-500/10'}`}
+              className={`min-w-0 justify-center items-center gap-2 flex px-2 md:px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-xs md:text-sm truncate ${showAddExtraForm && extraFormType === 'expense' ? 'bg-red-500 text-white hover:bg-red-600' : 'bg-white/20 text-red-600 dark:text-red-400 hover:bg-red-500/10'}`}
             >
               <Plus size={16} /> {showAddExtraForm && extraFormType === 'expense' ? t.close : t.addExpense}
             </button>
-            <button 
+            <button
+              type="button"
               onClick={() => { 
                 if (showAddExtraForm && extraFormType === 'income') {
                   setShowAddExtraForm(false);
@@ -1185,13 +1200,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
                   openExtraItemForm('income');
                 }
               }}
-              className={`flex-1 md:flex-none justify-center items-center gap-2 flex px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-sm ${showAddExtraForm && extraFormType === 'income' ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-white/20 text-green-600 dark:text-green-400 hover:bg-green-500/10'}`}
+              className={`min-w-0 justify-center items-center gap-2 flex px-2 md:px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-xs md:text-sm truncate ${showAddExtraForm && extraFormType === 'income' ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-white/20 text-green-600 dark:text-green-400 hover:bg-green-500/10'}`}
             >
-              <Banknote size={16} /> {showAddExtraForm && extraFormType === 'income' ? t.close : 'รายได้พิเศษ'}
+              <Banknote size={16} /> {showAddExtraForm && extraFormType === 'income' ? t.close : ui.extraIncome}
             </button>
-            <button 
+            <button
+              type="button"
               onClick={() => { setShowAddForm(!showAddForm); setShowAddExtraForm(false); }}
-              className={`flex-1 md:flex-none justify-center items-center gap-2 flex px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-sm ${showAddForm ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-white/20 text-green-600 dark:text-green-400 hover:bg-green-500/10'}`}
+              className={`min-w-0 col-span-2 md:col-span-1 justify-center items-center gap-2 flex px-2 md:px-4 py-2.5 font-bold rounded-full transition-all shadow-md active:scale-95 text-xs md:text-sm truncate ${showAddForm ? 'bg-green-500 text-white hover:bg-green-600' : 'bg-white/20 text-green-600 dark:text-green-400 hover:bg-green-500/10'}`}
             >
               <Plus size={16} /> {showAddForm ? t.close : t.addShift}
             </button>
@@ -1209,7 +1225,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
               }}
               className={`px-3 md:px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap ${isBulkEditMode ? 'bg-primary-500 text-white shadow-md scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
             >
-              {isBulkEditMode ? 'ยกเลิกเลือก' : 'เลือก'}
+              {isBulkEditMode ? ui.cancelSelect : ui.select}
             </button>
             <button
               onClick={() => setViewMode('list')}
@@ -1221,7 +1237,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
               onClick={() => setViewMode('calendar')}
               className={`px-3 md:px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap ${viewMode === 'calendar' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300 scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
             >
-              <CalendarDays size={14} /> ปฏิทิน
+              <CalendarDays size={14} /> {ui.calendar}
             </button>
           </div>
         </div>
@@ -1255,7 +1271,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
               </button>
               
               <h3 className="font-bold text-xl text-main pr-8 flex items-center gap-2">
-                {extraFormType === 'income' ? <><Banknote className="text-green-500"/> {extraFormData.id ? 'แก้ไขรายได้พิเศษ' : 'เพิ่มรายได้พิเศษ'}</> : <><Receipt className="text-red-500"/> {extraFormData.id ? 'แก้ไขรายจ่าย' : t.addExpenseTitle}</>}
+                {extraFormType === 'income' ? <><Banknote className="text-green-500"/> {extraFormData.id ? ui.editExtraIncome : ui.addExtraIncome}</> : <><Receipt className="text-red-500"/> {extraFormData.id ? (lang === 'en' ? 'Edit expense' : 'แก้ไขรายจ่าย') : t.addExpenseTitle}</>}
               </h3>
               
               <form onSubmit={handleAddExtraItem} className="space-y-4">
@@ -1312,7 +1328,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     </button>
                   )}
                   <button type="submit" disabled={isMutating || isTasksLoading} className={`flex-1 py-4 text-white font-bold rounded-xl transition-colors shadow-lg active:scale-[0.98] ${extraFormType === 'income' ? 'bg-green-500 hover:bg-green-600 shadow-green-500/25' : 'bg-red-500 hover:bg-red-600 shadow-red-500/25'}`}>
-                    {extraFormData.id ? 'บันทึกการแก้ไข' : (extraFormType === 'income' ? 'บันทึกรายได้พิเศษ' : t.createExpense)}
+                    {extraFormData.id ? ui.save : (extraFormType === 'income' ? (lang === 'en' ? 'Save extra income' : 'บันทึกรายได้พิเศษ') : t.createExpense)}
                   </button>
                 </div>
               </form>
@@ -1322,7 +1338,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         {showAddForm && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-6">
             <form onSubmit={handleAddShift} className="liquid-glass-card p-6 space-y-5 border-2 border-primary-500/30 bg-primary-500/5">
-              <h3 className="font-bold text-main">เพิ่ม{t.upcoming} (สามารถเพิ่มหลายวันได้)</h3>
+              <h3 className="font-bold text-main">{lang === 'en' ? 'Add upcoming shifts (multiple days supported)' : `เพิ่ม${t.upcoming} (สามารถเพิ่มหลายวันได้)`}</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
                 <div className="col-span-1 md:col-span-2 mb-2">
@@ -1342,7 +1358,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     )})}
                     <button type="button" onClick={() => navigate('/settings', { state: { openSheet: 'manageJobs' } })} className="flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 border-dashed border-main/20 bg-transparent hover:bg-black/5 dark:hover:bg-white/5 transition-all snap-start shadow-sm">
                       <Plus className="text-main opacity-50 mb-1" size={24} />
-                      <span className="text-xs font-bold text-main opacity-50">จัดการบริษัท</span>
+                      <span className="text-xs font-bold text-main opacity-50">{ui.manageJobs}</span>
                     </button>
                   </div>
                   {!((settings.jobs || []).some(j => j.name === formData.title)) && (
@@ -1414,7 +1430,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                         style={{ backgroundColor: 'var(--glass-bg-input)' }}
                         placeholder="0"
                       />
-                      <span className={`text-sm font-bold transition-opacity ${!canTakeBreak ? 'opacity-30' : 'text-main/50'}`}>ชั่วโมง</span>
+                      <span className={`text-sm font-bold transition-opacity ${!canTakeBreak ? 'opacity-30' : 'text-main/70'}`}>ชั่วโมง</span>
                       {canTakeBreak && grossHrs > 0 && (
                         <div className="ml-auto flex items-center gap-2 px-3 py-2 rounded-xl bg-green-500/10 border border-green-500/20">
                           <span className="text-xs font-bold text-green-600 dark:text-green-400">
@@ -1432,8 +1448,8 @@ export default function PartTimePage({ user, lang = 'en' }) {
               })()}
 
               <div className="mb-4">
-                <label className="block text-sm font-medium text-main mb-1 opacity-80">เลือกวันที่ทำงาน</label>
-                <p className="text-xs text-main/45 mb-2">ถ้าไม่เลือกวัน ระบบจะเพิ่มกะให้ทุกวันในช่วงวันที่ที่เลือก</p>
+                <label className="block text-sm font-medium text-main mb-1 opacity-80">{ui.selectWorkDate}</label>
+                <p className="text-xs text-main/45 mb-2">{ui.selectWorkDateHelp}</p>
                 <div className="flex flex-wrap gap-2">
                   {daysOfWeek.map(day => (
                     <button
@@ -1506,11 +1522,25 @@ export default function PartTimePage({ user, lang = 'en' }) {
         )}
         
         {activeTasks.length === 0 && !isTasksLoading && (
-          <div className="text-center py-16 liquid-glass-card rounded-[24px]">
+          <div className="text-center py-16 px-6 liquid-glass-card rounded-[24px]">
              {activeTab === 'upcoming' ? <CalendarDays className="w-16 h-16 text-main opacity-20 mx-auto mb-4" /> : <History className="w-16 h-16 text-main opacity-20 mx-auto mb-4" />}
              <p className="text-main opacity-60 font-medium text-lg">
                {activeTab === 'upcoming' ? t.noUpcoming : t.noHistory}
              </p>
+             {activeTab === 'upcoming' && (
+               <>
+                 <p className="text-sm text-main/60 mt-2 mb-5">
+                   {lang === 'en' ? 'Add a shift to start tracking your income.' : 'เพิ่มกะงานเพื่อเริ่มติดตามรายได้ของคุณ'}
+                 </p>
+                 <button
+                   type="button"
+                   onClick={() => { setShowAddForm(true); setShowAddExtraForm(false); }}
+                   className="px-5 py-2.5 rounded-full bg-primary-500 text-white font-bold hover:bg-primary-600 transition-colors active:scale-95"
+                 >
+                   {t.addShift}
+                 </button>
+               </>
+             )}
           </div>
         )}
 
@@ -1524,7 +1554,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
               ))}
             </div>
             <div className="grid grid-cols-7 gap-1 md:gap-2">
-              {calendarDays.map((day, i) => {
+              {calendarDays.map((day) => {
                 const dayStr = format(day, 'yyyy-MM-dd');
                 const isCurrentMonth = format(day, 'yyyy-MM') === selectedMonth;
                 const isToday = isSameDay(day, new Date());
@@ -1532,7 +1562,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 
                 const allShifts = [...upcomingTasks, ...historyTasks];
                 const dayTasks = allShifts.filter(t => {
-                  try { return format(new Date(t.start), 'yyyy-MM-dd') === dayStr && !t.isExpense; } catch(e) { return false; }
+                  try { return format(new Date(t.start), 'yyyy-MM-dd') === dayStr && !t.isExpense; } catch { return false; }
                 });
                 
                 return (
@@ -1576,7 +1606,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
         {viewMode === 'calendar' && selectedDate && groupedTasks.length === 0 && (
           <div className="text-center py-8 text-main opacity-60 font-medium">
-            ไม่มีกะงานในวันที่ {format(selectedDate, 'd MMM', { locale: th })}
+            {ui.noDateData} {format(selectedDate, 'd MMM', { locale: th })}
           </div>
         )}
 
@@ -1606,7 +1636,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     >
                       <div className="flex-1 min-w-0">
                         <p className="font-bold text-sm text-main truncate">{task.title}</p>
-                        <p className="text-xs text-main/50">⏱ {fTime(task.start)} – {fTime(task.end)}</p>
+                        <p className="text-xs text-main/65">⏱ {fTime(task.start)} – {fTime(task.end)}</p>
                       </div>
                       <p className={`text-sm font-black flex-shrink-0 ${isCompleted ? 'text-green-500' : 'text-amber-500'}`}>
                         +฿{earnings.toLocaleString(undefined,{maximumFractionDigits:0})}
@@ -1659,7 +1689,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                           style={{ width: `${(weekGroup.completedCount / shiftTasks.length) * 100}%` }}
                         />
                       </div>
-                      <span className="text-[10px] text-main/40 font-medium">{weekGroup.completedCount}/{shiftTasks.length}</span>
+                        <span className="text-[10px] text-main/60 font-medium">{weekGroup.completedCount}/{shiftTasks.length}</span>
                     </div>
                   )}
                 </div>
@@ -1668,7 +1698,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                   <p className={`text-sm font-black ${activeTab === 'upcoming' ? 'text-amber-500' : 'text-green-500'}`}>
                     ฿{weekGroup.totalEarnings.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
                   </p>
-                  <p className="text-[10px] text-main/40">{weekGroup.tasks.length} รายการ</p>
+                  <p className="text-[10px] text-main/60">{weekGroup.tasks.length} รายการ</p>
                 </div>
               </button>
 
@@ -1798,7 +1828,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
                       {/* Extra income / expense rows */}
                       {extraTasks.map(task => {
-                        let expenseAmount = 0;
+                        let expenseAmount;
                         if (task.isPercentage && task.isExpense) {
                           const d = new Date(task.start);
                           const mk = !isNaN(d.getTime()) ? `${d.getFullYear()}-${String(d.getMonth()+1).padStart(2,'0')}` : null;
@@ -1812,7 +1842,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                           >
                             <div className="flex-1 min-w-0">
                               <p className="font-bold text-sm text-main truncate">{task.title}</p>
-                              <p className="text-[10px] text-main/40">
+                              <p className="text-[10px] text-main/60">
                                 {task.isExtraIncome && `${getIncomeCategoryLabel(task.incomeCategory)} · `}
                                 {task.isExtraIncome ? 'รายได้พิเศษ' : 'รายจ่าย'} · {fDate(task.start)}
                               </p>
@@ -1842,9 +1872,10 @@ export default function PartTimePage({ user, lang = 'en' }) {
         <ActionSheet 
           isOpen={!!actionTask}
           onClose={() => setActionTask(null)}
+          lang={lang}
           options={[
             {
-              label: 'แก้ไข',
+              label: lang === 'en' ? 'Edit' : 'แก้ไข',
               icon: <Edit size={20} />,
               onClick: () => { setEditingTask(actionTask); setIsModalOpen(true); }
             },
@@ -1859,9 +1890,12 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
         <ConfirmDialog 
           isOpen={!!deleteConfirmTask}
-          title="ยืนยันการลบ"
-          message={`ลบกะ '${deleteConfirmTask?.title}' ใช่ไหม?\nการกระทำนี้ไม่สามารถย้อนกลับได้`}
-          confirmText="ลบ"
+          lang={lang}
+          title={lang === 'en' ? 'Confirm deletion' : 'ยืนยันการลบ'}
+          message={lang === 'en'
+            ? `Delete shift '${deleteConfirmTask?.title}'?\nThis action cannot be undone.`
+            : `ลบกะ '${deleteConfirmTask?.title}' ใช่ไหม?\nการกระทำนี้ไม่สามารถย้อนกลับได้`}
+          confirmText={lang === 'en' ? 'Delete' : 'ลบ'}
           isDanger={true}
           onConfirm={() => { confirmDelete(deleteConfirmTask); setDeleteConfirmTask(null); }}
           onCancel={() => setDeleteConfirmTask(null)}
@@ -1884,7 +1918,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
               className="fixed bottom-0 left-0 right-0 z-50 liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl p-6 max-h-[86vh] overflow-y-auto overscroll-contain max-w-4xl mx-auto"
             >
               <div {...widgetSelectorSheet.handleProps} />
-              <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><LayoutGrid size={20}/> เลือก Widget ที่ต้องการแสดง</h3>
+              <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><LayoutGrid size={20}/> {ui.chooseWidgets}</h3>
               
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 {AVAILABLE_WIDGETS.map(w => {
@@ -1949,7 +1983,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                  </label>
                  
                  <div className="flex gap-3 mt-6">
-                   <button onClick={() => setShowGoalModal(false)} className="flex-1 py-3 bg-black/5 dark:bg-white/10 rounded-xl font-bold">ยกเลิก</button>
+                   <button onClick={() => setShowGoalModal(false)} className="flex-1 py-3 bg-black/5 dark:bg-white/10 rounded-xl font-bold">{ui.cancel}</button>
                    <button 
                      onClick={() => {
                        setIncomeGoal(tempGoal);
@@ -1957,7 +1991,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                      }} 
                      className="flex-1 py-3 bg-primary-500 text-white rounded-xl font-bold shadow-lg shadow-primary-500/30"
                    >
-                     บันทึก
+                     {ui.save}
                    </button>
                  </div>
                </div>
@@ -1992,13 +2026,13 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 }}
                 className="flex-1 py-3.5 rounded-xl text-sm md:text-base font-bold bg-black/5 dark:bg-white/10 text-main hover:bg-black/10 transition-colors"
               >
-                ยกเลิก
+                {ui.cancel}
               </button>
               <button
                 onClick={() => setShowBulkEditForm(true)}
                 className="flex-[2] py-3.5 rounded-xl text-sm md:text-base font-bold bg-primary-500 text-white shadow-lg shadow-primary-500/30 hover:bg-primary-600 transition-colors"
               >
-                แก้ไขกะที่เลือก ({selectedShifts.length})
+                {ui.editSelected} ({selectedShifts.length})
               </button>
             </div>
           </motion.div>
@@ -2006,14 +2040,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
       </AnimatePresence>
 
       {/* ActionSheet for Bulk Edit Options */}
-      <ActionSheet isOpen={showBulkEditForm} onClose={() => setShowBulkEditForm(false)} title="แก้ไขหลายรายการ">
+      <ActionSheet lang={lang} isOpen={showBulkEditForm} onClose={() => setShowBulkEditForm(false)} title={lang === 'en' ? 'Bulk edit shifts' : 'แก้ไขหลายรายการ'}>
         <div className="flex flex-col gap-5 px-1 max-h-[70vh] overflow-y-auto">
           <p className="text-sm text-center text-main opacity-70 mb-2">
-            เลือกข้อมูลที่ต้องการเปลี่ยนสำหรับ {selectedShifts.length} กะที่เลือก (ปล่อยว่างไว้ถ้าไม่ต้องการเปลี่ยน)
+            {ui.bulkHelp} ({selectedShifts.length})
           </p>
           
           <div>
-            <label className="block text-sm font-bold text-main mb-2 opacity-80">เลือกบริษัทใหม่</label>
+            <label className="block text-sm font-bold text-main mb-2 opacity-80">{lang === 'en' ? 'Choose a new workplace' : 'เลือกบริษัทใหม่'}</label>
             <select 
               value={bulkEditFormData.jobName} 
               onChange={e => setBulkEditFormData({...bulkEditFormData, jobName: e.target.value})} 
@@ -2064,13 +2098,13 @@ export default function PartTimePage({ user, lang = 'en' }) {
             onClick={handleBulkEditSave}
             className="w-full mt-4 py-4 bg-primary-500 text-white rounded-xl font-bold shadow-lg shadow-primary-500/30 hover:bg-primary-600 transition-colors"
           >
-            บันทึกการเปลี่ยนแปลง
+            {lang === 'en' ? 'Save changes' : 'บันทึกการเปลี่ยนแปลง'}
           </button>
         </div>
       </ActionSheet>
 
       {/* ActionSheet for Extra Item Type Selection */}
-      <ActionSheet isOpen={showExtraActionSheet} onClose={() => setShowExtraActionSheet(false)} title="เพิ่มรายการอื่น">
+      <ActionSheet lang={lang} isOpen={showExtraActionSheet} onClose={() => setShowExtraActionSheet(false)} title={ui.addOther}>
         <div className="flex flex-col gap-3 py-2">
           <button 
             onClick={() => openExtraItemForm('income')}
