@@ -124,7 +124,7 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user, verificatio
           textAlign: 'center',
           whiteSpace: 'nowrap',
         }}>
-          SUDODO VERIFIED
+          SUDODO STATEMENT
         </div>
       </div>
       {/* ─── HEADER BAND ─── */}
@@ -394,7 +394,7 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user, verificatio
         <div style={{ display: 'flex', alignItems: 'center', gap: '10px', textAlign: 'right' }}>
           <div>
             <p style={{ margin: '0 0 2px', fontSize: '10px', fontWeight: 800, color: GRAY_800 }}>
-              Scan to verify
+              รหัสอ้างอิงเอกสาร
             </p>
             <p style={{ margin: '0 0 2px', fontSize: '9px', color: GRAY_600, fontFamily: 'monospace' }}>
               {verification?.id || 'Generating...'}
@@ -403,13 +403,13 @@ const PdfStatement = forwardRef(({ month, summary, shiftsList, user, verificatio
               {verification?.hash ? `HASH ${verification.hash.slice(0, 16).toUpperCase()}` : ''}
             </p>
             <p style={{ margin: 0, fontSize: '8px', color: GRAY_400 }}>
-              {format(verification?.generatedAt ? new Date(verification.generatedAt) : new Date(), 'dd/MM/yyyy HH:mm', { locale: th })}
+              {format(new Date(), 'dd/MM/yyyy HH:mm', { locale: th })}
             </p>
           </div>
           {verification?.qrDataUrl && (
             <img
               src={verification.qrDataUrl}
-              alt="Document verification QR"
+              alt="Document reference QR"
               style={{
                 width: compactLevel > 0 ? '70px' : '82px',
                 height: compactLevel > 0 ? '70px' : '82px',

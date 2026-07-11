@@ -41,7 +41,6 @@ const TodayPage = React.lazy(() => import('./pages/TodayPage'));
 const SocialSecurityPage = React.lazy(() => import('./pages/SocialSecurityPage'));
 const TasksPage = React.lazy(() => import('./pages/TasksPage'));
 const FriendsPage = React.lazy(() => import('./pages/FriendsPage'));
-const VerifyPdfPage = React.lazy(() => import('./pages/VerifyPdfPage'));
 const OneSignalVerificationModal = React.lazy(() => import('./components/common/OneSignalVerificationModal'));
 
 const PageFallback = () => (
@@ -883,7 +882,6 @@ function BottomNavWithBadge(props) {
 const hasShownSplash = sessionStorage.getItem('splashShown') === 'true';
 
 export default function App() {
-  const location = useLocation();
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
   const [showSplash, setShowSplash] = useState(!hasShownSplash);
@@ -942,17 +940,6 @@ export default function App() {
     });
     return () => unsubscribe();
   }, []);
-
-  if (location.pathname.startsWith('/verify/')) {
-    return (
-      <React.Suspense fallback={<PageFallback />}>
-        <Routes>
-          <Route path="/verify/:verifyId" element={<VerifyPdfPage />} />
-          <Route path="*" element={<NotFoundPage lang={lang} />} />
-        </Routes>
-      </React.Suspense>
-    );
-  }
 
   if (authLoading) {
     return (

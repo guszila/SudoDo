@@ -44,37 +44,15 @@ SudoDo เป็นแอปพลิเคชันจัดการตาร�
    VITE_FIREBASE_STORAGE_BUCKET=your_storage_bucket
    VITE_FIREBASE_MESSAGING_SENDER_ID=your_messaging_sender_id
    VITE_FIREBASE_APP_ID=your_app_id
-   VITE_PUBLIC_APP_URL=https://your-public-sudodo-domain.example
    ```
 
-   `VITE_PUBLIC_APP_URL` is the public web address used by PDF verification QR codes. It is required when exporting from the Android or iOS app.
-
-4. Deploy the callable functions used to issue and verify PDF statements:
-
-   ```bash
-   cd functions
-   npm install
-   cd ..
-   firebase deploy --only functions
-   ```
-
-   The functions use the `pdfVerifications` Firestore collection through the Admin SDK. Deny direct client reads and writes to that collection in your deployed Firestore rules; verification is exposed only through `getPdfVerification`.
-
-   ```text
-   match /pdfVerifications/{verificationId} {
-     allow read, write: if false;
-   }
-   ```
-
-   Make sure no broader wildcard rule grants access to this collection.
-
-5. รันเซิร์ฟเวอร์สำหรับพัฒนา (Development Server)
+4. รันเซิร์ฟเวอร์สำหรับพัฒนา (Development Server)
    ```bash
    npm run dev
    ```
    > จากนั้นเปิดเบราว์เซอร์ไปที่ `http://localhost:5173`
 
-6. สำหรับการ Build ขึ้น Production
+5. สำหรับการ Build ขึ้น Production
    ```bash
    npm run build
    ```

@@ -19,7 +19,7 @@ export default defineConfig([
     },
   },
   {
-    files: ['generate-icons.js', 'functions/**/*.js'],
+    files: ['generate-icons.js'],
     languageOptions: { globals: globals.node },
   },
   {

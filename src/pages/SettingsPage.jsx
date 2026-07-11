@@ -24,7 +24,6 @@ import pkg from '../../package.json';
 import { auth } from '../firebase';
 import { signOut, deleteUser, updatePassword, sendPasswordResetEmail } from 'firebase/auth';
 import OneSignalService from '../services/OneSignalService';
-import { buildVerificationUrl, issuePdfVerification } from '../services/pdfVerificationService';
 import { useSwipeToClose } from '../hooks/useSwipeToClose';
 
 const ActionSheet = ({ isOpen, onClose, title, children }) => {
@@ -58,6 +57,21 @@ const ActionSheet = ({ isOpen, onClose, title, children }) => {
 const waitForPdfRender = () => new Promise((resolve) => {
   requestAnimationFrame(() => requestAnimationFrame(resolve));
 });
+
+const sha256Hex = async (value) => {
+  const text = JSON.stringify(value);
+  if (window.crypto?.subtle) {
+    const buffer = await window.crypto.subtle.digest('SHA-256', new TextEncoder().encode(text));
+    return [...new Uint8Array(buffer)].map((byte) => byte.toString(16).padStart(2, '0')).join('');
+  }
+
+  let hash = 2166136261;
+  for (let i = 0; i < text.length; i++) {
+    hash ^= text.charCodeAt(i);
+    hash = Math.imul(hash, 16777619);
+  }
+  return (hash >>> 0).toString(16).padStart(8, '0');
+};
 
 const SettingsSection = ({ section, children, danger = false }) => {
   const Icon = section.icon;
@@ -318,9 +332,49 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
         import('jspdf'),
         import('qrcode')
       ]);
-      const verification = await issuePdfVerification(exportMonth);
-      const verificationUrl = buildVerificationUrl(verification.verifyId);
-      const qrDataUrl = await QRCode.toDataURL(verificationUrl, {
+      const verificationRows = exportData.shiftsList.map((item) => ({
+        id: item.id,
+        title: item.title,
+        start: item.start,
+        end: item.end,
+        actualStart: item.actualStart,
+        actualEnd: item.actualEnd,
+        amount: item.amount,
+        hourlyRate: item.hourlyRate,
+        rateType: item.rateType,
+        breakHours: item.breakHours,
+        status: item.status,
+        isExpense: !!item.isExpense,
+        isExtraIncome: !!item.isExtraIncome,
+        isHolidayPay: !!item.isHolidayPay,
+      }));
+      const verificationSource = {
+        app: 'SudoDo',
+        type: 'monthly-income-statement',
+        month: exportMonth,
+        userId: user?.uid || '',
+        displayName: user?.displayName || '',
+        summary: {
+          totalIncome: Number(exportData.summary.totalIncome || 0).toFixed(2),
+          ssoDeduct: Number(exportData.summary.ssoDeduct || 0).toFixed(2),
+          finalIncome: Number(exportData.summary.finalIncome || 0).toFixed(2),
+          totalHours: Number(exportData.summary.totalHours || 0).toFixed(1),
+          shiftCount: exportData.summary.shiftCount || 0,
+          recordCount: exportData.shiftsList.length,
+        },
+        rows: verificationRows,
+      };
+      const hash = await sha256Hex(verificationSource);
+      const verifyId = `SD-${exportMonth.replace('-', '')}-${hash.slice(0, 10).toUpperCase()}`;
+      const generatedAt = new Date().toISOString();
+      const qrText = [
+        'SUDODO',
+        `ID=${verifyId}`,
+        `M=${exportMonth}`,
+        `R=${exportData.shiftsList.length}`,
+        `H=${hash.slice(0, 16).toUpperCase()}`,
+      ].join('|');
+      const qrDataUrl = await QRCode.toDataURL(qrText, {
         errorCorrectionLevel: 'L',
         margin: 3,
         width: 220,
@@ -329,12 +383,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
           light: '#FFFFFF',
         },
       });
-      setPdfVerification({
-        id: verification.verifyId,
-        hash: verification.hash,
-        qrDataUrl,
-        generatedAt: verification.createdAt,
-      });
+      setPdfVerification({ id: verifyId, hash, qrDataUrl, generatedAt });
       await waitForPdfRender();
       const input = pdfRef.current;
       const canvas = await html2canvas(input, { scale: 2, useCORS: true, logging: false });
