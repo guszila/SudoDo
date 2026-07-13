@@ -131,3 +131,45 @@ export const sendShiftMessage = async (chatId, senderId, senderName, senderAvata
     { merge: true },
   );
 };
+
+/**
+ * Send a structured weekly schedule card.
+ */
+export const sendWeeklyScheduleMessage = async (chatId, senderId, senderName, senderAvatar, schedule) => {
+  const msgRef = collection(db, 'chats', chatId, 'messages');
+  const toIso = (value) => {
+    if (!value) return null;
+    if (typeof value === 'string') return value;
+    if (typeof value?.toDate === 'function') return value.toDate().toISOString();
+    if (value instanceof Date) return value.toISOString();
+    if (typeof value === 'object' && value.seconds !== undefined) return new Date(value.seconds * 1000).toISOString();
+    return null;
+  };
+
+  const items = (schedule.items || []).map((item) => ({
+    id: item.id ?? '',
+    title: item.title ?? '',
+    start: toIso(item.start),
+    end: toIso(item.end),
+    isPartTime: Boolean(item.isPartTime),
+  }));
+  const payload = {
+    type: 'weekly_schedule',
+    senderId,
+    senderName,
+    senderAvatar: senderAvatar || null,
+    text: schedule.text || '📅 Weekly schedule',
+    weekStart: toIso(schedule.weekStart),
+    weekEnd: toIso(schedule.weekEnd),
+    items,
+    createdAt: serverTimestamp(),
+    read: false,
+  };
+
+  await addDoc(msgRef, payload);
+  await setDoc(
+    doc(db, 'chats', chatId),
+    { lastMessage: payload.text, lastAt: serverTimestamp(), participants: chatId.split('_') },
+    { merge: true },
+  );
+};

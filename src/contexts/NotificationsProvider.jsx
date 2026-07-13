@@ -124,6 +124,10 @@ export default function NotificationsProvider({ children, user }) {
       value={{
         notifications,
         unreadCount: notifications.filter((item) => item.read === false).length,
+        // The bottom navigation badge represents friend/chat activity only.
+        // System notifications (for example task completion) belong in the
+        // notification feed and must not appear on the Friends tab.
+        friendUnreadCount: visibleFriendNotifications.filter((item) => item.read === false).length,
         markAllRead,
         clearAllNotifications,
       }}

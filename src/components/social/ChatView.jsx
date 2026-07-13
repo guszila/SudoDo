@@ -1,9 +1,9 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
 import { motion, AnimatePresence } from 'framer-motion';
 import { Send, X, Clock, ChevronDown, ChevronUp, CheckCircle2, CalendarDays } from 'lucide-react';
-import { format, startOfDay } from 'date-fns';
+import { format, startOfDay, startOfWeek, endOfWeek, isWithinInterval } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { getChatId, subscribeToChat, sendMessage, sendShiftMessage, markMessagesAsRead } from '../../services/chatService';
+import { getChatId, subscribeToChat, sendMessage, sendShiftMessage, sendWeeklyScheduleMessage, markMessagesAsRead } from '../../services/chatService';
 import { useTasks } from '../../contexts/TasksContext';
 import { TASK_STATUS } from '../../constants';
 
@@ -123,6 +123,52 @@ const ShiftBubble = ({ shift, isMine }) => {
 };
 
 // ── Single Message Bubble ─────────────────────────────────
+const WeeklyScheduleBubble = ({ schedule, isMine, lang = 'th' }) => {
+  const items = (schedule?.items || []).map(item => ({
+    ...item,
+    startDate: toDate(item.start),
+    endDate: toDate(item.end),
+  })).filter(item => item.startDate);
+
+  const groups = items.reduce((result, item) => {
+    const key = format(item.startDate, 'yyyy-MM-dd');
+    if (!result[key]) result[key] = { date: item.startDate, items: [] };
+    result[key].items.push(item);
+    return result;
+  }, {});
+
+  return (
+    <div className={`w-[min(280px,72vw)] overflow-hidden rounded-[18px] border shadow-sm ${isMine ? 'bg-primary-500/15 border-primary-500/30' : 'bg-white dark:bg-white/8 border-main/10'}`}>
+      <div className={`px-3 py-2.5 ${isMine ? 'bg-primary-500/25' : 'bg-main/5'}`}>
+        <div className="flex items-center gap-2">
+          <CalendarDays size={14} className="text-primary-500 flex-shrink-0" />
+          <span className="text-xs font-bold text-main">{lang === 'en' ? 'This week' : 'ตารางงานสัปดาห์นี้'}</span>
+        </div>
+        <p className="text-[10px] text-main/50 mt-0.5">
+          {schedule?.weekStart && schedule?.weekEnd ? `${fmtDateShort(schedule.weekStart)} - ${fmtDateShort(schedule.weekEnd)}` : ''}
+        </p>
+      </div>
+      <div className="px-3 py-2 space-y-2.5">
+        {Object.values(groups).length === 0 ? (
+          <p className="text-xs text-main/50">{lang === 'en' ? 'No scheduled tasks.' : 'ไม่มีงานที่กำหนดไว้'}</p>
+        ) : Object.values(groups).map(group => (
+          <div key={format(group.date, 'yyyy-MM-dd')}>
+            <p className="text-[10px] font-bold text-primary-500 mb-1">{format(group.date, 'EEE d MMM', { locale: th })}</p>
+            <div className="space-y-1">
+              {group.items.map(item => (
+                <div key={item.id || `${item.title}-${item.start}`} className="flex items-start gap-2">
+                  <span className="text-[10px] font-semibold text-main/55 whitespace-nowrap">{format(item.startDate, 'HH:mm')}{item.endDate ? `-${format(item.endDate, 'HH:mm')}` : ''}</span>
+                  <span className="text-[11px] font-semibold text-main leading-tight break-words">{item.title || (lang === 'en' ? 'Untitled task' : 'งานไม่มีชื่อ')}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+};
+
 const MessageBubble = ({ msg, isMine, showAvatar, lang = 'th' }) => {
   const ts = toDate(msg.createdAt);
   return (
@@ -139,7 +185,9 @@ const MessageBubble = ({ msg, isMine, showAvatar, lang = 'th' }) => {
       </div>
 
       <div className={`max-w-[72%] flex flex-col gap-0.5 ${isMine ? 'items-end' : 'items-start'}`}>
-        {msg.type === 'shift' ? (
+        {msg.type === 'weekly_schedule' ? (
+          <WeeklyScheduleBubble schedule={msg} isMine={isMine} lang={lang} />
+        ) : msg.type === 'shift' ? (
           <ShiftBubble shift={msg.shift} isMine={isMine} />
         ) : (
           <div className={`px-3 py-2 rounded-[18px] text-sm leading-snug ${
@@ -170,7 +218,7 @@ const MessageBubble = ({ msg, isMine, showAvatar, lang = 'th' }) => {
 };
 
 // ── Shift Picker — upcoming shifts only ───────────────────
-const ShiftPicker = ({ tasks, onSelect, onClose }) => {
+const ShiftPicker = ({ tasks, onSelect, onShareWeek, onClose, lang = 'th' }) => {
   const today = startOfDay(new Date());
 
   const upcoming = tasks
@@ -199,9 +247,18 @@ const ShiftPicker = ({ tasks, onSelect, onClose }) => {
           <p className="text-xs font-bold text-main/70">แชร์กะงาน</p>
           <p className="text-[9px] text-main/40">เวรที่ยังไม่ถึง ({upcoming.length})</p>
         </div>
-        <button onClick={onClose} className="p-1 text-main/40 hover:text-main rounded-full">
-          <X size={14} />
-        </button>
+        <div className="flex items-center gap-1">
+          <button
+            type="button"
+            onClick={onShareWeek}
+            className="text-[10px] font-bold text-primary-500 px-2 py-1 rounded-lg bg-primary-500/10 hover:bg-primary-500/20 transition-colors"
+          >
+            {lang === 'en' ? 'Share week' : 'แชร์ทั้งสัปดาห์'}
+          </button>
+          <button onClick={onClose} className="p-1 text-main/40 hover:text-main rounded-full">
+            <X size={14} />
+          </button>
+        </div>
       </div>
 
       {upcoming.length === 0 ? (
@@ -304,6 +361,28 @@ export default function ChatView({ user, friend, lang = 'th', onClose }) {
     setSending(false);
   }, [chatId, user]);
 
+  const handleShareWeek = useCallback(async () => {
+    const weekStart = startOfWeek(new Date(), { weekStartsOn: 1 });
+    const weekEnd = endOfWeek(weekStart, { weekStartsOn: 1 });
+    const weekTasks = tasks
+      .filter(task => {
+        if (task.isExpense || task.isExtraIncome || !task.start) return false;
+        const start = toDate(task.start);
+        return start && isWithinInterval(start, { start: weekStart, end: weekEnd });
+      })
+      .sort((a, b) => toDate(a.start) - toDate(b.start));
+
+    setShowShiftPicker(false);
+    setSending(true);
+    await sendWeeklyScheduleMessage(chatId, user.uid, user.displayName || 'ฉัน', user.photoURL, {
+      weekStart,
+      weekEnd,
+      items: weekTasks,
+      text: lang === 'en' ? '📅 My schedule this week' : '📅 ตารางงานสัปดาห์นี้',
+    });
+    setSending(false);
+  }, [chatId, lang, tasks, user]);
+
   const handleKeyDown = (e) => {
     if (e.key === 'Enter' && !e.shiftKey) {
       e.preventDefault();
@@ -376,7 +455,9 @@ export default function ChatView({ user, friend, lang = 'th', onClose }) {
             <ShiftPicker
               tasks={tasks}
               onSelect={handleSendShift}
+              onShareWeek={handleShareWeek}
               onClose={() => setShowShiftPicker(false)}
+              lang={lang}
               lang={lang}
             />
           )}

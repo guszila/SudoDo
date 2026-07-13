@@ -183,6 +183,107 @@ html, body {
   overscroll-behavior-y: none;
 }
 
+html,
+body,
+#root {
+  min-height: 100%;
+  background: var(--bg-gradient);
+}
+
+/* Extend the loading surface through the iOS bottom safe-area inset. */
+.splash-screen {
+  height: calc(100dvh + env(safe-area-inset-bottom));
+  min-height: calc(100dvh + env(safe-area-inset-bottom));
+  bottom: calc(env(safe-area-inset-bottom) * -1);
+}
+
+/* Floating pill navigation: compact while scrolling down, expanded on scroll up. */
+.floating-bottom-nav {
+  left: 50%;
+  bottom: max(14px, env(safe-area-inset-bottom));
+  width: min(92vw, 430px);
+  min-height: 62px;
+  padding-top: 6px;
+  padding-bottom: 6px;
+  background: rgba(255, 255, 255, 0.76);
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  box-shadow: 0 12px 34px rgba(31, 41, 75, 0.18), 0 2px 8px rgba(31, 41, 75, 0.08);
+  backdrop-filter: blur(24px) saturate(145%);
+  -webkit-backdrop-filter: blur(24px) saturate(145%);
+  transition: width 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    min-height 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    padding 480ms cubic-bezier(0.22, 1, 0.36, 1),
+    box-shadow 480ms ease, background-color 480ms ease,
+    transform 460ms cubic-bezier(0.22, 1, 0.36, 1);
+  transform: translateX(-50%);
+}
+
+.floating-bottom-nav--hidden {
+  transform: translate(-50%, calc(100% + 32px));
+  pointer-events: none;
+}
+
+.dark .floating-bottom-nav {
+  background: rgba(24, 24, 40, 0.78);
+  border-color: rgba(255, 255, 255, 0.12);
+  box-shadow: 0 12px 34px rgba(0, 0, 0, 0.35), 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.floating-bottom-nav > button {
+  min-width: 0;
+  transition: transform 360ms cubic-bezier(0.22, 1, 0.36, 1), color 220ms ease;
+}
+
+.floating-bottom-nav > button:active {
+  transform: scale(0.88);
+}
+
+.floating-bottom-nav > button > span,
+.floating-bottom-nav > button > .relative + span {
+  max-height: 24px;
+  overflow: hidden;
+  opacity: 1;
+  transform: translateY(0);
+  transition: max-height 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    opacity 240ms ease, transform 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    margin 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.floating-bottom-nav--compact {
+  width: min(56vw, 210px);
+  min-height: 52px;
+  padding: 3px 5px;
+  box-shadow: 0 8px 24px rgba(31, 41, 75, 0.14);
+}
+
+.floating-bottom-nav--compact > button {
+  height: 42px;
+}
+
+.floating-bottom-nav--compact > button svg {
+  width: 18px;
+  height: 18px;
+  transition: width 360ms cubic-bezier(0.22, 1, 0.36, 1),
+    height 360ms cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+.floating-bottom-nav--compact > button > span,
+.floating-bottom-nav--compact > button > .relative + span {
+  max-height: 0;
+  margin-top: 0;
+  opacity: 0;
+  transform: translateY(5px);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .floating-bottom-nav,
+  .floating-bottom-nav > button,
+  .floating-bottom-nav > button > span,
+  .floating-bottom-nav > button > .relative + span {
+    transition-duration: 1ms;
+  }
+}
+
 button,
 [role="button"],
 input,
@@ -526,6 +627,46 @@ button:disabled {
   background: color-mix(in srgb, var(--theme-accent) 4%, transparent);
 }
 
+/* Week view — give each day enough room to scan and interact with events. */
+.calendar-surface--week .rbc-time-view {
+  background: color-mix(in srgb, var(--glass-bg) 72%, transparent);
+  border: 1px solid var(--glass-border) !important;
+  box-shadow: 0 12px 30px rgba(55, 48, 100, 0.08);
+}
+
+.calendar-surface--week .rbc-time-header,
+.calendar-surface--week .rbc-time-content {
+  min-width: 720px;
+}
+
+.calendar-surface--week .rbc-time-header {
+  background: color-mix(in srgb, var(--glass-bg-strong) 55%, transparent);
+}
+
+.calendar-surface--week .rbc-time-header .rbc-header {
+  border-right: 1px solid var(--glass-border) !important;
+  padding: 12px 6px;
+}
+
+.calendar-surface--week .rbc-time-content > * + * > * {
+  border-left: 1px solid color-mix(in srgb, var(--theme-accent) 14%, transparent);
+}
+
+.calendar-surface--week .rbc-time-gutter {
+  background: color-mix(in srgb, var(--glass-bg-strong) 30%, transparent);
+}
+
+.calendar-surface--week .rbc-time-view .rbc-timeslot-group {
+  min-height: 72px;
+}
+
+.calendar-surface--week .rbc-time-view .rbc-event {
+  border-left: 4px solid var(--theme-accent) !important;
+  border-radius: 10px !important;
+  padding: 5px 7px !important;
+  box-shadow: 0 3px 10px rgba(55, 48, 100, 0.12);
+}
+
 /* ═══════════════════════════════════════════
    AGENDA VIEW — Card-Style Redesign
    ═══════════════════════════════════════════ */
@@ -618,6 +759,56 @@ button:disabled {
    Mobile-specific improvements
    ═══════════════════════════════════════════ */
 @media (max-width: 768px) {
+  .calendar-surface--week {
+    min-width: 0;
+    width: 100%;
+    overflow: hidden;
+  }
+
+  .calendar-surface--week .rbc-time-view {
+    width: 100%;
+    max-width: 100%;
+    border-radius: 18px !important;
+    -webkit-overflow-scrolling: touch;
+    touch-action: pan-x pan-y;
+  }
+
+  /* A horizontal day board is easier to read than seven cramped columns. */
+  .calendar-surface--week .rbc-time-view {
+    overflow-x: auto !important;
+    overscroll-behavior-x: contain;
+    scrollbar-width: none;
+  }
+
+  .calendar-surface--week .rbc-time-view::-webkit-scrollbar {
+    display: none;
+  }
+
+  .calendar-surface--week .rbc-time-header,
+  .calendar-surface--week .rbc-time-content {
+    min-width: 540px;
+  }
+
+  .calendar-surface--week .rbc-time-gutter,
+  .calendar-surface--week .rbc-time-header-gutter {
+    width: 44px;
+    min-width: 44px;
+  }
+
+  .calendar-surface--week .rbc-time-view .rbc-timeslot-group {
+    min-height: 64px;
+  }
+
+  .calendar-surface--week .rbc-time-view .rbc-header {
+    font-size: 11px;
+    padding: 10px 5px;
+  }
+
+  .calendar-surface--week .rbc-time-view .rbc-event {
+    font-size: 11px;
+    min-height: 30px;
+  }
+
   /* Week view on mobile — wider time slots */
   .rbc-time-view .rbc-timeslot-group {
     min-height: 56px;

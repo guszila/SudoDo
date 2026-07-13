@@ -2154,7 +2154,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       />
 
       <ConfirmDialog
-        isOpen={!!deleteConfirmTask}
+        isOpen={false}
         title="ยืนยันการลบ"
         message={`คุณแน่ใจหรือไม่ว่าต้องการลบ '${deleteConfirmTask?.title || 'รายการนี้'}'?`}
         confirmText="ลบ"

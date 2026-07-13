@@ -9,6 +9,7 @@ import { createContext, useContext } from 'react';
 export const NotificationsContext = createContext({
   notifications: [],
   unreadCount: 0,
+  friendUnreadCount: 0,
   markAllRead: async () => {},
   clearAllNotifications: async () => {},
 });

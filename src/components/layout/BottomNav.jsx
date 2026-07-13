@@ -1,12 +1,92 @@
+import { useEffect, useRef, useState } from 'react';
 import { Calendar as CalendarIcon, Users, Home, Banknote, Settings } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 
 export default function BottomNav({ lang, setCurrentView, unreadCount = 0 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const [isHidden, setIsHidden] = useState(false);
+  const lastScrollY = useRef(0);
+  const ticking = useRef(false);
+  const scrollDirection = useRef(0);
+  const directionDistance = useRef(0);
+
+  useEffect(() => {
+    const handleScroll = () => {
+      if (ticking.current) return;
+      ticking.current = true;
+
+      window.requestAnimationFrame(() => {
+        const currentScrollY = window.scrollY;
+        const delta = currentScrollY - lastScrollY.current;
+
+        if (currentScrollY <= 12) {
+          setIsHidden(false);
+          directionDistance.current = 0;
+        } else if (Math.abs(delta) >= 1) {
+          const nextDirection = delta > 0 ? 1 : -1;
+
+          // Reset the distance when the user changes direction. This prevents
+          // small touch/trackpad jitters from making the bar flicker.
+          if (nextDirection !== scrollDirection.current) {
+            scrollDirection.current = nextDirection;
+            directionDistance.current = 0;
+          }
+
+          directionDistance.current += Math.abs(delta);
+
+          // Require a little downward intent before hiding, but reveal quickly
+          // as soon as the user starts scrolling back up.
+          if (nextDirection === 1 && directionDistance.current >= 24) {
+            setIsHidden(true);
+          } else if (nextDirection === -1 && directionDistance.current >= 8) {
+            setIsHidden(false);
+          }
+        }
+
+        lastScrollY.current = currentScrollY;
+        ticking.current = false;
+      });
+    };
+
+    lastScrollY.current = window.scrollY;
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  useEffect(() => {
+    let idleTimer;
+
+    const scheduleIdleHide = () => {
+      window.clearTimeout(idleTimer);
+      idleTimer = window.setTimeout(() => setIsHidden(true), 15000);
+    };
+
+    const handleActivity = () => {
+      setIsHidden(false);
+      scheduleIdleHide();
+    };
+
+    scheduleIdleHide();
+    window.addEventListener('touchstart', handleActivity, { passive: true });
+    window.addEventListener('pointerdown', handleActivity, { passive: true });
+    window.addEventListener('wheel', handleActivity, { passive: true });
+    window.addEventListener('keydown', handleActivity);
+
+    return () => {
+      window.clearTimeout(idleTimer);
+      window.removeEventListener('touchstart', handleActivity);
+      window.removeEventListener('pointerdown', handleActivity);
+      window.removeEventListener('wheel', handleActivity);
+      window.removeEventListener('keydown', handleActivity);
+    };
+  }, []);
 
   return (
-    <nav className="tour-nav-bar fixed bottom-0 left-0 right-0 liquid-glass border-x-0 border-b-0 rounded-t-[28px] rounded-b-none p-2 pb-safe flex justify-around items-center z-40 h-[calc(72px+env(safe-area-inset-bottom))]">
+    <nav
+      className={`tour-nav-bar floating-bottom-nav fixed z-40 flex items-center justify-around rounded-full px-2 ${isHidden ? 'floating-bottom-nav--hidden' : ''}`}
+      aria-label={lang === 'en' ? 'Main navigation' : 'เมนูหลัก'}
+    >
       <button 
         onClick={() => { navigate('/calendar'); setCurrentView('month'); }}
         className={`flex flex-col items-center justify-center w-full h-full ${location.pathname === '/calendar' ? 'text-primary-500' : 'text-slate-400 active:bg-white/10 rounded-xl transition-colors'}`}

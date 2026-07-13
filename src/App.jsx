@@ -638,7 +638,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
           </button>
         </header>
 
-        <main className="relative">
+        <main className={`relative calendar-surface calendar-surface--${currentView}`}>
           {isLoading && (
             <div className="absolute inset-0 z-30 flex items-center justify-center backdrop-blur-sm rounded-[24px]" style={{ backgroundColor: 'var(--glass-bg-strong)' }}>
               <div className="flex flex-col items-center gap-3 text-primary-600">
@@ -696,10 +696,10 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
                 { label: lang === 'en' ? 'Task' : 'งาน', className: 'bg-blue-400 dark:bg-blue-500 shadow-[0_0_6px_rgba(59,130,246,0.45)]' },
                 { label: lang === 'en' ? 'Payday' : 'เงินออก', className: 'bg-amber-400 dark:bg-amber-500 shadow-[0_0_6px_rgba(245,158,11,0.45)]' },
                 { label: lang === 'en' ? 'Reminder' : 'เตือน', className: 'bg-rose-400 dark:bg-rose-500 shadow-[0_0_6px_rgba(244,63,94,0.45)]' },
-              ].map(item => (
+              ].map((item, index) => (
                 <span key={item.label} className="inline-flex items-center gap-1.5 whitespace-nowrap">
                   <span className={`w-2 h-2 rounded-full ${item.className}`} />
-                  {item.label}
+                  {index === 1 && lang !== 'en' ? 'ต้องทำ' : item.label}
                 </span>
               ))}
             </div>
@@ -843,7 +843,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       <ChangelogModal isOpen={showChangelog && !showTour} onClose={handleCloseChangelog} lang={lang} />
       
       {/* Global Add Button — only on calendar pages */}
-      {(location.pathname === '/' || location.pathname === '/calendar') && (
+      {location.pathname === '/calendar' && (
         <div className="fixed bottom-28 right-4 md:bottom-28 md:right-8 z-[45]">
           <button 
             type="button"
@@ -875,8 +875,8 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
 
 // Thin wrapper that injects unreadCount from context into BottomNav
 function BottomNavWithBadge(props) {
-  const { unreadCount } = useNotifications();
-  return <BottomNav {...props} unreadCount={unreadCount} />;
+  const { friendUnreadCount } = useNotifications();
+  return <BottomNav {...props} unreadCount={friendUnreadCount} />;
 }
 
 const hasShownSplash = sessionStorage.getItem('splashShown') === 'true';

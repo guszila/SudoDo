@@ -27,7 +27,7 @@ export default function SplashScreen({ onDone }) {
     <div
       role="status"
       aria-live="polite"
-      className="fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden px-6 pt-safe pb-safe"
+      className="splash-screen fixed inset-0 z-[9999] flex flex-col items-center justify-center overflow-hidden px-6 pt-safe pb-safe"
       style={{ background: isDark ? currentTheme.darkGradient : currentTheme.gradient, minHeight: '100dvh' }}
     >
       <style>{`
