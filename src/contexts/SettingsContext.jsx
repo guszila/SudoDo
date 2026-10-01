@@ -8,22 +8,38 @@ export function useSettings() {
   return useContext(SettingsContext);
 }
 
+const DEFAULT_SETTINGS = {
+  socialSecurity: false,
+  showInIncome: false,
+  darkMode: false,
+  themeMode: 'system',
+  language: 'th',
+  weekStart: 'อาทิตย์',
+  notifyTasks: true,
+  notifyShifts: true,
+  notifyStreak: false,
+  jobs: []
+};
+
 export function SettingsProvider({ children, user }) {
   const { showToast } = useToast();
   
-  const [settings, setSettings] = useState({
-    socialSecurity: false,
-    showInIncome: false,
-    darkMode: false,
-    themeMode: 'system',
-    language: 'th',
-    weekStart: 'อาทิตย์',
-    notifyTasks: true,
-    notifyShifts: true,
-    notifyStreak: false,
-    jobs: []
+  const [settings, setSettings] = useState(() => {
+    if (!user?.uid) return DEFAULT_SETTINGS;
+    try {
+      const cached = localStorage.getItem(`sudodo_settings_${user.uid}`);
+      if (cached) {
+        return { ...DEFAULT_SETTINGS, ...JSON.parse(cached) };
+      }
+    } catch {
+      // Ignore cache error
+    }
+    return DEFAULT_SETTINGS;
   });
-  const [isLoading, setIsLoading] = useState(true);
+  const [isLoading, setIsLoading] = useState(() => {
+    if (!user?.uid) return true;
+    return !localStorage.getItem(`sudodo_settings_${user.uid}`);
+  });
 
   useEffect(() => {
     if (!user) {
@@ -31,12 +47,19 @@ export function SettingsProvider({ children, user }) {
     }
 
     const loadSettings = async () => {
-      setIsLoading(true);
       const data = await getUserSettings(user.uid);
       if (data && data.themeMode === undefined && data.darkMode !== undefined) {
         data.themeMode = data.darkMode ? 'dark' : 'light';
       }
-      setSettings(prev => ({ ...prev, ...data }));
+      setSettings(prev => {
+        const next = { ...prev, ...data };
+        try {
+          localStorage.setItem(`sudodo_settings_${user.uid}`, JSON.stringify(next));
+        } catch {
+          // Ignore cache save error
+        }
+        return next;
+      });
       setIsLoading(false);
     };
 

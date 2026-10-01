@@ -39,7 +39,7 @@ export default function ActionSheet({
             aria-label={title ? undefined : (lang === 'en' ? 'Actions' : 'การดำเนินการ')}
             tabIndex={-1}
             onKeyDown={(event) => { if (event.key === 'Escape') onClose(); }}
-            className="fixed bottom-0 left-0 right-0 z-[100] liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl px-4 pb-8 pt-4 max-h-[86vh] overflow-y-auto overscroll-contain md:max-w-md md:mx-auto md:rounded-[28px] md:border"
+            className="fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-[#1a182c] border border-slate-200/80 dark:border-white/10 rounded-b-none border-x-0 border-b-0 shadow-2xl px-4 pb-8 pt-4 max-h-[86vh] overflow-y-auto overscroll-contain md:max-w-md md:mx-auto md:rounded-[28px] md:border"
           >
             <div {...handleProps} />
             {title && <h3 id="action-sheet-title" className="text-xl font-bold text-main mb-4 text-center">{title}</h3>}

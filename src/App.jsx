@@ -2,10 +2,9 @@ import React, { useState, useEffect, useMemo } from 'react';
 
 import { Calendar, dateFnsLocalizer } from 'react-big-calendar';
 import withDragAndDropLib from 'react-big-calendar/lib/addons/dragAndDrop';
-import 'react-big-calendar/lib/addons/dragAndDrop/styles.css';
 import { format, parse, startOfWeek, getDay, isBefore, startOfDay, endOfDay, differenceInDays, isSameDay } from 'date-fns';
 import { enUS, th } from 'date-fns/locale';
-import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Briefcase, ChevronLeft, ChevronRight, X, FileText, Coins, Bell } from 'lucide-react';
+import { Plus, Loader2, Calendar as CalendarIcon, CheckCircle2, Clock, CircleDashed, Briefcase, ChevronLeft, ChevronRight, X, FileText, Coins, Bell, Compass, PlusCircle, Palette, Banknote } from 'lucide-react';
 import { onAuthStateChanged } from 'firebase/auth';
 import { Routes, Route, useNavigate, useLocation } from 'react-router-dom';
 import { motion, AnimatePresence, useReducedMotion } from 'framer-motion';
@@ -43,9 +42,22 @@ const TasksPage = React.lazy(() => import('./pages/TasksPage'));
 const FriendsPage = React.lazy(() => import('./pages/FriendsPage'));
 const OneSignalVerificationModal = React.lazy(() => import('./components/common/OneSignalVerificationModal'));
 
+// Preload primary page bundles to make tab navigation instant
+const preloadPrimaryPages = () => {
+  import('./pages/TodayPage');
+  import('./pages/PartTimePage');
+  import('./pages/TasksPage');
+  import('./pages/FriendsPage');
+  import('./pages/SettingsPage');
+  import('./pages/ProfilePage');
+  import('./pages/SocialSecurityPage');
+};
+
 const PageFallback = () => (
-  <div className="min-h-[100dvh] flex items-center justify-center pb-[calc(7rem+env(safe-area-inset-bottom))] pt-safe">
-    <Loader2 className="w-8 h-8 animate-spin text-primary-500" />
+  <div className="max-w-7xl mx-auto px-4 md:px-8 pt-safe mt-6 space-y-4 animate-pulse">
+    <div className="h-10 w-44 rounded-2xl bg-black/5 dark:bg-white/10" />
+    <div className="h-36 w-full rounded-3xl bg-black/5 dark:bg-white/10" />
+    <div className="h-64 w-full rounded-3xl bg-black/5 dark:bg-white/10" />
   </div>
 );
 
@@ -94,6 +106,8 @@ const StatusIcon = ({ status, className = "" }) => {
   }
 };
 
+const PRIMARY_TABS = ['/', '/calendar', '/part-time', '/friends', '/settings'];
+
 function MainApp({ user, lang, setLang, theme, setThemeMode }) {
   const { settings } = useSettings();
   const { showToast } = useToast();
@@ -107,6 +121,10 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
   }), [weekStartsOn]);
   
   useEffect(() => {
+    preloadPrimaryPages();
+  }, []);
+
+  useEffect(() => {
     if (settings?.themeMode) {
       setThemeMode(settings.themeMode);
     }
@@ -115,6 +133,24 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
   const location = useLocation();
   const prefersReducedMotion = useReducedMotion();
   const { tasks, isLoading } = useTasks();
+
+  const isPrimaryTab = PRIMARY_TABS.includes(location.pathname);
+  const [visitedTabs, setVisitedTabs] = useState(() => new Set([location.pathname]));
+
+  useEffect(() => {
+    if (isPrimaryTab) {
+      // eslint-disable-next-line react-hooks/set-state-in-effect
+      setVisitedTabs(prev => {
+        if (prev.has(location.pathname)) return prev;
+        const next = new Set(prev);
+        next.add(location.pathname);
+        return next;
+      });
+      window.requestAnimationFrame(() => {
+        window.dispatchEvent(new Event('resize'));
+      });
+    }
+  }, [location.pathname, isPrimaryTab]);
   
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [selectedTask, setSelectedTask] = useState(null);
@@ -774,30 +810,97 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
 
   return (
     <>
-      <AnimatePresence mode="wait">
-        <motion.div
-          key={location.pathname}
-          initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: 16 }}
-          animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, x: 0 }}
-          exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, x: -16 }}
-          transition={{ duration: 0.2, ease: [0.22, 1, 0.36, 1] }}
-          className="relative min-h-screen"
-        >
-          <React.Suspense fallback={<PageFallback />}>
-            <Routes location={location}>
-              <Route path="/" element={<TodayPage user={user} lang={lang} />} />
-              <Route path="/calendar" element={CalendarView} />
-              <Route path="/profile" element={<ProfilePage user={user} lang={lang} />} />
-              <Route path="/settings" element={<ErrorBoundary><SettingsPage user={user} lang={lang} setLang={setLang} theme={theme} setThemeMode={setThemeMode} /></ErrorBoundary>} />
-              <Route path="/part-time" element={<ErrorBoundary><PartTimePage user={user} lang={lang} /></ErrorBoundary>} />
-              <Route path="/social-security" element={<SocialSecurityPage lang={lang} />} />
-              <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
-              <Route path="/friends" element={<FriendsPage user={user} lang={lang} />} />
-              <Route path="*" element={<NotFoundPage lang={lang} />} />
-            </Routes>
-          </React.Suspense>
-        </motion.div>
-      </AnimatePresence>
+      {/* Primary Tab Stacks (Keep-Alive Cache: 0ms Instant Switching) */}
+      <div 
+        className="primary-tabs-cache"
+        style={{ display: isPrimaryTab ? 'block' : 'none' }}
+      >
+        <React.Suspense fallback={<PageFallback />}>
+          {visitedTabs.has('/') && (
+            <div 
+              style={{ display: location.pathname === '/' ? 'block' : 'none' }}
+              aria-hidden={location.pathname !== '/'}
+            >
+              <ErrorBoundary>
+                <TodayPage user={user} lang={lang} />
+              </ErrorBoundary>
+            </div>
+          )}
+
+          {visitedTabs.has('/calendar') && (
+            <div 
+              style={{ display: location.pathname === '/calendar' ? 'block' : 'none' }}
+              aria-hidden={location.pathname !== '/calendar'}
+            >
+              <ErrorBoundary>
+                {CalendarView}
+              </ErrorBoundary>
+            </div>
+          )}
+
+          {visitedTabs.has('/part-time') && (
+            <div 
+              style={{ display: location.pathname === '/part-time' ? 'block' : 'none' }}
+              aria-hidden={location.pathname !== '/part-time'}
+            >
+              <ErrorBoundary>
+                <PartTimePage user={user} lang={lang} />
+              </ErrorBoundary>
+            </div>
+          )}
+
+          {visitedTabs.has('/friends') && (
+            <div 
+              style={{ display: location.pathname === '/friends' ? 'block' : 'none' }}
+              aria-hidden={location.pathname !== '/friends'}
+            >
+              <ErrorBoundary>
+                <FriendsPage user={user} lang={lang} />
+              </ErrorBoundary>
+            </div>
+          )}
+
+          {visitedTabs.has('/settings') && (
+            <div 
+              style={{ display: location.pathname === '/settings' ? 'block' : 'none' }}
+              aria-hidden={location.pathname !== '/settings'}
+            >
+              <ErrorBoundary>
+                <SettingsPage 
+                  user={user} 
+                  lang={lang} 
+                  setLang={setLang} 
+                  theme={theme} 
+                  setThemeMode={setThemeMode} 
+                />
+              </ErrorBoundary>
+            </div>
+          )}
+        </React.Suspense>
+      </div>
+
+      {/* Secondary Sub-Pages (Rendered on demand with smooth transition) */}
+      {!isPrimaryTab && (
+        <AnimatePresence mode="wait" initial={false}>
+          <motion.div
+            key={location.pathname}
+            initial={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: 8 }}
+            animate={prefersReducedMotion ? { opacity: 1 } : { opacity: 1, y: 0 }}
+            exit={prefersReducedMotion ? { opacity: 0 } : { opacity: 0, y: -6 }}
+            transition={{ duration: 0.16, ease: [0.22, 1, 0.36, 1] }}
+            className="relative min-h-screen"
+          >
+            <React.Suspense fallback={<PageFallback />}>
+              <Routes location={location}>
+                <Route path="/profile" element={<ProfilePage user={user} lang={lang} />} />
+                <Route path="/social-security" element={<SocialSecurityPage lang={lang} />} />
+                <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
+                <Route path="*" element={<NotFoundPage lang={lang} />} />
+              </Routes>
+            </React.Suspense>
+          </motion.div>
+        </AnimatePresence>
+      )}
       
       {showTour && (
         <ProductTour 
@@ -811,28 +914,28 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
               target: '.tour-nav-bar',
               title: lang === 'en' ? 'Welcome to SudoDo!' : 'ยินดีต้อนรับสู่ SudoDo!',
               content: lang === 'en' ? 'Navigate between your Calendar, Tasks, Income dashboard, and Settings right from here.' : 'จัดการงานและรายได้ของคุณได้ง่ายๆ สลับดูรายการงาน หรือตารางรายได้ ได้จากเมนูด้านล่างนี้เลย',
-              icon: '👋',
+              icon: <Compass size={22} className="text-primary-500 shrink-0" />,
               borderRadius: 28
             },
             {
               target: '.tour-add-btn',
               title: lang === 'en' ? 'Add Tasks & Shifts' : 'เพิ่มงานและกะ',
               content: lang === 'en' ? 'Tap this button to create a new task or log a part-time shift.' : 'แตะที่ปุ่มนี้เพื่อเพิ่ม "สิ่งที่ต้องทำ" ใหม่ หรือบันทึก "กะการทำงาน" ของคุณ',
-              icon: '✨',
+              icon: <PlusCircle size={22} className="text-primary-500 shrink-0" />,
               borderRadius: 50
             },
             {
               target: '.tour-part-time-btn',
               title: lang === 'en' ? 'Income Dashboard & Bulk Edit' : 'สรุปรายได้ & จัดการหลายกะ',
               content: lang === 'en' ? 'Check your income, export to PDF, and try the new Bulk Edit feature here!' : 'หน้านี้จะสรุปรายได้ สามารถ Export เป็น PDF ได้ และตอนนี้รองรับการเลือกแก้กะงานหลายอันพร้อมกัน (Bulk Edit) แล้วนะ!',
-              icon: '💰',
+              icon: <Banknote size={22} className="text-emerald-500 shrink-0" />,
               borderRadius: 16
             },
             {
               target: '.tour-settings-btn',
               title: lang === 'en' ? 'Settings & Manage Jobs' : 'ตั้งค่า & จัดการบริษัท',
               content: lang === 'en' ? 'Change themes, setup your companies/jobs, and configure notifications here!' : 'คุณสามารถเข้ามาจัดการรายชื่อบริษัท (Jobs) ตั้งค่าหักประกันสังคม หรือเปลี่ยนธีมสีได้ที่นี่เลย!',
-              icon: '🎨',
+              icon: <Palette size={22} className="text-purple-500 shrink-0" />,
               borderRadius: 24
             }
           ]}
@@ -879,12 +982,23 @@ function BottomNavWithBadge(props) {
   return <BottomNav {...props} unreadCount={friendUnreadCount} />;
 }
 
-const hasShownSplash = sessionStorage.getItem('splashShown') === 'true';
-
 export default function App() {
   const [user, setUser] = useState(null);
   const [authLoading, setAuthLoading] = useState(true);
-  const [showSplash, setShowSplash] = useState(!hasShownSplash);
+  const [splashDone, setSplashDone] = useState(() => {
+    try {
+      return sessionStorage.getItem('splash_shown') === 'true';
+    } catch {
+      return false;
+    }
+  });
+
+  const handleSplashDone = () => {
+    try {
+      sessionStorage.setItem('splash_shown', 'true');
+    } catch {}
+    setSplashDone(true);
+  };
 
   // Language state
   const [lang, setLang] = useState(() => {
@@ -911,7 +1025,7 @@ export default function App() {
       }
     };
 
-    if (theme === 'system') {
+  if (theme === 'system') {
       const mediaQuery = window.matchMedia('(prefers-color-scheme: dark)');
       applyTheme(mediaQuery.matches ? 'dark' : 'light');
       
@@ -941,40 +1055,53 @@ export default function App() {
     return () => unsubscribe();
   }, []);
 
-  if (authLoading) {
+  // When splash is done and auth check completes with no logged in user, render login
+  if (splashDone && !authLoading && !user) {
+    return <Login lang={lang} />;
+  }
+
+  // When splash was already shown in this session and waiting briefly for auth state
+  if (splashDone && authLoading) {
     return (
-      <div className="min-h-[100dvh] flex items-center justify-center pb-[env(safe-area-inset-bottom)]">
-        <Loader2 className="w-10 h-10 animate-spin text-primary-500" />
+      <div className="min-h-screen flex items-center justify-center">
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500 opacity-60" />
       </div>
     );
   }
 
-  if (!user) {
-    return <Login lang={lang} />;
-  }
+  return (
+    <>
+      <AnimatePresence>
+        {!splashDone && (
+          <SplashScreen 
+            key="app-splash"
+            isReady={!authLoading}
+            onDone={handleSplashDone} 
+          />
+        )}
+      </AnimatePresence>
 
-  return showSplash ? (
-    <SplashScreen onDone={() => {
-      sessionStorage.setItem('splashShown', 'true');
-      setShowSplash(false);
-    }} />
-  ) : (
-    <ToastProvider>
-      <TasksProvider user={user}>
-        <SettingsProvider user={user}>
-          <ThemeProvider>
-            <NotificationsProvider user={user}>
-              <MainApp 
-                user={user} 
-                lang={lang} 
-                setLang={setLang} 
-                theme={theme} 
-                setThemeMode={setTheme} 
-              />
-            </NotificationsProvider>
-          </ThemeProvider>
-        </SettingsProvider>
-      </TasksProvider>
-    </ToastProvider>
+      {user && (
+        <ToastProvider>
+          <TasksProvider user={user}>
+            <SettingsProvider user={user}>
+              <ThemeProvider>
+                <NotificationsProvider user={user}>
+                  <ErrorBoundary>
+                    <MainApp 
+                      user={user} 
+                      lang={lang} 
+                      setLang={setLang} 
+                      theme={theme} 
+                      setThemeMode={setTheme} 
+                    />
+                  </ErrorBoundary>
+                </NotificationsProvider>
+              </ThemeProvider>
+            </SettingsProvider>
+          </TasksProvider>
+        </ToastProvider>
+      )}
+    </>
   );
 }

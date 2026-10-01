@@ -42,7 +42,7 @@ const ActionSheet = ({ isOpen, onClose, title, children }) => {
           <motion.div 
             initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }} transition={{ duration: 0.25, ease: "easeOut" }}
             {...dragProps}
-            className="relative w-full max-h-[86vh] overflow-y-auto liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl px-4 pb-8 pt-4 md:max-w-md md:rounded-[28px] md:border"
+            className="relative w-full max-h-[86vh] overflow-y-auto bg-white dark:bg-[#1a182c] border border-slate-200/80 dark:border-white/10 rounded-b-none border-x-0 border-b-0 shadow-2xl px-4 pb-8 pt-4 md:max-w-md md:rounded-[28px] md:border"
           >
             <div {...handleProps} />
             {title && <h3 className="text-lg font-bold text-center mb-4 text-[#1a1a2e] dark:text-white">{title}</h3>}
@@ -93,7 +93,7 @@ const SettingsSection = ({ section, children, danger = false }) => {
           <Icon size={19} />
         </div>
         <div className="min-w-0">
-          <div className="text-[11px] font-[600] text-[var(--theme-section-label)] dark:text-[#AFA9EC] tracking-[0.08em] uppercase">
+          <div className="text-[11px] font-[600] text-[var(--theme-section-label)] tracking-[0.08em] uppercase">
             {section.title}
           </div>
           <p className="mt-0.5 text-[12px] leading-snug text-main/55">{section.subtitle}</p>
@@ -637,7 +637,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
           onClick={() => navigate('/profile')}
           className="flex items-center mx-4 mb-6 p-4 bg-[rgba(255,255,255,0.6)] dark:bg-[rgba(255,255,255,0.08)] backdrop-blur-[20px] border-[0.5px] border-white/40 dark:border-[rgba(255,255,255,0.12)] rounded-[20px] cursor-pointer active:scale-[0.98] transition-transform shadow-sm"
         >
-          <div className="w-14 h-14 rounded-full bg-[var(--theme-avatar-bg)] dark:bg-[rgba(175,169,236,0.3)] text-[#2D2665] dark:text-[#AFA9EC] flex items-center justify-center text-2xl font-bold shrink-0 shadow-inner overflow-hidden">
+          <div className="w-14 h-14 rounded-full bg-[var(--theme-avatar-bg)] dark:bg-[var(--theme-accent)]/20 text-[#2D2665] dark:text-[var(--theme-accent)] flex items-center justify-center text-2xl font-bold shrink-0 shadow-inner overflow-hidden">
             {avatarUrl
               ? <img src={avatarUrl} alt="avatar" className="w-full h-full object-cover" />
               : avatarInitial
@@ -645,9 +645,9 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
           </div>
           <div className="flex-1 min-w-0 px-4">
             <h2 className="text-[18px] font-bold text-[#1a1a2e] dark:text-white truncate">{user?.displayName || 'User'}</h2>
-            <p className="text-[13px] text-[#888780] dark:text-[#A0A0A0] truncate">{user?.email}</p>
+            <p className="text-[13px] text-main/60 dark:text-white/70 truncate">{user?.email}</p>
           </div>
-          <ChevronRight className="text-[#888780] shrink-0" size={20} />
+          <ChevronRight className="text-[#888780] dark:text-white/60 shrink-0" size={20} />
         </motion.div>
 
         {/* Section 1: การแสดงผล */}
@@ -655,7 +655,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
           <Row 
             icon={Palette} iconBgClass="bg-purple-500/15" iconColorClass="text-purple-600 dark:text-purple-400"
             title={t.themeColor} subtitle={currentTheme.name}
-            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-[#A0A0A0]" />}
+            rightElement={<ChevronRight size={20} className="text-[#888780] dark:text-white/60" />}
             onClick={() => setActiveSheet('themePicker')}
           />
           <Row 
@@ -665,7 +665,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
               <div className="relative flex p-0.5 bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/5 rounded-full w-[112px] sm:w-[210px] h-[34px] items-center select-none shrink-0">
                 {/* Sliding Indicator */}
                 <div 
-                  className="absolute top-0.5 bottom-0.5 rounded-full bg-white dark:bg-white/10 shadow-[0_2px_6px_rgba(0,0,0,0.15)] transition-all duration-300 ease-out border border-black/[0.03] dark:border-white/[0.05]"
+                  className="absolute top-0.5 bottom-0.5 rounded-full bg-white dark:bg-white/20 shadow-[0_2px_6px_rgba(0,0,0,0.15)] transition-all duration-300 ease-out border border-black/[0.03] dark:border-white/10"
                   style={{
                     left: `calc(${['light', 'dark', 'system'].indexOf(theme) * 100 / 3}% + 2px)`,
                     width: 'calc(100% / 3 - 4px)'
@@ -675,7 +675,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
                 {/* Light Mode Button */}
                 <button 
                   onClick={() => handleSetThemeMode('light')}
-                  className={`flex-grow h-full z-10 flex items-center justify-center gap-1 rounded-full transition-all duration-200 ${theme === 'light' ? 'text-[var(--theme-accent)] font-bold scale-[1.03]' : 'text-[#888780] dark:text-[#A0A0A0] hover:text-main'}`}
+                  className={`flex-grow h-full z-10 flex items-center justify-center gap-1 rounded-full transition-all duration-200 ${theme === 'light' ? 'text-[var(--theme-accent)] font-bold scale-[1.03]' : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white'}`}
                 >
                   <Sun size={13} />
                   <span className="hidden sm:inline text-[10px] md:text-[11px]">{lang === 'en' ? 'Light' : 'สว่าง'}</span>
@@ -684,7 +684,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
                 {/* Dark Mode Button */}
                 <button 
                   onClick={() => handleSetThemeMode('dark')}
-                  className={`flex-grow h-full z-10 flex items-center justify-center gap-1 rounded-full transition-all duration-200 ${theme === 'dark' ? 'text-[var(--theme-accent)] font-bold scale-[1.03]' : 'text-[#888780] dark:text-[#A0A0A0] hover:text-main'}`}
+                  className={`flex-grow h-full z-10 flex items-center justify-center gap-1 rounded-full transition-all duration-200 ${theme === 'dark' ? 'text-[var(--theme-accent)] font-bold scale-[1.03]' : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white'}`}
                 >
                   <Moon size={12} />
                   <span className="hidden sm:inline text-[10px] md:text-[11px]">{lang === 'en' ? 'Dark' : 'มืด'}</span>
@@ -693,7 +693,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
                 {/* System Mode Button */}
                 <button 
                   onClick={() => handleSetThemeMode('system')}
-                  className={`flex-grow h-full z-10 flex items-center justify-center gap-1 rounded-full transition-all duration-200 ${theme === 'system' ? 'text-[var(--theme-accent)] font-bold scale-[1.03]' : 'text-[#888780] dark:text-[#A0A0A0] hover:text-main'}`}
+                  className={`flex-grow h-full z-10 flex items-center justify-center gap-1 rounded-full transition-all duration-200 ${theme === 'system' ? 'text-[var(--theme-accent)] font-bold scale-[1.03]' : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white'}`}
                 >
                   <Laptop size={12} />
                   <span className="hidden sm:inline text-[10px] md:text-[11px]">{lang === 'en' ? 'System' : 'ระบบ'}</span>
@@ -1000,7 +1000,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
               className="w-full p-4 rounded-[16px] bg-black/5 dark:bg-white/5 flex items-center justify-between active:bg-black/10 transition-colors"
             >
               <span className="font-bold text-[#1a1a2e] dark:text-white">{l === 'th' ? t.thai : t.english}</span>
-              {lang === l && <Check size={20} className="text-[var(--theme-section-label)] dark:text-[#AFA9EC]" />}
+              {lang === l && <Check size={20} className="text-[var(--theme-section-label)]" />}
             </button>
           ))}
         </div>
@@ -1015,7 +1015,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
               className="w-full p-4 rounded-[16px] bg-black/5 dark:bg-white/5 flex items-center justify-between active:bg-black/10 transition-colors"
             >
               <span className="font-bold text-[#1a1a2e] dark:text-white">{day === 'อาทิตย์' ? t.sunday : t.monday}</span>
-              {settings?.weekStart === day && <Check size={20} className="text-[var(--theme-section-label)] dark:text-[#AFA9EC]" />}
+              {settings?.weekStart === day && <Check size={20} className="text-[var(--theme-section-label)]" />}
             </button>
           ))}
         </div>

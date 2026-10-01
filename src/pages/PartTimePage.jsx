@@ -3,7 +3,7 @@ import { useState, useMemo, useRef, useEffect } from 'react';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { CheckCircle2, Check, Plus, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, GripHorizontal, Flame, ChevronDown, Banknote, Receipt, Calculator } from 'lucide-react';
+import { CheckCircle2, Check, Plus, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, GripHorizontal, Flame, ChevronDown, Banknote, Receipt, Calculator, RotateCcw } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -560,6 +560,16 @@ export default function PartTimePage({ user, lang = 'en' }) {
     });
   }, [tasks, selectedMonth]);
 
+  const extraIncomesList = useMemo(() => {
+    return tasks.filter(t => {
+      if (!t.isExtraIncome) return false;
+      const d = new Date(t.start);
+      if (isNaN(d.getTime())) return false;
+      const incMonthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      return incMonthKey === selectedMonth;
+    });
+  }, [tasks, selectedMonth]);
+
   const removeWidget = (id) => {
     setEnabledWidgets(prev => prev.filter(w => w !== id));
   };
@@ -569,6 +579,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
     { id: 'earned', label: 'รายได้ที่ได้แล้ว (Earned)' },
     { id: 'expected', label: 'คาดว่าได้รับ (Expected)' },
     { id: 'total_sso_net', label: 'รายได้รวม & หักประกันสังคม' },
+    { id: 'extra_income_list', label: 'รายได้พิเศษทั้งหมด (Extra Income List)' },
     { id: 'expense_list', label: 'รายจ่ายทั้งหมด (Expense List)' },
     { id: 'goal', label: 'เป้าหมายรายได้ (Income Goal)' },
     { id: 'work_streak', label: 'วันทำงานต่อเนื่อง (Work Streak)' },
@@ -577,68 +588,152 @@ export default function PartTimePage({ user, lang = 'en' }) {
     { id: 'chart', label: 'กราฟรายเดือน (Monthly Chart)' }
   ];
 
+  const isFullWidthWidget = (id) => ['total_sso_net', 'expense_list', 'extra_income_list', 'goal', 'chart'].includes(id);
+
+  const widgetLayoutMap = useMemo(() => {
+    const map = {};
+    let currentHalf = null;
+
+    enabledWidgets.forEach((id) => {
+      if (isFullWidthWidget(id)) {
+        if (currentHalf) {
+          map[currentHalf] = { colSpan: 2, isOrphan: true };
+          currentHalf = null;
+        }
+        map[id] = { colSpan: 2, isOrphan: false };
+      } else {
+        if (currentHalf) {
+          map[currentHalf] = { colSpan: 1, isOrphan: false };
+          map[id] = { colSpan: 1, isOrphan: false };
+          currentHalf = null;
+        } else {
+          currentHalf = id;
+        }
+      }
+    });
+
+    if (currentHalf) {
+      map[currentHalf] = { colSpan: 2, isOrphan: true };
+    }
+
+    return map;
+  }, [enabledWidgets]);
+
   const renderWidgetContent = (id) => {
     switch(id) {
-      case 'net':
+      case 'net': {
+        const isFull = widgetLayoutMap['net']?.colSpan === 2;
         return (
-          <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-purple-500 h-full">
-            <p className="text-xs text-main opacity-70 font-medium mb-1">{lang === 'en' ? 'Net income' : 'รายได้สุทธิ'}</p>
-            <span className="text-2xl font-bold text-purple-600 dark:text-purple-400">฿{stats.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <div className={`liquid-glass-card p-4 flex ${isFull ? 'flex-row items-center justify-between' : 'flex-col justify-between'} h-full min-h-[96px] border-l-4 border-l-purple-500`}>
+            <div>
+              <p className="text-xs text-main opacity-70 font-medium mb-0.5">{lang === 'en' ? 'Net income' : 'รายได้สุทธิ'}</p>
+              {isFull && <p className="text-[10px] text-main opacity-40">รายได้หลังหักค่าใช้จ่าย</p>}
+            </div>
+            <span className="text-2xl font-bold text-purple-600 dark:text-primary-300">฿{stats.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
         );
-      case 'earned':
+      }
+      case 'earned': {
+        const isFull = widgetLayoutMap['earned']?.colSpan === 2;
         return (
-          <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-green-500 h-full">
-            <p className="text-xs text-main opacity-70 font-medium mb-1">{t.earned}</p>
+          <div className={`liquid-glass-card p-4 flex ${isFull ? 'flex-row items-center justify-between' : 'flex-col justify-between'} h-full min-h-[96px] border-l-4 border-l-green-500`}>
+            <div>
+              <p className="text-xs text-main opacity-70 font-medium mb-0.5">{t.earned}</p>
+              {isFull && <p className="text-[10px] text-main opacity-40">รายได้จากกะที่ทำเสร็จแล้ว</p>}
+            </div>
             <span className="text-2xl font-bold text-green-500">฿{stats.earned.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
         );
-      case 'expected':
+      }
+      case 'expected': {
+        const isFull = widgetLayoutMap['expected']?.colSpan === 2;
         return (
-          <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-amber-500 h-full">
-            <p className="text-xs text-main opacity-70 font-medium mb-1">{t.expected}</p>
-            <span className="text-xl font-bold text-amber-500">฿{stats.pending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          <div className={`liquid-glass-card p-4 flex ${isFull ? 'flex-row items-center justify-between' : 'flex-col justify-between'} h-full min-h-[96px] border-l-4 border-l-amber-500`}>
+            <div>
+              <p className="text-xs text-main opacity-70 font-medium mb-0.5">{t.expected}</p>
+              {isFull && <p className="text-[10px] text-main opacity-40">รายได้จากกะที่กำลังจะมาถึง</p>}
+            </div>
+            <span className="text-xl md:text-2xl font-bold text-amber-500">฿{stats.pending.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
         );
-            case 'work_streak':
+      }
+      case 'work_streak': {
+        const isFull = widgetLayoutMap['work_streak']?.colSpan === 2;
         return (
-          <div className="liquid-glass-card p-4 flex flex-col justify-between h-full border-l-4 border-l-orange-500 relative overflow-hidden group">
+          <div className="liquid-glass-card p-4 flex flex-col justify-center h-full border-l-4 border-l-orange-500 relative overflow-hidden group">
             <motion.div 
-              className="absolute -right-4 -top-4 text-orange-500/10"
+              className="absolute -right-4 -top-4 text-orange-500/10 pointer-events-none"
               animate={{ scale: [1, 1.1, 1], rotate: [0, 10, -5, 0] }}
               transition={{ duration: 4, repeat: Infinity, ease: "easeInOut" }}
             >
               <Flame size={80} strokeWidth={1.5} />
             </motion.div>
-            <h3 className="text-sm font-bold text-orange-600 dark:text-orange-400 mb-1 flex items-center gap-1 relative z-10 group-hover:text-orange-500 transition-colors">
-              <motion.div animate={{ scale: [1, 1.15, 1], rotate: [0, -8, 8, 0] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} style={{ originY: 0.8 }}>
-                <Flame size={16} className="text-orange-500" fill="currentColor" />
-              </motion.div>
-              Work Streak
-            </h3>
-            <div className="text-2xl md:text-3xl font-black text-orange-600 dark:text-orange-500 mb-0.5 relative z-10 group-hover:scale-105 transition-transform origin-left">
-              {extraStats.currentWorkStreak} วัน
-            </div>
-            <p className="text-[10px] font-medium text-orange-700/70 dark:text-orange-300/70 relative z-10">สถิติสูงสุด {extraStats.bestWorkStreak} วัน</p>
+            {isFull ? (
+              <div className="flex items-center justify-between relative z-10 w-full">
+                <div className="flex items-center gap-3">
+                  <div className="w-10 h-10 rounded-2xl bg-orange-500/10 flex items-center justify-center text-orange-500 shrink-0">
+                    <Flame size={20} fill="currentColor" />
+                  </div>
+                  <div>
+                    <h3 className="text-sm font-bold text-orange-600 dark:text-orange-400 leading-tight">
+                      Work Streak
+                    </h3>
+                    <p className="text-xs text-main opacity-60">วันทำงานต่อเนื่อง</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <div className="text-2xl md:text-3xl font-black text-orange-600 dark:text-orange-500 leading-tight">
+                    {extraStats.currentWorkStreak} วัน
+                  </div>
+                  <p className="text-[10px] font-medium text-orange-700/70 dark:text-orange-300/70">
+                    สถิติสูงสุด {extraStats.bestWorkStreak} วัน
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-col justify-between h-full min-h-[96px] relative z-10">
+                <h3 className="text-sm font-bold text-orange-600 dark:text-orange-400 mb-1 flex items-center gap-1 group-hover:text-orange-500 transition-colors">
+                  <motion.div animate={{ scale: [1, 1.15, 1], rotate: [0, -8, 8, 0] }} transition={{ duration: 2, repeat: Infinity, ease: "easeInOut" }} style={{ originY: 0.8 }}>
+                    <Flame size={16} className="text-orange-500" fill="currentColor" />
+                  </motion.div>
+                  Work Streak
+                </h3>
+                <div className="text-2xl md:text-3xl font-black text-orange-600 dark:text-orange-500 mb-0.5 group-hover:scale-105 transition-transform origin-left">
+                  {extraStats.currentWorkStreak} วัน
+                </div>
+                <p className="text-[10px] font-medium text-orange-700/70 dark:text-orange-300/70">สถิติสูงสุด {extraStats.bestWorkStreak} วัน</p>
+              </div>
+            )}
           </div>
         );
-      case 'shift_count':
+      }
+      case 'shift_count': {
+        const isFull = widgetLayoutMap['shift_count']?.colSpan === 2;
         return (
-          <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-blue-500 h-full">
-            <p className="text-xs text-main opacity-70 font-medium mb-1">จำนวนกะรวม</p>
+          <div className={`liquid-glass-card p-4 flex ${isFull ? 'flex-row items-center justify-between' : 'flex-col justify-between'} h-full min-h-[96px] border-l-4 border-l-blue-500`}>
+            <div>
+              <p className="text-xs text-main opacity-70 font-medium mb-0.5">จำนวนกะรวม</p>
+              {isFull && <p className="text-[10px] text-main opacity-40">กะงานทั้งหมดในระบบ</p>}
+            </div>
             <span className="text-2xl font-bold text-blue-500">{extraStats.shiftCount} กะ</span>
           </div>
         );
-      case 'total_hours':
+      }
+      case 'total_hours': {
+        const isFull = widgetLayoutMap['total_hours']?.colSpan === 2;
         return (
-          <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-indigo-500 h-full">
-            <p className="text-xs text-main opacity-70 font-medium mb-1">ชั่วโมงทำงานรวม</p>
+          <div className={`liquid-glass-card p-4 flex ${isFull ? 'flex-row items-center justify-between' : 'flex-col justify-between'} h-full min-h-[96px] border-l-4 border-l-indigo-500`}>
+            <div>
+              <p className="text-xs text-main opacity-70 font-medium mb-0.5">ชั่วโมงทำงานรวม</p>
+              {isFull && <p className="text-[10px] text-main opacity-40">คำนวณหลังหักเวลาพัก</p>}
+            </div>
             <span className="text-2xl font-bold text-indigo-500">{extraStats.totalHours} ชม.</span>
           </div>
         );
+      }
       case 'chart':
         return (
-          <div className="col-span-2 liquid-glass-card p-4 flex flex-col justify-center h-48 border-l-4 border-l-pink-500">
+          <div className="liquid-glass-card p-4 flex flex-col justify-center h-48 border-l-4 border-l-pink-500">
              <p className="text-xs text-main opacity-70 font-medium mb-2">กราฟรายได้รายเดือน</p>
              {extraStats.chartData.length > 0 ? (
                <ResponsiveContainer width="100%" height="100%">
@@ -657,7 +752,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         );
       case 'total_sso_net':
         return (
-          <div className="col-span-2 liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-primary-500 border border-dashed border-main/20">
+          <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-primary-500">
             <div className="flex justify-between items-center mb-1">
                <p className="text-sm text-main opacity-70 font-medium">{t.total} (ก่อนหัก)</p>
                <span className="text-2xl font-bold text-primary-500">฿{stats.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
@@ -669,12 +764,20 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 {stats.jobBreakdown.map((b, i) => {
                   const c = JOB_COLORS[b.job ? b.job.color : 'primary'] || JOB_COLORS.primary;
                   if (b.total === 0) return null;
+                  const matchingExtra = extraIncomesList.find(e => e.title === b.name);
                   return (
-                    <div key={i} className="flex justify-between items-center text-xs">
+                    <div 
+                      key={i} 
+                      onClick={() => {
+                        if (matchingExtra) handleEditExtraItemClick(matchingExtra);
+                      }}
+                      className={`flex justify-between items-center text-xs py-0.5 ${matchingExtra ? 'cursor-pointer px-2 -mx-2 rounded-xl bg-green-500/5 hover:bg-green-500/15 active:scale-[0.99] border border-green-500/20 transition-all' : ''}`}
+                    >
                       <div className="flex items-center gap-1.5 opacity-90">
-                        <span>{b.job ? b.job.emoji : '🏢'}</span>
+                        <span>{b.job ? b.job.emoji : (matchingExtra ? '💵' : '🏢')}</span>
                         <span className="font-medium text-main">{b.name}</span>
                         {b.deductsSSO && <span className="text-[9px] text-red-500 bg-red-500/10 px-1 py-0.5 rounded font-bold ml-1">หักประกันสังคม</span>}
+                        {matchingExtra && <span className="text-[9px] text-green-600 dark:text-green-400 bg-green-500/15 border border-green-500/30 px-1.5 py-0.5 rounded-full font-bold ml-1">แตะเพื่อแก้ไข</span>}
                       </div>
                       <span className={`font-bold ${c.text}`}>฿{b.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                     </div>
@@ -695,15 +798,43 @@ export default function PartTimePage({ user, lang = 'en' }) {
                    <span className="text-lg font-bold text-red-600 dark:text-red-400">-฿{stats.expenseTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
-            <div className="flex justify-between items-center mt-2 bg-purple-500/10 p-2 rounded-xl">
-               <p className="text-sm text-purple-600 dark:text-purple-400 font-bold">{lang === 'th' ? 'รายได้สุทธิ' : 'Net Income'}</p>
-               <span className="text-xl font-bold text-purple-600 dark:text-purple-400">฿{stats.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            <div className="flex justify-between items-center mt-2 bg-purple-500/10 dark:bg-primary-500/20 p-2.5 rounded-xl border border-transparent dark:border-primary-500/30">
+               <p className="text-sm text-purple-600 dark:text-primary-300 font-bold">{lang === 'th' ? 'รายได้สุทธิ' : 'Net Income'}</p>
+               <span className="text-xl font-bold text-purple-600 dark:text-primary-300">฿{stats.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
+          </div>
+        );
+      case 'extra_income_list':
+        return (
+          <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-green-500">
+            <div className="flex justify-between items-center mb-3">
+              <p className="text-sm font-bold text-main flex items-center gap-2"><Banknote size={16} className="text-green-500"/> รายได้พิเศษทั้งหมด</p>
+              {extraIncomesList.length > 0 && (
+                <span className="text-sm font-bold text-green-500">
+                  +฿{extraIncomesList.reduce((acc, cur) => acc + (Number(cur.amount) || 0), 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+              )}
+            </div>
+            {extraIncomesList.length === 0 ? (
+              <p className="text-xs text-center opacity-50 py-2">ไม่มีรายการรายได้พิเศษ</p>
+            ) : (
+              <div className="space-y-2">
+                {extraIncomesList.map(inc => (
+                  <div key={inc.id} onClick={() => handleEditExtraItemClick(inc)} className="flex justify-between items-center p-2.5 bg-green-500/5 hover:bg-green-500/10 border border-green-500/15 rounded-xl cursor-pointer transition-colors">
+                    <div>
+                      <p className="text-sm font-bold text-main">{inc.title}</p>
+                      <p className="text-[10px] opacity-60 text-main">{getIncomeCategoryLabel(inc.incomeCategory)} · {fDate(inc.start)}</p>
+                    </div>
+                    <span className="text-sm font-black text-green-600 dark:text-green-400">+฿{(Number(inc.amount) || 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                ))}
+              </div>
+            )}
           </div>
         );
       case 'expense_list':
         return (
-          <div className="col-span-2 liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-red-500">
+          <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-red-500">
             <div className="flex justify-between items-center mb-3">
               <p className="text-sm font-bold text-main flex items-center gap-2"><List size={16}/> รายจ่ายทั้งหมด</p>
               {stats.expenseTotal > 0 && <span className="text-sm font-bold text-red-500">-฿{stats.expenseTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>}
@@ -742,7 +873,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         const progress = Math.min(100, Math.round((currentIncome / incomeGoal.goalAmount) * 100)) || 0;
         const diff = incomeGoal.goalAmount - currentIncome;
         return (
-          <div className="col-span-2 liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-primary-500 relative overflow-hidden">
+          <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-primary-500 relative overflow-hidden">
             <div className="flex justify-between items-center mb-2 relative z-10">
                <p className="text-sm font-bold text-main flex items-center gap-2"><Target size={16}/> เป้าหมายเดือนนี้</p>
                <button onClick={(e) => { e.stopPropagation(); setTempGoal(incomeGoal); setShowGoalModal(true); setIsEditWidgetMode(false); }} className="text-primary-500 hover:bg-primary-500/10 p-1.5 rounded-full transition-colors"><Edit size={14}/></button>
@@ -753,7 +884,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
             </div>
             <div className="flex justify-between items-center text-xs relative z-10">
                <span className="font-medium">
-                 {diff > 0 ? `เหลืออีก ฿${diff.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ถึงเป้า` : diff === 0 ? `🎉 ทำได้ตามเป้าแล้ว!` : `🔥 เกินเป้า ฿${Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
+                 {diff > 0 ? `เหลืออีก ฿${diff.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} ถึงเป้า` : diff === 0 ? `ทำได้ตามเป้าแล้ว!` : `เกินเป้า ฿${Math.abs(diff).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                </span>
                <span className="font-bold text-primary-500">{progress}%</span>
             </div>
@@ -1010,7 +1141,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
   const fTime = (d) => format(d, 'HH:mm');
   const activeTasks = activeTab === 'upcoming' ? upcomingTasks : historyTasks;
 
-  if (isTasksLoading) {
+  if (isTasksLoading && allTasks.length === 0) {
     return (
       <div role="status" aria-live="polite" className="min-h-screen flex flex-col gap-3 items-center justify-center bg-gray-50 dark:bg-[#121212] text-main/60">
         <div className="w-10 h-10 border-4 border-primary-500 border-t-transparent rounded-full animate-spin"></div>
@@ -1047,11 +1178,13 @@ export default function PartTimePage({ user, lang = 'en' }) {
       </div>
 
       {/* Main Tab Bar */}
-      <div className="flex gap-1 bg-black/5 dark:bg-white/5 rounded-full p-1.5 mb-6 mx-2">
+      <div className="flex gap-1.5 bg-black/5 dark:bg-white/5 rounded-full p-1.5 mb-6 mx-2 border border-black/5 dark:border-white/10">
         <button
           onClick={() => setMainTab('shifts')}
           className={`flex-1 py-2.5 rounded-full text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
-            mainTab === 'shifts' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300' : 'text-main/50 hover:text-main'
+            mainTab === 'shifts' 
+              ? 'bg-white dark:bg-primary-500/25 shadow-md text-primary-600 dark:text-white border border-transparent dark:border-primary-400/30' 
+              : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white'
           }`}
         >
           <CalendarDays size={14} /> {ui.shifts}
@@ -1059,7 +1192,9 @@ export default function PartTimePage({ user, lang = 'en' }) {
         <button
           onClick={() => setMainTab('summary')}
           className={`flex-1 py-2.5 rounded-full text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
-            mainTab === 'summary' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300' : 'text-main/50 hover:text-main'
+            mainTab === 'summary' 
+              ? 'bg-white dark:bg-primary-500/25 shadow-md text-primary-600 dark:text-white border border-transparent dark:border-primary-400/30' 
+              : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white'
           }`}
         >
           <BarChart2 size={14} /> {ui.summary}
@@ -1096,47 +1231,51 @@ export default function PartTimePage({ user, lang = 'en' }) {
         axis="y"
         values={sortedWidgets}
         onReorder={setEnabledWidgets}
-        className="grid grid-cols-2 auto-rows-[minmax(120px,auto)] md:auto-rows-[minmax(132px,auto)] gap-4 mb-4"
+        className="grid grid-cols-2 gap-3.5 mb-5"
       >
         <AnimatePresence>
-          {sortedWidgets.map(id => (
-            <Reorder.Item 
-              key={id}
-              value={id}
-              initial={{ opacity: 0, scale: 0.8 }}
-              animate={isEditWidgetMode ? {
-                 opacity: 1, 
-                 scale: 1, 
-                 rotate: [-0.8, 0.8, -0.8],
-                 transition: { rotate: { repeat: Infinity, duration: 0.2 } }
-              } : { opacity: 1, scale: 1, rotate: 0 }}
-              exit={{ opacity: 0, scale: 0.5 }}
-              dragListener={isEditWidgetMode}
-              className={`relative min-h-[120px] md:min-h-[132px] ${['total_sso_net', 'expense_list', 'goal', 'chart'].includes(id) ? 'col-span-2' : ''} ${isEditWidgetMode ? 'cursor-grab active:cursor-grabbing z-[55]' : ''}`}
-            >
-              {isEditWidgetMode && (
-                <>
-                  <button 
-                    onClick={() => removeWidget(id)}
-                    className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-lg z-[60] hover:scale-110 transition-transform"
-                  >
-                    <X size={14} />
-                  </button>
-                  <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[60] opacity-30 text-main pointer-events-none">
-                    <GripHorizontal size={20} />
-                  </div>
-                </>
-              )}
-              <div className={isEditWidgetMode ? 'pointer-events-none opacity-80' : ''}>
-                {renderWidgetContent(id)}
-              </div>
-            </Reorder.Item>
-          ))}
+          {sortedWidgets.map(id => {
+            const layout = widgetLayoutMap[id] || { colSpan: 1, isOrphan: false };
+            const isFull = layout.colSpan === 2;
+            return (
+              <Reorder.Item 
+                key={id}
+                value={id}
+                initial={{ opacity: 0, scale: 0.8 }}
+                animate={isEditWidgetMode ? {
+                   opacity: 1, 
+                   scale: 1, 
+                   rotate: [-0.8, 0.8, -0.8],
+                   transition: { rotate: { repeat: Infinity, duration: 0.2 } }
+                } : { opacity: 1, scale: 1, rotate: 0 }}
+                exit={{ opacity: 0, scale: 0.5 }}
+                dragListener={isEditWidgetMode}
+                className={`relative flex flex-col ${isFull ? 'col-span-2' : 'col-span-1'} ${isEditWidgetMode ? 'cursor-grab active:cursor-grabbing z-[55]' : ''}`}
+              >
+                {isEditWidgetMode && (
+                  <>
+                    <button 
+                      onClick={() => removeWidget(id)}
+                      className="absolute -top-2 -right-2 bg-red-500 text-white rounded-full p-1.5 shadow-lg z-[60] hover:scale-110 transition-transform"
+                    >
+                      <X size={14} />
+                    </button>
+                    <div className="absolute top-2 left-1/2 -translate-x-1/2 z-[60] opacity-30 text-main pointer-events-none">
+                      <GripHorizontal size={20} />
+                    </div>
+                  </>
+                )}
+                <div className={`h-full flex flex-col ${isEditWidgetMode ? 'pointer-events-none opacity-80' : ''}`}>
+                  {renderWidgetContent(id)}
+                </div>
+              </Reorder.Item>
+            );
+          })}
         </AnimatePresence>
       </Reorder.Group>
 
       {isEditWidgetMode && (
-         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mb-8">
+         <motion.div initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} className="mb-6">
            <button 
              onClick={() => setShowWidgetSelector(true)}
              className="w-full py-4 border-2 border-dashed border-main/20 rounded-2xl flex items-center justify-center gap-2 text-main/60 hover:text-main hover:border-main/40 transition-colors bg-white/10"
@@ -1147,21 +1286,19 @@ export default function PartTimePage({ user, lang = 'en' }) {
          </motion.div>
       )}
 
-      {!isEditWidgetMode && <div className="mb-8" />}
-
 
 
       <div className="flex flex-col md:flex-row md:items-center md:justify-between mb-5 px-2 gap-3">
-        <div role="tablist" aria-label={lang === 'en' ? 'Shift status' : 'สถานะกะงาน'} className="grid grid-cols-2 gap-1.5 w-full md:w-auto bg-black/5 dark:bg-white/5 rounded-2xl p-1.5">
+        <div role="tablist" aria-label={lang === 'en' ? 'Shift status' : 'สถานะกะงาน'} className="grid grid-cols-2 gap-1.5 w-full md:w-auto bg-black/5 dark:bg-white/5 rounded-2xl p-1.5 border border-black/5 dark:border-white/10">
           <button
             type="button"
             role="tab"
             aria-selected={activeTab === 'upcoming'}
             aria-pressed={activeTab === 'upcoming'}
             onClick={() => setActiveTab('upcoming')}
-            className={`relative min-w-0 px-3 md:px-4 py-2.5 rounded-xl transition-colors text-xs font-bold truncate ${activeTab === 'upcoming' ? 'text-primary-600 dark:text-primary-300' : 'text-main/60 hover:text-main'}`}
+            className={`relative min-w-0 px-3 md:px-4 py-2.5 rounded-xl transition-colors text-xs font-bold truncate ${activeTab === 'upcoming' ? 'text-primary-600 dark:text-white' : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white'}`}
           >
-            {activeTab === 'upcoming' && <motion.span layoutId="active-shift-tab" transition={{ type: 'spring', stiffness: 420, damping: 32 }} className="absolute inset-0 rounded-xl bg-white dark:bg-white/20 shadow-sm" />}
+            {activeTab === 'upcoming' && <motion.span layoutId="active-shift-tab" transition={{ type: 'spring', stiffness: 420, damping: 32 }} className="absolute inset-0 rounded-xl bg-white dark:bg-primary-500/25 border border-transparent dark:border-primary-400/30 shadow-sm" />}
             <span className="relative z-10 inline-flex items-center gap-1.5"><CalendarDays size={14} />{t.upcoming}</span>
           </button>
           <button
@@ -1170,9 +1307,9 @@ export default function PartTimePage({ user, lang = 'en' }) {
             aria-selected={activeTab === 'history'}
             aria-pressed={activeTab === 'history'}
             onClick={() => setActiveTab('history')}
-            className={`relative min-w-0 px-3 md:px-4 py-2.5 rounded-xl transition-colors text-xs font-bold truncate ${activeTab === 'history' ? 'text-primary-600 dark:text-primary-300' : 'text-main/60 hover:text-main'}`}
+            className={`relative min-w-0 px-3 md:px-4 py-2.5 rounded-xl transition-colors text-xs font-bold truncate ${activeTab === 'history' ? 'text-primary-600 dark:text-white' : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white'}`}
           >
-            {activeTab === 'history' && <motion.span layoutId="active-shift-tab" transition={{ type: 'spring', stiffness: 420, damping: 32 }} className="absolute inset-0 rounded-xl bg-white dark:bg-white/20 shadow-sm" />}
+            {activeTab === 'history' && <motion.span layoutId="active-shift-tab" transition={{ type: 'spring', stiffness: 420, damping: 32 }} className="absolute inset-0 rounded-xl bg-white dark:bg-primary-500/25 border border-transparent dark:border-primary-400/30 shadow-sm" />}
             <span className="relative z-10 inline-flex items-center gap-1.5"><History size={14} />{t.history}</span>
           </button>
         </div>
@@ -1229,13 +1366,13 @@ export default function PartTimePage({ user, lang = 'en' }) {
             </button>
             <button
               onClick={() => setViewMode('list')}
-              className={`px-3 md:px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap ${viewMode === 'list' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300 scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
+              className={`px-3 md:px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap ${viewMode === 'list' ? 'bg-white dark:bg-primary-500/25 shadow-md text-primary-600 dark:text-white border border-transparent dark:border-primary-400/30 scale-100' : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
             >
               <List size={14} /> ลิสต์
             </button>
             <button
               onClick={() => setViewMode('calendar')}
-              className={`px-3 md:px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap ${viewMode === 'calendar' ? 'bg-white dark:bg-white/20 shadow-md text-primary-600 dark:text-primary-300 scale-100' : 'text-main/60 hover:text-main hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
+              className={`px-3 md:px-4 py-1.5 rounded-full transition-all flex items-center gap-1.5 text-xs font-bold whitespace-nowrap ${viewMode === 'calendar' ? 'bg-white dark:bg-primary-500/25 shadow-md text-primary-600 dark:text-white border border-transparent dark:border-primary-400/30 scale-100' : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white hover:bg-black/5 dark:hover:bg-white/5 scale-95'}`}
             >
               <CalendarDays size={14} /> {ui.calendar}
             </button>
@@ -1250,7 +1387,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
               initial={{ opacity: 0 }} 
               animate={{ opacity: 1 }} 
               exit={{ opacity: 0 }} 
-              className="absolute inset-0 bg-black/40 backdrop-blur-sm" 
+              className="absolute inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm" 
               onClick={() => setShowAddExtraForm(false)} 
             />
             <motion.div 
@@ -1259,7 +1396,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
               exit={{ opacity: 0, y: '100%' }} 
               transition={{ type: 'spring', damping: 25, stiffness: 350 }}
               {...extraFormSheet.dragProps}
-              className={`relative w-full max-w-md max-h-[88vh] overflow-y-auto overscroll-contain liquid-glass-card p-6 md:p-8 space-y-5 border border-x-0 border-b-0 sm:border-white/20 dark:sm:border-white/10 shadow-2xl z-10 rounded-t-[32px] sm:rounded-3xl ${extraFormType === 'income' ? 'bg-white/90 dark:bg-zinc-900/90 border-t-4 border-t-green-500' : 'bg-white/90 dark:bg-zinc-900/90 border-t-4 border-t-red-500'}`}
+              className={`relative w-full max-w-md max-h-[88vh] overflow-y-auto overscroll-contain bg-white dark:bg-[#1a182c] p-6 md:p-8 space-y-5 border border-slate-200/80 dark:border-white/10 border-x-0 border-b-0 sm:border shadow-2xl z-10 rounded-t-[32px] sm:rounded-3xl ${extraFormType === 'income' ? 'border-t-4 border-t-green-500' : 'border-t-4 border-t-red-500'}`}
             >
               <div {...extraFormSheet.handleProps} className={`${extraFormSheet.handleProps.className} sm:hidden`} />
               <button 
@@ -1280,7 +1417,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
                       {extraFormType === 'income' ? 'ชื่อรายการ' : t.expenseTitle}
                     </label>
-                    <input type="text" value={extraFormData.title} onChange={e => setExtraFormData({...extraFormData, title: e.target.value})} required className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder={extraFormType === 'income' ? 'เช่น ทิป, ค่าคอมมิชชัน' : t.expenseTitlePlaceholder} />
+                    <input 
+                      type="text" 
+                      value={extraFormData.title} 
+                      onChange={e => setExtraFormData({...extraFormData, title: e.target.value})} 
+                      required 
+                      className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm`} 
+                      placeholder={extraFormType === 'income' ? 'เช่น ทิป, ค่าคอมมิชชัน' : t.expenseTitlePlaceholder} 
+                    />
                   </div>
                   {extraFormType === 'income' && (
                     <div>
@@ -1290,8 +1434,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                       <select
                         value={extraFormData.incomeCategory}
                         onChange={e => setExtraFormData({...extraFormData, incomeCategory: e.target.value})}
-                        className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-main font-bold"
-                        style={{ backgroundColor: 'var(--glass-bg-input)' }}
+                        className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-main font-bold bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm"
                       >
                         {incomeCategories.map(category => (
                           <option key={category.id} value={category.id}>{category.label}</option>
@@ -1302,7 +1445,15 @@ export default function PartTimePage({ user, lang = 'en' }) {
                   <div>
                     <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.amount}</label>
                     <div className="relative">
-                      <input type="number" step="any" value={extraFormData.amount} onChange={e => setExtraFormData({...extraFormData, amount: e.target.value})} required min="0" className={`w-full pl-4 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                      <input 
+                        type="number" 
+                        step="any" 
+                        value={extraFormData.amount} 
+                        onChange={e => setExtraFormData({...extraFormData, amount: e.target.value})} 
+                        required 
+                        min="0" 
+                        className={`w-full pl-4 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm`} 
+                      />
                       <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold opacity-50">฿</span>
                     </div>
                   </div>
@@ -1310,7 +1461,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
                       ประจำเดือน
                     </label>
-                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="month" value={extraFormData.month} onChange={e => setExtraFormData({...extraFormData, month: e.target.value})} required className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main`} style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                    <input 
+                      onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} 
+                      type="month" 
+                      value={extraFormData.month} 
+                      onChange={e => setExtraFormData({...extraFormData, month: e.target.value})} 
+                      required 
+                      className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm`} 
+                    />
                   </div>
                 </div>
                 
@@ -1337,7 +1495,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         )}
         {showAddForm && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-6">
-            <form onSubmit={handleAddShift} className="liquid-glass-card p-6 space-y-5 border-2 border-primary-500/30 bg-primary-500/5">
+            <form onSubmit={handleAddShift} className="bg-white/95 dark:bg-[#1a182c] backdrop-blur-xl p-6 space-y-5 border-2 border-primary-500/30 rounded-3xl shadow-lg">
               <h3 className="font-bold text-main">{lang === 'en' ? 'Add upcoming shifts (multiple days supported)' : `เพิ่ม${t.upcoming} (สามารถเพิ่มหลายวันได้)`}</h3>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
@@ -1350,7 +1508,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                       <button 
                         key={job.id} type="button"
                         onClick={() => setFormData({...formData, title: job.name, hourlyRate: job.rate || formData.hourlyRate, rateType: job.rateType || formData.rateType, deductSSO: job.deductSSO})}
-                        className={`flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 transition-all snap-start shadow-sm ${formData.title === job.name ? `${c.border} ${c.bg} scale-105` : 'border-transparent bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10'}`}
+                        className={`flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 transition-all snap-start shadow-sm ${formData.title === job.name ? `${c.border} ${c.bg} scale-105` : 'border-transparent bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10'}`}
                       >
                         <span className="text-3xl mb-1">{job.emoji || '🏢'}</span>
                         <span className="text-xs font-bold text-main whitespace-nowrap truncate w-full px-1">{job.name}</span>
@@ -1362,18 +1520,17 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     </button>
                   </div>
                   {!((settings.jobs || []).some(j => j.name === formData.title)) && (
-                    <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required className="w-full mt-3 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="ระบุชื่อบริษัท..." />
+                    <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required className="w-full mt-3 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" placeholder="ระบุชื่อบริษัท..." />
                   )}
                 </div>
                 <div>
                   <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.hourlyRate}</label>
                   <div className="flex gap-2">
-                    <input type="number" step="any" value={formData.hourlyRate} onChange={e => setFormData({...formData, hourlyRate: e.target.value})} required min="0" className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                    <input type="number" step="any" value={formData.hourlyRate} onChange={e => setFormData({...formData, hourlyRate: e.target.value})} required min="0" className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" />
                     <select 
                       value={formData.rateType} 
                       onChange={e => setFormData({...formData, rateType: e.target.value})}
-                      className="px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main font-bold"
-                      style={{ backgroundColor: 'var(--glass-bg-input)' }}
+                      className="px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main font-bold bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm"
                     >
                       <option value="hourly">{t.perHour}</option>
                       <option value="daily">{t.perDay}</option>
@@ -1395,7 +1552,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
               <div>
                 <label className="block text-sm font-medium text-main mb-1.5 opacity-80">หมายเหตุ (เช่น ทำกะแทนใคร)</label>
-                <input type="text" value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main" style={{ backgroundColor: 'var(--glass-bg-input)' }} placeholder="ตัวอย่าง: ทำแทนคุณ A" />
+                <input type="text" value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" placeholder="ตัวอย่าง: ทำแทนคุณ A" />
               </div>
 
               {(() => {
@@ -1426,8 +1583,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                         min="0"
                         step="0.5"
                         disabled={!canTakeBreak}
-                        className={`w-28 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-main font-bold transition-opacity ${!canTakeBreak ? 'opacity-30 cursor-not-allowed' : ''}`}
-                        style={{ backgroundColor: 'var(--glass-bg-input)' }}
+                        className={`w-28 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-main font-bold transition-opacity bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm ${!canTakeBreak ? 'opacity-30 cursor-not-allowed' : ''}`}
                         placeholder="0"
                       />
                       <span className={`text-sm font-bold transition-opacity ${!canTakeBreak ? 'opacity-30' : 'text-main/70'}`}>ชั่วโมง</span>
@@ -1479,21 +1635,21 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.fromDate}</label>
-                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} required className="w-full px-2 sm:px-4 py-3 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} required className="w-full px-2 sm:px-4 py-3 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0 bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.startTime}</label>
-                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} required className="w-full px-2 sm:px-4 py-3 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} required className="w-full px-2 sm:px-4 py-3 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0 bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" />
                   </div>
                 </div>
                 <div className="grid grid-cols-2 gap-3">
                   <div>
                     <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.toDate}</label>
-                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} required className="w-full px-2 sm:px-4 py-3 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} required className="w-full px-2 sm:px-4 py-3 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0 bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" />
                   </div>
                   <div>
                     <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.endTime}</label>
-                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="time" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} required className="w-full px-2 sm:px-4 py-3 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0" style={{ backgroundColor: 'var(--glass-bg-input)' }} />
+                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="time" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} required className="w-full px-2 sm:px-4 py-3 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0 bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" />
                   </div>
                 </div>
               </div>
@@ -1631,7 +1787,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     <motion.div key={task.id} animate={{ scale: pressingId === task.id ? 0.98 : 1 }}
                       onPointerDown={() => handlePointerDown(task)} onPointerUp={handlePointerUp}
                       onPointerLeave={handlePointerUp} onPointerCancel={handlePointerUp}
-                      onClick={(e) => { if (e.target.closest('button')) return; if (timerRef.current) setActionTask(task); }}
+                      onClick={(e) => { if (e.target.closest('button')) return; setActionTask(task); }}
                       className={`liquid-glass-card p-3.5 flex items-center gap-3 cursor-pointer touch-none border-l-4 ${c.borderL} ${isCompleted ? 'opacity-70' : ''} group`}
                     >
                       <div className="flex-1 min-w-0">
@@ -1743,7 +1899,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                                 );
                                 return;
                               }
-                              if (timerRef.current) setActionTask(task);
+                              setActionTask(task);
                             }}
                             animate={{ scale: pressingId === task.id ? 0.98 : 1 }}
                             className={`liquid-glass-card relative group cursor-pointer touch-none border-l-4 ${c.borderL} ${isCompleted ? 'opacity-75' : ''}`}
@@ -1851,10 +2007,10 @@ export default function PartTimePage({ user, lang = 'en' }) {
                               {task.isExtraIncome ? '+' : '-'}฿{expenseAmount.toLocaleString(undefined,{maximumFractionDigits:0})}
                             </p>
                             <button onClick={(e) => { e.stopPropagation(); setDeleteConfirmTask(task); }}
-                              className="touch-visible-actions p-1.5 text-red-500 md:text-red-400/40 hover:text-red-500 bg-red-500/10 md:bg-transparent hover:bg-red-500/10 rounded-full opacity-0 group-hover:opacity-100 group-focus-within:opacity-100 transition-all flex-shrink-0"
+                              className="p-1.5 text-red-500 md:text-red-400/40 hover:text-red-500 bg-red-500/10 md:bg-transparent hover:bg-red-500/10 rounded-full opacity-100 md:opacity-0 md:group-hover:opacity-100 md:group-focus-within:opacity-100 transition-all flex-shrink-0"
                               aria-label={lang === 'en' ? 'Delete item' : 'ลบรายการ'}
                             >
-                              <Trash2 size={12} />
+                              <Trash2 size={14} />
                             </button>
                           </motion.div>
                         );
@@ -1874,13 +2030,29 @@ export default function PartTimePage({ user, lang = 'en' }) {
           onClose={() => setActionTask(null)}
           lang={lang}
           options={[
+            ...(actionTask && (actionTask.status === TASK_STATUS.DONE || (actionTask.actualStart && actionTask.actualEnd)) ? [{
+              label: lang === 'en' ? 'Move back to Upcoming' : 'เปลี่ยนสถานะเป็นยังไม่เสร็จ (ย้ายกลับไปแท็บกำลังจะมาถึง)',
+              icon: <RotateCcw size={20} className="text-amber-500" />,
+              onClick: async () => {
+                const updated = {
+                  ...actionTask,
+                  status: TASK_STATUS.TODO,
+                  actualStart: null,
+                  actualEnd: null
+                };
+                setIsMutating(true);
+                await saveTask('EDIT', updated, user.uid);
+                setIsMutating(false);
+                showToast(lang === 'en' ? 'Moved back to upcoming' : 'ย้ายกลับไปที่กำลังจะมาถึงเรียบร้อยแล้ว');
+              }
+            }] : []),
             {
-              label: lang === 'en' ? 'Edit' : 'แก้ไข',
+              label: lang === 'en' ? 'Edit shift' : 'แก้ไขกะงาน',
               icon: <Edit size={20} />,
               onClick: () => { setEditingTask(actionTask); setIsModalOpen(true); }
             },
             {
-              label: 'ลบกะนี้',
+              label: lang === 'en' ? 'Delete shift' : 'ลบกะนี้',
               icon: <Trash2 size={20} />,
               isDanger: true,
               onClick: () => setDeleteConfirmTask(actionTask)
@@ -1908,14 +2080,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
           <>
             <motion.div 
               initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/40 backdrop-blur-sm z-50"
+              className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm z-50"
               onClick={() => setShowWidgetSelector(false)}
             />
             <motion.div 
               initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
               {...widgetSelectorSheet.dragProps}
-              className="fixed bottom-0 left-0 right-0 z-50 liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl p-6 max-h-[86vh] overflow-y-auto overscroll-contain max-w-4xl mx-auto"
+              className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-[#1a182c] border border-slate-200/80 dark:border-white/10 rounded-b-none border-x-0 border-b-0 shadow-2xl p-6 max-h-[86vh] overflow-y-auto overscroll-contain max-w-4xl mx-auto"
             >
               <div {...widgetSelectorSheet.handleProps} />
               <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><LayoutGrid size={20}/> {ui.chooseWidgets}</h3>
@@ -1931,7 +2103,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                         setEnabledWidgets(prev => [...prev, w.id]);
                         setShowWidgetSelector(false);
                       }}
-                      className={`p-4 rounded-xl flex items-center gap-3 text-left transition-all ${isEnabled ? 'bg-green-500/10 border-2 border-green-500 text-green-600 dark:text-green-400 opacity-60' : 'bg-white/20 border-2 border-transparent hover:border-primary-500/50 text-main'}`}
+                      className={`p-4 rounded-xl flex items-center gap-3 text-left transition-all ${isEnabled ? 'bg-green-500/10 border-2 border-green-500 text-green-600 dark:text-green-400 opacity-60' : 'bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 hover:border-primary-500/50 text-main'}`}
                     >
                       <div className="flex-1 font-medium">{w.label}</div>
                       {isEnabled && <CheckCircle2 size={16} />}
@@ -1939,7 +2111,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                   );
                 })}
               </div>
-              <button onClick={() => setShowWidgetSelector(false)} className="w-full mt-6 py-4 bg-black/5 dark:bg-white/10 rounded-xl font-bold">ปิด</button>
+              <button onClick={() => setShowWidgetSelector(false)} className="w-full mt-6 py-4 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-main rounded-xl font-bold transition-colors">ปิด</button>
             </motion.div>
           </>
         )}
@@ -1949,14 +2121,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
       <AnimatePresence>
         {showGoalModal && (
           <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/40 backdrop-blur-sm" onClick={() => setShowGoalModal(false)} />
+             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm" onClick={() => setShowGoalModal(false)} />
              <motion.div
                initial={{ opacity: 0, y: '100%' }}
                animate={{ opacity: 1, y: 0 }}
                exit={{ opacity: 0, y: '100%' }}
                transition={{ type: 'spring', damping: 25, stiffness: 300 }}
                {...goalSheet.dragProps}
-               className="liquid-glass-card p-6 w-full max-w-md relative z-10 border-2 border-primary-500/30 rounded-t-[32px] sm:rounded-[28px] max-h-[86vh] overflow-y-auto overscroll-contain"
+               className="bg-white dark:bg-[#1a182c] border-2 border-primary-500/30 p-6 w-full max-w-md relative z-10 rounded-t-[32px] sm:rounded-[28px] max-h-[86vh] overflow-y-auto overscroll-contain shadow-2xl"
              >
                <div {...goalSheet.handleProps} className={`${goalSheet.handleProps.className} sm:hidden`} />
                <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-primary-500"><Target size={24}/> ตั้งเป้าหมายรายได้</h3>
@@ -1967,7 +2139,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                      type="number" 
                      value={tempGoal.goalAmount} 
                      onChange={e => setTempGoal({...tempGoal, goalAmount: Number(e.target.value)})}
-                     className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 bg-black/5 dark:bg-white/10 font-bold text-xl text-main"
+                     className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 bg-slate-50 dark:bg-white/10 border border-slate-200/90 dark:border-white/10 font-bold text-xl text-main shadow-sm"
                    />
                  </div>
                  <div className="flex flex-wrap gap-2">
@@ -1983,7 +2155,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                  </label>
                  
                  <div className="flex gap-3 mt-6">
-                   <button onClick={() => setShowGoalModal(false)} className="flex-1 py-3 bg-black/5 dark:bg-white/10 rounded-xl font-bold">{ui.cancel}</button>
+                   <button onClick={() => setShowGoalModal(false)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-main rounded-xl font-bold transition-colors">{ui.cancel}</button>
                    <button 
                      onClick={() => {
                        setIncomeGoal(tempGoal);

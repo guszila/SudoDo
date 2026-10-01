@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { createPortal } from 'react-dom';
 
 import { motion, AnimatePresence } from 'framer-motion';
-import { X, Trash2, CheckCircle2, Circle, FileText, Coins, Bell } from 'lucide-react';
+import { X, Trash2, CheckCircle2, Circle, FileText, Coins, Bell, CheckSquare, Briefcase, Building2 } from 'lucide-react';
 
 import { translations } from '../../i18n';
 import { TASK_STATUS, TASK_PRIORITY, DEFAULT_TASK_VALUES } from '../../constants';
@@ -188,7 +188,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             aria-labelledby="task-modal-title"
             tabIndex={-1}
             onKeyDown={(event) => { if (event.key === 'Escape') onClose(); }}
-            className="liquid-glass-card w-full max-w-md p-6 relative rounded-t-[32px] md:rounded-[24px] pb-safe max-h-[90vh] overflow-y-auto"
+            className="bg-white dark:bg-[#1a182c] border border-slate-200/80 dark:border-white/10 shadow-2xl w-full max-w-md p-6 relative rounded-t-[32px] md:rounded-[24px] pb-safe max-h-[90vh] overflow-y-auto"
           >
         <div 
           {...handleProps}
@@ -246,7 +246,8 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                     : 'text-main/60 hover:text-main'
                 }`}
               >
-                📋 {t.generalTask}
+                <CheckSquare size={15} />
+                <span>{t.generalTask}</span>
               </button>
               <button
                 type="button"
@@ -257,7 +258,8 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                     : 'text-main/60 hover:text-main'
                 }`}
               >
-                📝 {t.note}
+                <FileText size={15} />
+                <span>{t.note}</span>
               </button>
               <button
                 type="button"
@@ -268,7 +270,8 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                     : 'text-main/60 hover:text-main'
                 }`}
               >
-                💰 {t.shift}
+                <Briefcase size={15} />
+                <span>{t.shift}</span>
               </button>
             </div>
           </div>
@@ -325,7 +328,11 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                       }}
                       className={`flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 transition-all snap-start shadow-sm ${formData.title === job.name ? `${c.border} ${c.bg} scale-105` : 'border-transparent bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10'}`}
                     >
-                      <span className="text-3xl mb-1">{job.emoji || '🏢'}</span>
+                      {job.emoji ? (
+                        <span className="text-2xl mb-1">{job.emoji}</span>
+                      ) : (
+                        <Building2 size={24} className="mb-1 text-primary-500" />
+                      )}
                       <span className="text-xs font-bold text-main whitespace-nowrap truncate w-full px-1">{job.name}</span>
                     </button>
                   );

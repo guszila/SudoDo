@@ -112,8 +112,7 @@ export default function CalculatorWidget({ isOpen, onClose, lang = 'th' }) {
             exit={{ opacity: 0, y: '100%' }}
             transition={{ type: 'spring', damping: 25, stiffness: 300 }}
             {...dragProps}
-            className="w-full max-w-[320px] rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl relative max-h-[92vh] overflow-y-auto overscroll-contain"
-            style={{ backgroundColor: 'var(--glass-bg)', border: '1px solid var(--glass-border)' }}
+            className="w-full max-w-[320px] rounded-t-[32px] sm:rounded-[32px] overflow-hidden shadow-2xl relative max-h-[92vh] overflow-y-auto overscroll-contain bg-white dark:bg-[#1a182c] border border-slate-200/80 dark:border-white/10"
             onClick={e => e.stopPropagation()}
           >
             <div className="pt-4 sm:hidden">

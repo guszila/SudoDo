@@ -26,12 +26,12 @@ export function ToastProvider({ children }) {
       message,
       onUndo: options.onUndo,
       isError: options.isError === true,
-      duration: options.duration || 5000,
+      duration: options.duration || 4000,
     });
 
     timeoutRef.current = setTimeout(() => {
       setToast(null);
-    }, options.duration || 5000);
+    }, options.duration || 4000);
   }, []);
 
   const hideToast = useCallback(() => {
@@ -51,32 +51,50 @@ export function ToastProvider({ children }) {
   return (
     <ToastContext.Provider value={{ showToast, hideToast }}>
       {children}
-      <AnimatePresence>
-        {toast && (
-          <motion.div
-            key={toast.id}
-            initial={{ opacity: 0, y: 50, scale: 0.9 }}
-            animate={{ opacity: 1, y: 0, scale: 1 }}
-            exit={{ opacity: 0, y: 20, scale: 0.9 }}
-            className="fixed bottom-24 left-4 right-4 md:left-1/2 md:-translate-x-1/2 md:w-[400px] z-[80] pointer-events-none"
-          >
-            <div className={`rounded-2xl p-4 shadow-2xl flex items-center gap-3 pointer-events-auto ${toast.isError ? 'bg-red-600 text-white' : 'bg-[#1a1a2e] dark:bg-white text-white dark:text-[#1a1a2e]'}`}>
-              <div className={toast.isError ? 'text-white' : 'text-green-400 dark:text-green-600'}>
-                {toast.isError ? <AlertCircle size={24} /> : <CheckCircle2 size={24} />}
+      <div 
+        className="fixed top-0 inset-x-0 flex justify-center z-[99999] pointer-events-none px-4 pt-[max(14px,calc(env(safe-area-inset-top)+10px))]"
+        aria-live="polite"
+        role="status"
+      >
+        <AnimatePresence mode="wait">
+          {toast && (
+            <motion.div
+              key={toast.id}
+              initial={{ opacity: 0, y: -45, scale: 0.92 }}
+              animate={{ opacity: 1, y: 0, scale: 1 }}
+              exit={{ opacity: 0, y: -30, scale: 0.94, filter: 'blur(6px)' }}
+              transition={{ type: "spring", stiffness: 480, damping: 28, mass: 0.8 }}
+              className="pointer-events-auto"
+            >
+              <div 
+                className={`rounded-full py-2.5 px-4 md:px-5 flex items-center gap-2.5 backdrop-blur-2xl border transition-colors ${
+                  toast.isError 
+                    ? 'bg-rose-500/95 text-white border-rose-400/40 shadow-[0_16px_36px_-8px_rgba(244,63,94,0.35),0_4px_12px_rgba(244,63,94,0.2)]' 
+                    : 'bg-white/92 dark:bg-zinc-900/90 text-main border-white/80 dark:border-white/12 shadow-[0_16px_36px_-8px_rgba(25,15,45,0.18),0_4px_12px_rgba(25,15,45,0.06),inset_0_1px_1px_rgba(255,255,255,0.95)] dark:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)]'
+                }`}
+              >
+                <div className={`flex-shrink-0 ${toast.isError ? 'text-white' : 'text-emerald-500'}`}>
+                  {toast.isError ? (
+                    <AlertCircle size={18} className="fill-white/20" />
+                  ) : (
+                    <CheckCircle2 size={18} className="fill-emerald-500/20" />
+                  )}
+                </div>
+                <p className="text-xs md:text-sm font-semibold tracking-tight select-none">{toast.message}</p>
+                {toast.onUndo && (
+                  <button
+                    type="button"
+                    onClick={handleUndo}
+                    className="ml-1 flex items-center gap-1 px-2.5 py-1 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 rounded-full font-bold text-xs transition-transform active:scale-95 text-main"
+                  >
+                    <RotateCcw size={12} /> ยกเลิก
+                  </button>
+                )}
               </div>
-              <p className="flex-1 font-medium">{toast.message}</p>
-              {toast.onUndo && (
-                <button
-                  onClick={handleUndo}
-                  className="flex items-center gap-1.5 px-3 py-1.5 bg-white/10 dark:bg-black/10 hover:bg-white/20 dark:hover:bg-black/20 rounded-lg font-bold text-sm transition-colors active:scale-95"
-                >
-                  <RotateCcw size={14} /> ยกเลิก
-                </button>
-              )}
-            </div>
-          </motion.div>
-        )}
-      </AnimatePresence>
+            </motion.div>
+          )}
+        </AnimatePresence>
+      </div>
     </ToastContext.Provider>
   );
 }

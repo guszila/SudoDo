@@ -83,8 +83,37 @@ const buildAutoCompleteMessage = (task) => {
 export const useTasks = () => useContext(TasksContext);
 
 export const TasksProvider = ({ children, user }) => {
-  const [tasks, setTasks] = useState([]);
-  const [isLoading, setIsLoading] = useState(true);
+  const [tasks, setTasks] = useState(() => {
+    if (!user?.uid) return [];
+    try {
+      const cached = localStorage.getItem(`tasks_cache_${user.uid}`);
+      if (cached) {
+        const parsed = JSON.parse(cached);
+        if (Array.isArray(parsed) && parsed.length > 0) {
+          return parsed.map((item) => ({
+            ...item,
+            start: new Date(item.start),
+            end: new Date(item.end),
+            priority: item.priority || TASK_PRIORITY.MEDIUM,
+            allDay: item.isAllDay || false,
+          }));
+        }
+      }
+    } catch {
+      // Ignore cache parse error
+    }
+    return [];
+  });
+
+  const [isLoading, setIsLoading] = useState(() => {
+    if (!user?.uid) return true;
+    try {
+      const cached = localStorage.getItem(`tasks_cache_${user.uid}`);
+      return !cached || JSON.parse(cached).length === 0;
+    } catch {
+      return true;
+    }
+  });
   const [error, setError] = useState(null);
 
   useEffect(() => {
@@ -105,6 +134,11 @@ export const TasksProvider = ({ children, user }) => {
         formattedData.sort((a, b) => PRIORITY_WEIGHT[b.priority] - PRIORITY_WEIGHT[a.priority]);
 
         setTasks(formattedData);
+        try {
+          localStorage.setItem(`tasks_cache_${user.uid}`, JSON.stringify(data));
+        } catch {
+          // Ignore cache save error
+        }
         setError(null);
         setIsLoading(false);
 

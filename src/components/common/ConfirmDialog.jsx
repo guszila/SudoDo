@@ -43,7 +43,7 @@ export default function ConfirmDialog({
             aria-describedby="confirm-dialog-message"
             tabIndex={-1}
             onKeyDown={(event) => { if (event.key === 'Escape') onCancel(); }}
-            className="fixed bottom-0 left-0 right-0 z-[100] liquid-glass-card rounded-b-none border-x-0 border-b-0 shadow-2xl p-6 md:p-8 max-w-md mx-auto max-h-[86vh] overflow-y-auto overscroll-contain md:border md:rounded-3xl"
+            className="fixed bottom-0 left-0 right-0 z-[100] bg-white dark:bg-[#1a182c] border border-slate-200/80 dark:border-white/10 rounded-b-none border-x-0 border-b-0 shadow-2xl p-6 md:p-8 max-w-md mx-auto max-h-[86vh] overflow-y-auto overscroll-contain md:border md:rounded-3xl"
           >
             <div {...handleProps} />
             <div className="flex flex-col items-center text-center">

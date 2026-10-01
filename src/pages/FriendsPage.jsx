@@ -261,7 +261,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
     const res = await addFriendByCode(user.uid, code, myProfile);
     setIsAdding(false);
     if (res.success) {
-      showToast(lang === 'en' ? 'Friend added! 🎉' : 'เพิ่มเพื่อนสำเร็จแล้ว! 🎉');
+      showToast(lang === 'en' ? 'Friend added successfully' : 'เพิ่มเพื่อนสำเร็จแล้ว');
       setFriendCodeInput('');
       setShowAddPanel(false);
       if (!friends.find(f => f.uid === res.friend.uid)) {
@@ -289,7 +289,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
     const ok = await acceptFriendRequest(user.uid, req.fromUid);
     setProcessingRequest(null);
     if (ok) {
-      showToast(lang === 'en' ? `Added ${req.fromName}! 🎉` : `เพิ่ม ${req.fromName} เป็นเพื่อนแล้ว! 🎉`);
+      showToast(lang === 'en' ? `Added ${req.fromName}` : `เพิ่ม ${req.fromName} เป็นเพื่อนแล้ว`);
       loadData(true); // reload friends list
     } else {
       showToast(lang === 'en' ? 'Something went wrong' : 'เกิดข้อผิดพลาด', { type: 'error' });

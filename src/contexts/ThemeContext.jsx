@@ -1,4 +1,4 @@
-import { createContext, useContext, useEffect, useState } from 'react';
+import { createContext, useContext, useEffect, useState, useCallback } from 'react';
 import { useSettings } from './SettingsContext';
 import { THEMES, DEFAULT_THEME } from '../constants/themes';
 
@@ -29,32 +29,71 @@ export function ThemeProvider({ children }) {
 
   const currentTheme = THEMES[currentThemeId] || THEMES[DEFAULT_THEME];
 
-  useEffect(() => {
+  const applyThemeVariables = useCallback(() => {
     const root = document.documentElement;
+    const isDark = root.classList.contains('dark') || currentTheme.forceDark;
+
     root.style.setProperty('--theme-gradient-light', currentTheme.gradient);
     root.style.setProperty('--theme-gradient-dark', currentTheme.darkGradient);
-    root.style.setProperty('--theme-accent', currentTheme.accent);
-    root.style.setProperty('--theme-accent-dark', currentTheme.accentDark);
-    root.style.setProperty('--theme-accent-light', currentTheme.accentLight);
+
+    const activeAccent = isDark ? (currentTheme.darkAccent || currentTheme.accent) : currentTheme.accent;
+    const activeAccentLight = isDark ? (currentTheme.darkAccentLight || currentTheme.accentLight) : currentTheme.accentLight;
+    const activeNavActive = isDark ? (currentTheme.darkNavActive || currentTheme.darkAccent || currentTheme.navActive) : currentTheme.navActive;
+    const activeSectionLabel = isDark ? (currentTheme.darkSectionLabel || currentTheme.darkAccent || currentTheme.sectionLabel) : currentTheme.sectionLabel;
+
+    root.style.setProperty('--theme-accent', activeAccent);
+    root.style.setProperty('--theme-accent-dark', isDark ? currentTheme.darkAccent : currentTheme.accentDark);
+    root.style.setProperty('--theme-accent-light', activeAccentLight);
     root.style.setProperty('--theme-accent-border', currentTheme.accentBorder);
-    root.style.setProperty('--theme-toggle-on', currentTheme.toggleOn);
-    root.style.setProperty('--theme-nav-active', currentTheme.navActive);
-    root.style.setProperty('--theme-section-label', currentTheme.sectionLabel);
+    root.style.setProperty('--theme-toggle-on', isDark ? activeAccent : currentTheme.toggleOn);
+    root.style.setProperty('--theme-nav-active', activeNavActive);
+    root.style.setProperty('--theme-section-label', activeSectionLabel);
     root.style.setProperty('--theme-avatar-bg', currentTheme.avatarBg);
     root.style.setProperty('--theme-avatar-text', currentTheme.avatarText);
 
-    // Explicitly override Tailwind's primary colors so classes like text-primary-500 work immediately
-    root.style.setProperty('--color-primary-50', currentTheme.accentLight);
-    root.style.setProperty('--color-primary-100', currentTheme.accentLight);
-    root.style.setProperty('--color-primary-200', currentTheme.accentLight);
-    root.style.setProperty('--color-primary-300', currentTheme.accentBorder);
-    root.style.setProperty('--color-primary-400', currentTheme.accent);
-    root.style.setProperty('--color-primary-500', currentTheme.accent);
-    root.style.setProperty('--color-primary-600', currentTheme.accentDark);
-    root.style.setProperty('--color-primary-700', currentTheme.accentDark);
-    root.style.setProperty('--color-primary-800', currentTheme.accentDark);
-    root.style.setProperty('--color-primary-900', currentTheme.accentDark);
+    // Override Tailwind's primary colors with solid, high-contrast colors (never semi-transparent!)
+    root.style.setProperty('--color-primary-50', activeAccentLight);
+    root.style.setProperty('--color-primary-100', activeAccentLight);
+    root.style.setProperty('--color-primary-200', isDark ? activeAccentLight : currentTheme.accentLight);
+    root.style.setProperty('--color-primary-300', isDark ? activeAccentLight : currentTheme.accent);
+    root.style.setProperty('--color-primary-400', activeAccent);
+    root.style.setProperty('--color-primary-500', activeAccent);
+    root.style.setProperty('--color-primary-600', isDark ? activeAccentLight : currentTheme.accentDark);
+    root.style.setProperty('--color-primary-700', isDark ? activeAccentLight : currentTheme.accentDark);
+    root.style.setProperty('--color-primary-800', isDark ? '#ffffff' : currentTheme.accentDark);
+    root.style.setProperty('--color-primary-900', isDark ? '#ffffff' : currentTheme.accentDark);
+
+    const baseColor = isDark
+      ? (currentTheme.id === 'oled' ? '#09090b' : currentTheme.id === 'midnight' ? '#1a1a2e' : '#1e1b4b')
+      : (currentTheme.id === 'teal' ? '#d4f5ee' : currentTheme.id === 'rose' ? '#ffe8f5' : currentTheme.id === 'blue' ? '#d4e8ff' : currentTheme.id === 'amber' ? '#fff0d4' : currentTheme.id === 'emerald' ? '#dcfce7' : currentTheme.id === 'mocha' ? '#f5ebe0' : '#e8d5f5');
+    
+    root.style.setProperty('--theme-base-color', baseColor);
+    
+    const metaTheme = document.querySelector('meta[name="theme-color"]:not([media])');
+    if (metaTheme) {
+      metaTheme.setAttribute('content', baseColor);
+    }
   }, [currentTheme]);
+
+  useEffect(() => {
+    applyThemeVariables();
+
+    // Listen for dark class additions/removals on documentElement (e.g. toggled in settings or system mode)
+    const observer = new MutationObserver((mutations) => {
+      for (const mutation of mutations) {
+        if (mutation.type === 'attributes' && mutation.attributeName === 'class') {
+          applyThemeVariables();
+        }
+      }
+    });
+
+    observer.observe(document.documentElement, {
+      attributes: true,
+      attributeFilter: ['class'],
+    });
+
+    return () => observer.disconnect();
+  }, [applyThemeVariables]);
 
   const setTheme = (id) => {
     setCurrentThemeId(id);

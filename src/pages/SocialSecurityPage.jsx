@@ -144,7 +144,7 @@ export default function SocialSecurityPage({ lang }) {
             <ArrowLeft size={20} />
           </button>
           <h1 className="text-[20px] font-bold text-main m-0 flex items-center gap-2">
-            <Calculator size={24} className="text-[var(--theme-section-label)] dark:text-[#AFA9EC]" /> 
+            <Calculator size={24} className="text-[var(--theme-section-label)]" /> 
             {lang === 'th' ? 'ประกันสังคม' : 'Social Security'}
           </h1>
         </div>
@@ -192,13 +192,13 @@ export default function SocialSecurityPage({ lang }) {
           />
           <Row 
             title={lang === 'th' ? 'อัตราการหัก' : 'Deduction Rate'}
-            rightElement={<span className="font-bold text-[var(--theme-section-label)] dark:text-[#AFA9EC] bg-[rgba(127,119,221,0.15)] px-3 py-1 rounded-full text-sm">5%</span>}
+            rightElement={<span className="font-bold text-[var(--theme-section-label)] bg-[var(--theme-accent)]/15 px-3 py-1 rounded-full text-sm">5%</span>}
             isLast
           />
         </GlassCard>
 
         {/* Info Note */}
-        <div className="flex items-start gap-3 p-4 mx-4 mb-4 bg-[rgba(127,119,221,0.1)] border-[0.5px] border-[rgba(127,119,221,0.2)] rounded-[16px] text-[var(--theme-section-label)] dark:text-[#AFA9EC]">
+        <div className="flex items-start gap-3 p-4 mx-4 mb-4 bg-[var(--theme-accent)]/10 border-[0.5px] border-[var(--theme-accent)]/20 rounded-[16px] text-[var(--theme-section-label)]">
           <Info size={20} className="mt-0.5 flex-shrink-0" />
           <p className="text-[13px] font-medium leading-relaxed">
             {lang === 'th' ? 'ประกันสังคมไทยหัก 5% ของเงินเดือน โดยคำนวณจากฐานเงินเดือนสูงสุดไม่เกิน 15,000 บาท (หักสูงสุดไม่เกิน ฿750/เดือน)' : 'Thai Social Security deducts 5% of monthly salary, capped at a maximum salary base of 15,000 THB (max deduction ฿750/month).'}

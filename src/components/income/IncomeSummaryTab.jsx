@@ -316,8 +316,8 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
             onClick={() => { setSelectedMonth(mStr); setSelectedCompany(null); }}
             className={`snap-start whitespace-nowrap px-5 py-2.5 rounded-full text-sm flex-shrink-0 border font-bold transition-all ${
               selectedMonth === mStr
-                ? 'bg-primary-500/20 border-primary-500/50 text-primary-600 dark:text-primary-300 shadow-md shadow-primary-500/10'
-                : 'bg-white/30 dark:bg-black/30 border-white/40 dark:border-white/10 text-main/60 hover:bg-white/50 dark:hover:bg-white/10'
+                ? 'bg-primary-500/25 border-primary-500/50 text-primary-600 dark:text-white shadow-md shadow-primary-500/10'
+                : 'bg-white/30 dark:bg-white/5 border-white/40 dark:border-white/10 text-main/70 dark:text-white/70 hover:bg-white/50 dark:hover:bg-white/10 hover:text-main dark:hover:text-white'
             }`}
           >
             {formatThMonth(mStr)}

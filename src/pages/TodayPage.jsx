@@ -6,7 +6,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, isBefore, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { Flame, Banknote, Check, Maximize2, X, Trash2, Bell, Briefcase, GripHorizontal, LayoutGrid, ListTodo, Plus, Calendar, ArrowRight, CloudRain, Timer, Play, Pause, RotateCcw, RefreshCw, Sun, Cloud, CloudFog, CloudLightning, Droplets } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, LineChart, Line, AreaChart, Area, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
 import { useTasks } from '../contexts/TasksContext';
@@ -56,7 +56,7 @@ export default function TodayPage({ user, lang = 'th' }) {
     pastDays: 'Past',
     tapToSet: 'Tap to configure',
     youHaveTasks: (n) => `${n} tasks today`,
-    noTasksToday: 'No tasks today 🎉',
+    noTasksToday: 'No tasks today',
     urgentItems: (n) => `${n} urgent`,
     editWidget: 'Edit Widget',
     finish: 'Done',
@@ -74,7 +74,7 @@ export default function TodayPage({ user, lang = 'th' }) {
     important: 'High',
     overdue: 'Overdue',
     upcoming7Days: 'Upcoming (7 days)',
-    noUrgent7Days: 'No urgent tasks in 7 days 🎉',
+    noUrgent7Days: 'No urgent tasks in 7 days',
     waiting: 'Pending',
     last12Months: 'Last 12 Months',
     last12MonthsSub: 'Total income from shifts over the past year',
@@ -120,7 +120,7 @@ export default function TodayPage({ user, lang = 'th' }) {
     pastDays: 'ผ่านมาแล้ว',
     tapToSet: 'กดเพื่อตั้งค่า',
     youHaveTasks: (n) => `วันนี้มี ${n} สิ่งที่ต้องทำ`,
-    noTasksToday: 'วันนี้ไม่มีสิ่งที่ต้องทำ 🎉',
+    noTasksToday: 'วันนี้ไม่มีสิ่งที่ต้องทำ',
     urgentItems: (n) => `ด่วน ${n} รายการ`,
     editWidget: 'แก้ไข Widget',
     finish: 'เสร็จสิ้น',
@@ -138,7 +138,7 @@ export default function TodayPage({ user, lang = 'th' }) {
     important: 'สำคัญ',
     overdue: 'เลยกำหนด',
     upcoming7Days: 'สิ่งที่ต้องทำเร็วๆ นี้ (7 วัน)',
-    noUrgent7Days: 'ไม่มีรายการเร่งด่วนในช่วง 7 วันนี้ 🎉',
+    noUrgent7Days: 'ไม่มีรายการเร่งด่วนในช่วง 7 วันนี้',
     waiting: 'รอทำ',
     last12Months: 'รายได้ 12 เดือนล่าสุด',
     last12MonthsSub: 'ยอดรวมรายได้จากกะงานในช่วง 1 ปีที่ผ่านมา',
@@ -309,7 +309,7 @@ export default function TodayPage({ user, lang = 'th' }) {
         lon = position.coords.longitude;
         isLocal = true;
       } catch {
-        console.log("Geolocation failed or denied, using fallback BKK.");
+        // Geolocation unavailable — fallback to Bangkok coordinates (already set)
       }
 
       try {
@@ -329,8 +329,8 @@ export default function TodayPage({ user, lang = 'th' }) {
              }
           }
         }
-      } catch (e) {
-        console.log("Reverse geocoding failed", e);
+      } catch {
+        // Reverse geocoding failed — keep fallback location name
       }
 
       try {
@@ -704,7 +704,7 @@ export default function TodayPage({ user, lang = 'th' }) {
             <div className="text-3xl md:text-4xl font-black text-primary-600 dark:text-primary-500 mb-1 relative z-10 group-hover:scale-105 transition-transform origin-left">
               {streakData.currentStreak} {t.days}
             </div>
-            <p className="text-xs font-medium text-primary-700/70 dark:text-primary-300/70 relative z-10">{t.bestStreak} {streakData.bestStreak} {t.days}</p>
+            <p className="text-xs font-medium text-primary-700/80 dark:text-primary-200 relative z-10">{t.bestStreak} {streakData.bestStreak} {t.days}</p>
           </div>
         );
       case 'WORK_STREAK':
@@ -721,7 +721,7 @@ export default function TodayPage({ user, lang = 'th' }) {
             <div className="text-3xl md:text-4xl font-black text-green-600 dark:text-green-500 mb-1 relative z-10 group-hover:scale-105 transition-transform origin-left">
               {currentWorkStreak} {t.days}
             </div>
-            <p className="text-xs font-medium text-green-700/70 dark:text-green-300/70 relative z-10">{t.bestStreak} {bestWorkStreak} {t.days}</p>
+            <p className="text-xs font-medium text-green-700/80 dark:text-green-300 relative z-10">{t.bestStreak} {bestWorkStreak} {t.days}</p>
           </div>
         );
       case 'INCOME_GOAL':
@@ -779,7 +779,7 @@ export default function TodayPage({ user, lang = 'th' }) {
             <div className="z-10 flex flex-col">
                {ddayConfig.date ? (
                   isToday ? (
-                     <div className="text-2xl md:text-3xl font-black text-primary-500 animate-pulse">D-Day! 🎉</div>
+                     <div className="text-2xl md:text-3xl font-black text-primary-500 animate-pulse">D-Day!</div>
                   ) : isPast ? (
                      <div className="text-xl md:text-2xl font-black text-main/60">{t.pastDays} {Math.abs(daysDiff)} {t.days}</div>
                   ) : (
@@ -1200,68 +1200,169 @@ export default function TodayPage({ user, lang = 'th' }) {
           </div>
         </div>
 
-        <div className="mb-8 animate-slide-up" style={{ animationDelay: '0.3s' }}>
-          <div className="flex justify-between items-center mb-4">
-            <h3 className="font-bold text-main/80 flex items-center gap-2">{t.monthlyIncome}</h3>
-            <div className="flex bg-black/5 dark:bg-white/10 rounded-full p-1">
+        <div className="mb-8 liquid-glass-card p-4 md:p-5 rounded-[24px] border border-white/40 dark:border-white/10 shadow-sm relative overflow-hidden animate-slide-up" style={{ animationDelay: '0.3s' }}>
+          <div className="flex justify-between items-center mb-3">
+            <div>
+              <h3 className="font-bold text-sm md:text-base text-main/90 flex items-center gap-2">
+                {t.monthlyIncome}
+              </h3>
+              <div className="flex items-baseline gap-1.5 mt-0.5">
+                <span className="text-xl md:text-2xl font-black text-primary-600 dark:text-primary-400">
+                  ฿{Number(thisMonthIncome || 0).toLocaleString()}
+                </span>
+                <span className="text-[11px] font-medium text-main/50">
+                  ({lang === 'en' ? 'this month' : 'เดือนนี้'})
+                </span>
+              </div>
+            </div>
+            <div className="flex items-center gap-1.5">
+              <div className="flex bg-black/5 dark:bg-white/10 rounded-full p-1 border border-black/5 dark:border-white/5">
+                <button 
+                  onClick={() => setChartType('bar')} 
+                  className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${chartType === 'bar' ? 'bg-white dark:bg-white/20 text-primary-500 dark:text-white shadow-sm' : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white'}`}
+                >
+                  {t.bar}
+                </button>
+                <button 
+                  onClick={() => setChartType('line')} 
+                  className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${chartType === 'line' ? 'bg-white dark:bg-white/20 text-primary-500 dark:text-white shadow-sm' : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white'}`}
+                >
+                  {t.line}
+                </button>
+              </div>
               <button 
-                onClick={() => setChartType('bar')} 
-                className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${chartType === 'bar' ? 'bg-white dark:bg-slate-800 text-primary-500 shadow-sm' : 'text-main/60'}`}
+                onClick={() => setIsChartExpanded(true)}
+                title={lang === 'en' ? 'Expand chart' : 'ขยายกราฟ'}
+                className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-main/40 hover:text-main transition-colors active:scale-90"
               >
-                {t.bar}
-              </button>
-              <button 
-                onClick={() => setChartType('line')} 
-                className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${chartType === 'line' ? 'bg-white dark:bg-slate-800 text-primary-500 shadow-sm' : 'text-main/60'}`}
-              >
-                {t.line}
+                <Maximize2 size={16} />
               </button>
             </div>
           </div>
+
           <div 
-            className="h-48 w-full cursor-pointer hover:opacity-90 transition-opacity relative group"
+            className="h-52 w-full cursor-pointer hover:opacity-95 transition-opacity relative group pt-1"
             onClick={() => setIsChartExpanded(true)}
           >
-            <div className="touch-visible-actions absolute top-2 right-2 bg-black/10 dark:bg-white/10 p-2 rounded-lg opacity-0 group-hover:opacity-100 transition-opacity z-10">
-              <Maximize2 className="w-4 h-4 text-main/70" />
-            </div>
             <ResponsiveContainer width="100%" height="100%">
               {chartType === 'bar' ? (
-                <BarChart data={chartData} margin={{ top: 10, right: 0, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.6 }} dy={10} />
+                <BarChart data={chartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="todayBarActive" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-primary-500)" stopOpacity={1} />
+                      <stop offset="100%" stopColor="var(--color-primary-600)" stopOpacity={0.8} />
+                    </linearGradient>
+                    <linearGradient id="todayBarNormal" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-primary-400)" stopOpacity={0.55} />
+                      <stop offset="100%" stopColor="var(--color-primary-300)" stopOpacity={0.25} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.4} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--color-text-main)', opacity: 0.7 }} dy={8} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.6 }} tickFormatter={(value) => { if (value === 0) return '0'; const abs = Math.abs(value); return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000)+'k' : abs); }} />
                   <Tooltip 
                     cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.4 }}
-                    contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                    contentStyle={{ backgroundColor: 'var(--glass-bg-strong)', backdropFilter: 'blur(16px)', borderRadius: '14px', border: '1px solid var(--glass-border-strong)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
                     itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
                     formatter={(value) => [`฿${(value || 0).toLocaleString()}`, t.incomeLabel]}
-                    labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
+                    labelStyle={{ color: 'var(--color-text-main)', fontWeight: 'bold', marginBottom: '4px' }}
                   />
-                  <Bar dataKey="income" radius={[6, 6, 0, 0]}>
+                  <Bar dataKey="income" radius={[8, 8, 2, 2]} maxBarSize={40}>
+                    <LabelList 
+                      dataKey="income" 
+                      position="top" 
+                      content={(props) => {
+                        const { x, y, width, value } = props;
+                        if (!value || value === 0) return null;
+                        const formatted = value >= 1000 
+                          ? `฿${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k` 
+                          : `฿${value}`;
+                        return (
+                          <text 
+                            x={x + width / 2} 
+                            y={y - 6} 
+                            fill="var(--color-text-main)" 
+                            textAnchor="middle" 
+                            fontSize="10" 
+                            fontWeight="700"
+                            opacity={0.85}
+                          >
+                            {formatted}
+                          </text>
+                        );
+                      }}
+                    />
                     {chartData.map((entry, index) => (
-                      <Cell key={`cell-${index}`} fill={index === chartData.length - 1 ? 'var(--color-primary-500)' : 'var(--color-primary-300)'} />
+                      <Cell 
+                        key={`cell-${index}`} 
+                        fill={index === chartData.length - 1 ? 'url(#todayBarActive)' : 'url(#todayBarNormal)'} 
+                      />
                     ))}
                   </Bar>
                 </BarChart>
               ) : (
-                <LineChart data={chartData} margin={{ top: 10, right: 10, left: -20, bottom: 0 }}>
-                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
-                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.6 }} dy={10} />
+                <AreaChart data={chartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="todayLineArea" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--color-primary-500)" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="var(--color-primary-500)" stopOpacity={0.0} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.4} />
+                  <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--color-text-main)', opacity: 0.7 }} dy={8} />
                   <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.6 }} tickFormatter={(value) => { if (value === 0) return '0'; const abs = Math.abs(value); return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000)+'k' : abs); }} />
                   <Tooltip 
-                    contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                    contentStyle={{ backgroundColor: 'var(--glass-bg-strong)', backdropFilter: 'blur(16px)', borderRadius: '14px', border: '1px solid var(--glass-border-strong)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
                     itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
                     formatter={(value) => [`฿${(value || 0).toLocaleString()}`, t.incomeLabel]}
-                    labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
+                    labelStyle={{ color: 'var(--color-text-main)', fontWeight: 'bold', marginBottom: '4px' }}
                   />
-                  <Line type="monotone" dataKey="income" stroke="var(--color-primary-500)" strokeWidth={3} dot={{ r: 4, fill: 'var(--color-primary-500)', strokeWidth: 2, stroke: 'white' }} activeDot={{ r: 6 }} />
-                </LineChart>
+                  <Area 
+                    type="monotone" 
+                    dataKey="income" 
+                    stroke="var(--color-primary-500)" 
+                    strokeWidth={3} 
+                    fill="url(#todayLineArea)" 
+                    dot={{ r: 4, fill: 'var(--color-primary-500)', strokeWidth: 2, stroke: '#fff' }} 
+                    activeDot={{ r: 6, fill: 'var(--color-primary-500)', stroke: '#fff', strokeWidth: 2 }} 
+                  >
+                    <LabelList 
+                      dataKey="income" 
+                      position="top" 
+                      content={(props) => {
+                        const { x, y, value } = props;
+                        if (!value || value === 0) return null;
+                        const formatted = value >= 1000 
+                          ? `฿${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k` 
+                          : `฿${value}`;
+                        return (
+                          <text 
+                            x={x} 
+                            y={y - 8} 
+                            fill="var(--color-text-main)" 
+                            textAnchor="middle" 
+                            fontSize="10" 
+                            fontWeight="700" 
+                            opacity={0.85}
+                          >
+                            {formatted}
+                          </text>
+                        );
+                      }}
+                    />
+                  </Area>
+                </AreaChart>
               )}
             </ResponsiveContainer>
           </div>
-          <div className="flex items-center gap-2 mt-2 text-xs font-bold text-main/70">
-             <div className="w-2 h-2 rounded-sm bg-primary-500"></div> {t.incomeTitle}
+          <div className="flex items-center justify-between mt-3 pt-2.5 border-t border-black/5 dark:border-white/5 text-[11px] font-medium text-main/60">
+             <div className="flex items-center gap-1.5">
+               <span className="w-2 h-2 rounded-full bg-primary-500"></span>
+               <span>{t.incomeTitle}</span>
+             </div>
+             <span className="text-[10px] text-main/40 font-mono">
+               {lang === 'en' ? 'Tap chart to see full year' : 'แตะเพื่อดูรายได้ 12 เดือน'}
+             </span>
           </div>
         </div>
 
@@ -1361,14 +1462,14 @@ export default function TodayPage({ user, lang = 'th' }) {
 
       {/* Expanded Chart Modal */}
       {isChartExpanded && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-8 bg-white/30 dark:bg-black/60 backdrop-blur-md animate-fade-in" onClick={() => setIsChartExpanded(false)}>
+        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-8 bg-black/20 dark:bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsChartExpanded(false)}>
           <motion.div 
             initial={{ opacity: 0, y: '100%' }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: '100%' }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             {...chartSheet.dragProps}
-            className="liquid-glass-card w-full max-w-5xl h-[82vh] md:h-[80vh] p-5 md:p-8 flex flex-col relative rounded-t-[32px] md:rounded-[28px]"
+            className="bg-white dark:bg-[#1a1b26] border border-slate-200/80 dark:border-white/10 shadow-2xl w-full max-w-5xl h-[82vh] md:h-[80vh] p-5 md:p-8 flex flex-col relative rounded-t-[32px] md:rounded-[28px]"
             onClick={e => e.stopPropagation()}
           >
             <div {...chartSheet.handleProps} className={`${chartSheet.handleProps.className} md:hidden`} />
@@ -1409,36 +1510,89 @@ export default function TodayPage({ user, lang = 'th' }) {
                 <div style={{ width: '100%', height: '100%' }}>
                   <ResponsiveContainer width="100%" height="100%">
                     {chartType === 'bar' ? (
-                      <BarChart data={fullChartData} margin={{ top: 20, right: 0, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
+                      <BarChart data={fullChartData} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="modalBarActive" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--color-primary-500)" stopOpacity={1} />
+                            <stop offset="100%" stopColor="var(--color-primary-600)" stopOpacity={0.8} />
+                          </linearGradient>
+                          <linearGradient id="modalBarNormal" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--color-primary-400)" stopOpacity={0.55} />
+                            <stop offset="100%" stopColor="var(--color-primary-300)" stopOpacity={0.25} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.4} />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} interval={0} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => { if (value === 0) return '0'; const abs = Math.abs(value); return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000)+'k' : abs); }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--color-text-main)', opacity: 0.7 }} tickFormatter={(value) => { if (value === 0) return '0'; const abs = Math.abs(value); return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000)+'k' : abs); }} />
                         <Tooltip 
                           cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.4 }}
-                          contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                          contentStyle={{ backgroundColor: 'var(--glass-bg-strong)', backdropFilter: 'blur(16px)', borderRadius: '14px', border: '1px solid var(--glass-border-strong)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
                           itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
                           formatter={(value) => [`฿${(value || 0).toLocaleString()}`, 'รายได้']}
                           labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
                         />
-                        <Bar dataKey="income" radius={[8, 8, 0, 0]}>
+                        <Bar dataKey="income" radius={[8, 8, 2, 2]} maxBarSize={36}>
+                          <LabelList 
+                            dataKey="income" 
+                            position="top" 
+                            content={(props) => {
+                              const { x, y, width, value } = props;
+                              if (!value || value === 0) return null;
+                              const formatted = value >= 1000 ? `฿${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k` : `฿${value}`;
+                              return (
+                                <text x={x + width / 2} y={y - 6} fill="var(--color-text-main)" textAnchor="middle" fontSize="9" fontWeight="700" opacity={0.85}>
+                                  {formatted}
+                                </text>
+                              );
+                            }}
+                          />
                           {fullChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={index === fullChartData.length - 1 ? 'var(--color-primary-500)' : 'var(--color-primary-300)'} />
+                            <Cell key={`cell-${index}`} fill={index === fullChartData.length - 1 ? 'url(#modalBarActive)' : 'url(#modalBarNormal)'} />
                           ))}
                         </Bar>
                       </BarChart>
                     ) : (
-                      <LineChart data={fullChartData} margin={{ top: 20, right: 10, left: -20, bottom: 0 }}>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.5} />
+                      <AreaChart data={fullChartData} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
+                        <defs>
+                          <linearGradient id="modalLineArea" x1="0" y1="0" x2="0" y2="1">
+                            <stop offset="0%" stopColor="var(--color-primary-500)" stopOpacity={0.35} />
+                            <stop offset="100%" stopColor="var(--color-primary-500)" stopOpacity={0.0} />
+                          </linearGradient>
+                        </defs>
+                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.4} />
                         <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} interval={0} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 12, fill: 'var(--color-text-main)', opacity: 0.8 }} tickFormatter={(value) => { if (value === 0) return '0'; const abs = Math.abs(value); return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000)+'k' : abs); }} />
+                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--color-text-main)', opacity: 0.7 }} tickFormatter={(value) => { if (value === 0) return '0'; const abs = Math.abs(value); return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000)+'k' : abs); }} />
                         <Tooltip 
-                          contentStyle={{ backgroundColor: 'var(--glass-bg)', borderRadius: '12px', border: '1px solid var(--glass-border)', boxShadow: '0 4px 20px rgba(0,0,0,0.1)' }}
+                          contentStyle={{ backgroundColor: 'var(--glass-bg-strong)', backdropFilter: 'blur(16px)', borderRadius: '14px', border: '1px solid var(--glass-border-strong)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
                           itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
                           formatter={(value) => [`฿${(value || 0).toLocaleString()}`, 'รายได้']}
                           labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
                         />
-                        <Line type="monotone" dataKey="income" stroke="var(--color-primary-500)" strokeWidth={4} dot={{ r: 5, fill: 'var(--color-primary-500)', strokeWidth: 2, stroke: 'white' }} activeDot={{ r: 8 }} />
-                      </LineChart>
+                        <Area 
+                          type="monotone" 
+                          dataKey="income" 
+                          stroke="var(--color-primary-500)" 
+                          strokeWidth={3} 
+                          fill="url(#modalLineArea)" 
+                          dot={{ r: 4, fill: 'var(--color-primary-500)', strokeWidth: 2, stroke: '#fff' }} 
+                          activeDot={{ r: 7, fill: 'var(--color-primary-500)', stroke: '#fff', strokeWidth: 2 }} 
+                        >
+                          <LabelList 
+                            dataKey="income" 
+                            position="top" 
+                            content={(props) => {
+                              const { x, y, value } = props;
+                              if (!value || value === 0) return null;
+                              const formatted = value >= 1000 ? `฿${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k` : `฿${value}`;
+                              return (
+                                <text x={x} y={y - 8} fill="var(--color-text-main)" textAnchor="middle" fontSize="9" fontWeight="700" opacity={0.85}>
+                                  {formatted}
+                                </text>
+                              );
+                            }}
+                          />
+                        </Area>
+                      </AreaChart>
                     )}
                   </ResponsiveContainer>
                 </div>
@@ -1451,7 +1605,7 @@ export default function TodayPage({ user, lang = 'th' }) {
       {/* Widget Selector Bottom Sheet */}
       <AnimatePresence>
         {showWidgetSelector && (
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm" onClick={() => setShowWidgetSelector(false)}>
+          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/20 dark:bg-black/60 backdrop-blur-sm" onClick={() => setShowWidgetSelector(false)}>
             <motion.div 
               initial={{ opacity: 0, y: '100%' }}
               animate={{ opacity: 1, y: 0 }}
@@ -1521,7 +1675,7 @@ export default function TodayPage({ user, lang = 'th' }) {
                 })}
               </div>
               
-              <button onClick={() => setShowWidgetSelector(false)} className="w-full mt-6 py-4 bg-black/5 dark:bg-white/10 rounded-xl font-bold">{t.close}</button>
+              <button onClick={() => setShowWidgetSelector(false)} className="w-full mt-6 py-4 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-main rounded-xl font-bold transition-colors">{t.close}</button>
             </motion.div>
           </div>
         )}
@@ -1529,14 +1683,14 @@ export default function TodayPage({ user, lang = 'th' }) {
 
       {/* D-Day Config Modal */}
       {showDdayModal && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowDdayModal(false)}>
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/20 dark:bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowDdayModal(false)}>
           <motion.div 
             initial={{ opacity: 0, y: '100%' }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: '100%' }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             {...ddaySheet.dragProps}
-            className="liquid-glass-card w-full max-w-sm p-6 flex flex-col relative rounded-t-[32px] sm:rounded-[28px] max-h-[86vh] overflow-y-auto overscroll-contain"
+            className="bg-white dark:bg-[#1a1b26] border border-slate-200/80 dark:border-white/10 shadow-2xl w-full max-w-sm p-6 flex flex-col relative rounded-t-[32px] sm:rounded-[28px] max-h-[86vh] overflow-y-auto overscroll-contain"
             onClick={e => e.stopPropagation()}
           >
             <div {...ddaySheet.handleProps} className={`${ddaySheet.handleProps.className} sm:hidden`} />

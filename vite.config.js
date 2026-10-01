@@ -40,8 +40,8 @@ export default defineConfig({
         name: 'SudoDo - Task Manager',
         short_name: 'SudoDo',
         description: 'SudoDo Task Manager App',
-        theme_color: '#ffffff',
-        background_color: '#ffffff',
+        theme_color: '#e8d5f5',
+        background_color: '#e8d5f5',
         display: 'standalone',
         icons: [
           {
