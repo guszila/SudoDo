@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 
 import { motion, AnimatePresence } from 'framer-motion';
 import { signInWithEmailAndPassword, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth';
@@ -16,6 +16,19 @@ export default function Login() {
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState(null);
   const [message, setMessage] = useState(null);
+
+  useEffect(() => {
+    const prevBodyOverflow = document.body.style.overflow;
+    const prevHtmlOverflow = document.documentElement.style.overflow;
+
+    document.body.style.overflow = 'hidden';
+    document.documentElement.style.overflow = 'hidden';
+
+    return () => {
+      document.body.style.overflow = prevBodyOverflow;
+      document.documentElement.style.overflow = prevHtmlOverflow;
+    };
+  }, []);
 
 
 
@@ -76,7 +89,7 @@ export default function Login() {
   };
 
   return (
-    <div className="min-h-screen p-4 md:p-8 font-sans flex items-center justify-center transition-colors duration-300 overflow-hidden">
+    <div className="fixed inset-0 z-10 w-full h-full p-4 md:p-8 font-sans flex items-center justify-center transition-colors duration-300 overflow-y-auto overscroll-none">
       <AnimatePresence mode="wait">
         <motion.div 
           key={isResetPassword ? 'reset' : (isLogin ? 'login' : 'signup')}

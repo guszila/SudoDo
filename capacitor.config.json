@@ -1,5 +1,12 @@
 {
   "appId": "com.sudodo.app",
   "appName": "SudoDo",
-  "webDir": "dist"
+  "webDir": "dist",
+  "backgroundColor": "#1e1b4b",
+  "ios": {
+    "backgroundColor": "#1e1b4b"
+  },
+  "android": {
+    "backgroundColor": "#1e1b4b"
+  }
 }

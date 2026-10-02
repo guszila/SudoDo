@@ -191,8 +191,23 @@
   }
 }
 
-body {
+/* Fixed full-screen backdrop layer that eliminates all scroll seams / tiling */
+body::before {
+  content: '';
+  position: fixed;
+  top: -100px;
+  bottom: -100px;
+  left: -50px;
+  right: -50px;
   background: var(--bg-gradient);
+  background-color: var(--theme-base-color, #e8d5f5);
+  z-index: -9999;
+  pointer-events: none;
+  transition: background 0.3s ease, background-color 0.3s ease;
+}
+
+body {
+  background-color: transparent;
   font-family: 'Kanit', 'Inter', system-ui, -apple-system, sans-serif;
   margin: 0;
   position: relative;
@@ -213,37 +228,49 @@ html, body {
   -ms-overflow-style: none; /* IE and Edge */
   scrollbar-width: none; /* Firefox */
   background-color: var(--theme-base-color, #e8d5f5);
-  background: var(--bg-gradient);
   overscroll-behavior-y: none;
 }
 
-.dark html,
-.dark body {
-  background-color: var(--theme-base-color, #1e1b4b);
-  background: var(--bg-gradient);
+html.dark,
+body.dark,
+.dark body,
+html.dark body {
+  background-color: var(--theme-base-color, #1e1b4b) !important;
 }
 
 html,
 body,
 #root {
+  width: 100%;
   min-height: 100%;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+  background-color: transparent;
 }
 
-/* Edge-to-edge loading surface that bleeds beyond safe-areas to prevent any gaps on iOS */
+/* Edge-to-edge loading surface that covers full screen seamlessly including iOS safe areas */
 .splash-screen {
   position: fixed !important;
-  inset: -60px !important;
-  top: -60px !important;
-  bottom: -60px !important;
-  left: -60px !important;
-  right: -60px !important;
+  top: -100px !important;
+  bottom: -100px !important;
+  left: -50px !important;
+  right: -50px !important;
   width: auto !important;
   height: auto !important;
+  min-height: 0 !important;
+  max-height: none !important;
   margin: 0 !important;
-  padding: 60px 24px !important;
+  padding-top: calc(100px + env(safe-area-inset-top, 0px)) !important;
+  padding-bottom: calc(100px + env(safe-area-inset-bottom, 0px)) !important;
+  padding-left: 50px !important;
+  padding-right: 50px !important;
   box-sizing: border-box !important;
   z-index: 99999 !important;
   overflow: hidden !important;
+  touch-action: none !important;
+  overscroll-behavior: none !important;
+  user-select: none !important;
+  -webkit-user-select: none !important;
 }
 
 .floating-bottom-nav {

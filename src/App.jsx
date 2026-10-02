@@ -40,7 +40,6 @@ const TodayPage = React.lazy(() => import('./pages/TodayPage'));
 const SocialSecurityPage = React.lazy(() => import('./pages/SocialSecurityPage'));
 const TasksPage = React.lazy(() => import('./pages/TasksPage'));
 const FriendsPage = React.lazy(() => import('./pages/FriendsPage'));
-const OneSignalVerificationModal = React.lazy(() => import('./components/common/OneSignalVerificationModal'));
 
 // Preload primary page bundles to make tab navigation instant
 const preloadPrimaryPages = () => {
@@ -969,9 +968,6 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
         task={selectedTask}
         lang={lang}
       />
-      <React.Suspense fallback={null}>
-        <OneSignalVerificationModal lang={lang} />
-      </React.Suspense>
     </>
   );
 }
@@ -996,7 +992,9 @@ export default function App() {
   const handleSplashDone = () => {
     try {
       sessionStorage.setItem('splash_shown', 'true');
-    } catch {}
+    } catch {
+      // Ignore sessionStorage errors
+    }
     setSplashDone(true);
   };
 
@@ -1046,14 +1044,31 @@ export default function App() {
     const unsubscribe = onAuthStateChanged(auth, (currentUser) => {
       setUser(currentUser);
       setAuthLoading(false);
-      
-      // Initialize OneSignal
-      import('./services/OneSignalService').then(mod => {
-        mod.default.initialize(currentUser?.uid);
-      });
+
     });
     return () => unsubscribe();
   }, []);
+
+  // Prevent any document scrolling or rubber-band bouncing during splash screen
+  useEffect(() => {
+    if (!splashDone) {
+      document.body.style.overflow = 'hidden';
+      document.body.style.touchAction = 'none';
+      document.documentElement.style.overflow = 'hidden';
+      document.documentElement.style.touchAction = 'none';
+    } else {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.touchAction = '';
+    }
+    return () => {
+      document.body.style.overflow = '';
+      document.body.style.touchAction = '';
+      document.documentElement.style.overflow = '';
+      document.documentElement.style.touchAction = '';
+    };
+  }, [splashDone]);
 
   // When splash is done and auth check completes with no logged in user, render login
   if (splashDone && !authLoading && !user) {
@@ -1063,14 +1078,20 @@ export default function App() {
   // When splash was already shown in this session and waiting briefly for auth state
   if (splashDone && authLoading) {
     return (
-      <div className="min-h-screen flex items-center justify-center">
-        <Loader2 className="w-8 h-8 animate-spin text-primary-500 opacity-60" />
+      <div 
+        className="fixed inset-0 z-[99999] flex items-center justify-center select-none"
+        style={{
+          background: 'var(--bg-gradient)',
+          backgroundColor: 'var(--theme-base-color, #e8d5f5)',
+        }}
+      >
+        <Loader2 className="w-8 h-8 animate-spin text-primary-500 opacity-80" />
       </div>
     );
   }
 
   return (
-    <>
+    <div className="min-h-screen min-h-[100dvh] w-full relative bg-transparent">
       <AnimatePresence>
         {!splashDone && (
           <SplashScreen 
@@ -1082,26 +1103,28 @@ export default function App() {
       </AnimatePresence>
 
       {user && (
-        <ToastProvider>
-          <TasksProvider user={user}>
-            <SettingsProvider user={user}>
-              <ThemeProvider>
-                <NotificationsProvider user={user}>
-                  <ErrorBoundary>
-                    <MainApp 
-                      user={user} 
-                      lang={lang} 
-                      setLang={setLang} 
-                      theme={theme} 
-                      setThemeMode={setTheme} 
-                    />
-                  </ErrorBoundary>
-                </NotificationsProvider>
-              </ThemeProvider>
-            </SettingsProvider>
-          </TasksProvider>
-        </ToastProvider>
+        <div style={{ display: !splashDone ? 'none' : 'block' }}>
+          <ToastProvider>
+            <TasksProvider user={user}>
+              <SettingsProvider user={user}>
+                <ThemeProvider>
+                  <NotificationsProvider user={user}>
+                    <ErrorBoundary>
+                      <MainApp 
+                        user={user} 
+                        lang={lang} 
+                        setLang={setLang} 
+                        theme={theme} 
+                        setThemeMode={setTheme} 
+                      />
+                    </ErrorBoundary>
+                  </NotificationsProvider>
+                </ThemeProvider>
+              </SettingsProvider>
+            </TasksProvider>
+          </ToastProvider>
+        </div>
       )}
-    </>
+    </div>
   );
 }

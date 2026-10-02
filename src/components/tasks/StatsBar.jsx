@@ -86,121 +86,103 @@ export default function StatsBar({ tasks = [] }) {
   const maxSpark = Math.max(...stats.spark, 1);
 
   return (
-    <div className="mb-5 animate-slide-up" style={{ animationDelay: '0.1s' }}>
-      <div className="flex flex-col md:flex-row gap-3">
+    <div className="mb-4 animate-slide-up">
+      <div className="liquid-glass-card p-3 sm:p-3.5 relative overflow-hidden">
+        {/* Subtle ambient corner glow */}
+        <div className="absolute -top-10 -right-10 w-32 h-32 bg-primary-500/15 blur-2xl rounded-full pointer-events-none" />
 
-        {/* ─── Progress Card ─── */}
-        <div className="liquid-glass-card p-4 md:p-5 md:w-72 flex-shrink-0 flex flex-col justify-between relative overflow-hidden group">
-          {/* Ambient glow */}
-          <div className="absolute -top-6 -right-6 w-28 h-28 bg-primary-500/20 blur-3xl rounded-full pointer-events-none" />
-
-          <div className="flex justify-between items-start mb-3 relative z-10">
-            <div>
-              <div className="flex items-center gap-1.5 mb-0.5">
-                <TrendingUp size={13} className="text-primary-400" />
-                <span className="text-[11px] font-bold text-main/50 uppercase tracking-widest">เดือนนี้</span>
+        <div className="flex flex-col md:flex-row md:items-center md:justify-between gap-3 relative z-10">
+          
+          {/* ─── Top/Left: Progress & Sparkline ─── */}
+          <div className="flex items-center justify-between md:justify-start gap-3 flex-1">
+            <div className="flex items-center gap-2 shrink-0">
+              <div className="w-8 h-8 rounded-xl bg-primary-500/15 flex items-center justify-center text-primary-500 shadow-sm">
+                <TrendingUp size={16} />
               </div>
-              <p className="text-sm font-bold text-main">ความสำเร็จ</p>
+              <div>
+                <span className="text-[10px] font-bold text-main/50 uppercase tracking-widest block leading-none">เดือนนี้</span>
+                <span className="text-xs font-bold text-main leading-tight">ความสำเร็จ</span>
+              </div>
             </div>
-            <div className="text-right">
+
+            {/* Slim Animated Progress Bar */}
+            <div className="flex items-center gap-2.5 flex-1 max-w-[180px] sm:max-w-[220px]">
+              <div 
+                className="h-2 rounded-full w-full overflow-hidden relative shadow-inner"
+                style={{ backgroundColor: 'var(--glass-bg-strong)', border: '1px solid var(--glass-border)' }}
+              >
+                <motion.div
+                  initial={{ width: 0 }}
+                  animate={{ width: `${stats.completionRate}%` }}
+                  transition={{ duration: 1, ease: 'easeOut' }}
+                  className="h-full rounded-full bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600 relative overflow-hidden"
+                >
+                  <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/30 to-transparent" style={{ animation: 'shimmer 2s infinite' }} />
+                </motion.div>
+              </div>
               <motion.span
                 key={stats.completionRate}
-                initial={{ scale: 0.7, opacity: 0 }}
+                initial={{ scale: 0.8, opacity: 0 }}
                 animate={{ scale: 1, opacity: 1 }}
-                transition={{ type: 'spring', stiffness: 400, damping: 20 }}
-                className="text-3xl font-black text-primary-500 leading-none"
+                className="text-sm font-black text-primary-500 tabular-nums shrink-0"
               >
-                {stats.completionRate}
+                {stats.completionRate}%
               </motion.span>
-              <span className="text-sm font-bold text-primary-400">%</span>
+            </div>
+
+            {/* 7d Sparkline */}
+            <div className="hidden sm:flex items-end gap-0.5 h-6 pl-2 border-l border-black/5 dark:border-white/10" title="7 วันล่าสุด">
+              {stats.spark.map((v, i) => (
+                <motion.div
+                  key={i}
+                  initial={{ scaleY: 0 }}
+                  animate={{ scaleY: 1 }}
+                  transition={{ delay: i * 0.04, duration: 0.3 }}
+                  style={{
+                    width: '3.5px',
+                    height: `${Math.max(20, (v / maxSpark) * 100)}%`,
+                    transformOrigin: 'bottom',
+                    borderRadius: '1px',
+                    backgroundColor: v > 0 ? 'var(--theme-accent, #7F77DD)' : 'rgba(150,150,150,0.25)',
+                    opacity: i === 6 ? 1 : 0.4 + (i / 6) * 0.5,
+                  }}
+                />
+              ))}
+              <span className="text-[9px] font-mono text-main/40 ml-1 leading-none self-end">7d</span>
             </div>
           </div>
 
-          {/* Progress bar */}
-          <div
-            className="h-3 rounded-full w-full overflow-hidden mb-3 relative z-10 shadow-inner"
-            style={{ backgroundColor: 'var(--glass-bg-strong)', border: '1px solid var(--glass-border)' }}
-          >
-            <motion.div
-              initial={{ width: 0 }}
-              animate={{ width: `${stats.completionRate}%` }}
-              transition={{ duration: 1.2, ease: 'easeOut' }}
-              className="h-full rounded-full bg-gradient-to-r from-primary-400 via-primary-500 to-primary-600 relative overflow-hidden flex items-center justify-end pr-1.5"
-              style={{ boxShadow: '0 0 12px rgba(var(--color-primary-500-rgb),0.5)' }}
-            >
-              <div className="absolute inset-0 bg-gradient-to-r from-transparent via-white/20 to-transparent" style={{ animation: 'shimmer 2s infinite' }} />
-              <div className="w-1.5 h-1.5 bg-white rounded-full shadow-[0_0_6px_white] flex-shrink-0" />
-            </motion.div>
-          </div>
-
-          {/* Sparkline — last 7 days */}
-          <div className="flex items-end gap-0.5 h-8 relative z-10" title="7 วันล่าสุด">
-            {stats.spark.map((v, i) => (
-              <motion.div
-                key={i}
-                initial={{ scaleY: 0 }}
-                animate={{ scaleY: 1 }}
-                transition={{ delay: i * 0.05, duration: 0.4, ease: 'easeOut' }}
-                style={{
-                  flex: 1,
-                  height: `${Math.max(15, (v / maxSpark) * 100)}%`,
-                  transformOrigin: 'bottom',
-                  borderRadius: '2px 2px 0 0',
-                  opacity: i === 6 ? 1 : 0.4 + (i / 6) * 0.5,
-                  background: v === 0
-                    ? 'var(--glass-bg-strong)'
-                    : `linear-gradient(to top, rgba(var(--color-primary-500-rgb),0.9), rgba(var(--color-primary-500-rgb),0.4))`,
-                }}
-              />
-            ))}
-            <span className="text-[9px] text-main/30 ml-1 self-end leading-none">7d</span>
-          </div>
-        </div>
-
-        {/* ─── Stat Pills ─── */}
-        <div className="flex gap-2.5 overflow-x-auto pb-1 md:pb-0 hide-scrollbar flex-1 items-stretch">
-          {statCards.map((card, idx) => {
-            const Icon = card.icon;
-            return (
-              <motion.div
-                key={card.label}
-                initial={{ opacity: 0, y: 16 }}
-                animate={{ opacity: 1, y: 0 }}
-                transition={{ delay: 0.05 + idx * 0.07, duration: 0.4, ease: 'easeOut' }}
-                className="liquid-glass-card px-4 py-4 flex flex-col justify-between min-w-[110px] flex-shrink-0 group hover:scale-[1.03] transition-all duration-200 relative overflow-hidden cursor-pointer select-none"
-              >
-                {/* Hover glow */}
-                <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-300 pointer-events-none`} />
-
-                {/* Icon */}
-                <div
-                  className={`w-9 h-9 rounded-xl flex items-center justify-center ${card.bgClass} ${card.colorClass} mb-3`}
-                  style={{ boxShadow: `0 0 14px ${card.shadowColor}` }}
+          {/* ─── Bottom/Right: 4-Column Stat Grid (No cut off, fits screen perfectly) ─── */}
+          <div className="grid grid-cols-4 gap-1.5 sm:gap-2 md:w-auto md:min-w-[340px]">
+            {statCards.map((card, idx) => {
+              const Icon = card.icon;
+              return (
+                <motion.div
+                  key={card.label}
+                  initial={{ opacity: 0, y: 8 }}
+                  animate={{ opacity: 1, y: 0 }}
+                  transition={{ delay: 0.05 + idx * 0.04, duration: 0.3 }}
+                  className="flex flex-col items-center justify-center py-1.5 px-2 rounded-xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/[0.04] dark:border-white/[0.06] hover:bg-black/[0.06] dark:hover:bg-white/[0.08] transition-all select-none group"
                 >
-                  <Icon size={18} strokeWidth={2} />
-                </div>
-
-                {/* Value */}
-                <div className="relative z-10">
-                  <motion.p
+                  <div className="flex items-center gap-1 mb-0.5">
+                    <Icon size={11} className={card.colorClass} />
+                    <span className={`text-[10px] sm:text-[11px] font-bold ${card.colorClass} opacity-85 truncate`}>
+                      {card.label}
+                    </span>
+                  </div>
+                  <motion.span
                     key={card.value}
-                    initial={{ scale: 0.8, opacity: 0 }}
-                    animate={{ scale: 1, opacity: 1 }}
-                    transition={{ type: 'spring', stiffness: 500, damping: 22 }}
-                    className="text-[28px] font-black text-main leading-none mb-1"
+                    initial={{ scale: 0.8 }}
+                    animate={{ scale: 1 }}
+                    className="text-base sm:text-lg font-black text-main tabular-nums leading-tight"
                   >
                     {card.value}
-                  </motion.p>
-                  <p className={`text-[10px] font-bold uppercase tracking-wider ${card.colorClass} opacity-80`}>
-                    {card.label}
-                  </p>
-                </div>
+                  </motion.span>
+                </motion.div>
+              );
+            })}
+          </div>
 
-                {/* Subtle corner decoration */}
-                <div className={`absolute -bottom-3 -right-3 w-14 h-14 ${card.bgClass} rounded-full opacity-40 pointer-events-none`} />
-              </motion.div>
-            );
-          })}
         </div>
       </div>
     </div>

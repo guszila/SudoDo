@@ -33,15 +33,14 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons.svg'],
       workbox: {
-        importScripts: ['https://cdn.onesignal.com/sdks/web/v16/OneSignalSDK.sw.js'],
         maximumFileSizeToCacheInBytes: 5000000
       },
       manifest: {
         name: 'SudoDo - Task Manager',
         short_name: 'SudoDo',
         description: 'SudoDo Task Manager App',
-        theme_color: '#e8d5f5',
-        background_color: '#e8d5f5',
+        theme_color: '#1e1b4b',
+        background_color: '#1e1b4b',
         display: 'standalone',
         icons: [
           {

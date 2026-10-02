@@ -23,7 +23,6 @@ import { useToast } from '../contexts/ToastContext';
 import pkg from '../../package.json';
 import { auth } from '../firebase';
 import { signOut, deleteUser, updatePassword, sendPasswordResetEmail } from 'firebase/auth';
-import OneSignalService from '../services/OneSignalService';
 import { useSwipeToClose } from '../hooks/useSwipeToClose';
 
 const ActionSheet = ({ isOpen, onClose, title, children }) => {
@@ -439,17 +438,16 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
 
   const handleToggle = async (key, value) => {
     if (value && ['notifyTasks', 'notifyShifts', 'notifyStreak'].includes(key)) {
-       const hasPermission = OneSignalService.hasPermission();
-       if (!hasPermission) {
-           await OneSignalService.requestPermission();
-       }
+      if ('Notification' in window && Notification.permission === 'default') {
+        try {
+          await Notification.requestPermission();
+        } catch {
+          // Ignore error if permission request fails or unsupported
+        }
+      }
     }
     const newSettings = { [key]: value };
     updateSettings(newSettings);
-    
-    if (['notifyTasks', 'notifyShifts', 'notifyStreak'].includes(key)) {
-       OneSignalService.updateTags({ ...settings, ...newSettings });
-    }
   };
 
   const handleSetThemeMode = (mode) => {

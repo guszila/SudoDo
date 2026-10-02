@@ -7,7 +7,7 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon-180x180.png?v=2" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
     <meta name="apple-mobile-web-app-capable" content="yes" />
-    <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />
     <meta name="theme-color" media="(prefers-color-scheme: light)" content="#e8d5f5" />
     <meta name="theme-color" media="(prefers-color-scheme: dark)" content="#1e1b4b" />
     <meta name="theme-color" content="#e8d5f5" />
@@ -44,14 +44,25 @@
       html, body {
         margin: 0;
         padding: 0;
+        width: 100%;
+        min-height: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        min-height: -webkit-fill-available;
         background-color: #e8d5f5;
         background: linear-gradient(135deg, #e8d5f5 0%, #d4e8ff 50%, #fde8f0 100%);
-        min-height: 100%;
         overflow-x: hidden;
       }
-      .dark html, .dark body, html.dark, body.dark {
+      html.dark, body.dark, .dark, .dark body {
         background-color: #1e1b4b;
         background: linear-gradient(135deg, #1e1b4b 0%, #312e81 50%, #1e1b4b 100%);
+      }
+      #root {
+        width: 100%;
+        min-height: 100%;
+        min-height: 100vh;
+        min-height: 100dvh;
+        min-height: -webkit-fill-available;
       }
     </style>
   </head>

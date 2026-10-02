@@ -6,7 +6,7 @@ import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, isBefore, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
 import { Flame, Banknote, Check, Maximize2, X, Trash2, Bell, Briefcase, GripHorizontal, LayoutGrid, ListTodo, Plus, Calendar, ArrowRight, CloudRain, Timer, Play, Pause, RotateCcw, RefreshCw, Sun, Cloud, CloudFog, CloudLightning, Droplets } from 'lucide-react';
-import { BarChart, Bar, LineChart, Line, AreaChart, Area, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, AreaChart, Area, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
 import { useTasks } from '../contexts/TasksContext';

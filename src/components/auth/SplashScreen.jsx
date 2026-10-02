@@ -121,20 +121,22 @@ export default function SplashScreen({ onDone, isReady = true }) {
       style={{
         background: isDark ? currentTheme.darkGradient : currentTheme.gradient,
         backgroundColor: isDark ? '#1e1b4b' : '#e8d5f5',
+        touchAction: 'none',
+        overscrollBehavior: 'none',
       }}
     >
       {/* Ambient background light orbs */}
       <div 
-        className="absolute -top-24 -left-20 w-80 h-80 rounded-full blur-[80px] pointer-events-none opacity-40 dark:opacity-20 animate-pulse"
+        className="absolute top-12 -left-16 w-72 h-72 rounded-full blur-[90px] pointer-events-none opacity-20 dark:opacity-10 animate-pulse"
         style={{
-          background: 'radial-gradient(circle, rgba(167,139,250,0.8) 0%, rgba(244,114,182,0.2) 70%, transparent 100%)',
+          background: 'radial-gradient(circle, rgba(167,139,250,0.6) 0%, rgba(244,114,182,0.15) 70%, transparent 100%)',
           animationDuration: '4s'
         }} 
       />
       <div 
-        className="absolute -bottom-28 -right-20 w-96 h-96 rounded-full blur-[90px] pointer-events-none opacity-40 dark:opacity-20 animate-pulse"
+        className="absolute -bottom-20 -right-16 w-80 h-80 rounded-full blur-[90px] pointer-events-none opacity-20 dark:opacity-10 animate-pulse"
         style={{
-          background: 'radial-gradient(circle, rgba(99,102,241,0.8) 0%, rgba(127,119,221,0.2) 70%, transparent 100%)',
+          background: 'radial-gradient(circle, rgba(99,102,241,0.6) 0%, rgba(127,119,221,0.15) 70%, transparent 100%)',
           animationDuration: '5s',
           animationDelay: '1s'
         }} 
@@ -218,7 +220,7 @@ export default function SplashScreen({ onDone, isReady = true }) {
       <div 
         className="absolute text-[11px] font-mono text-main/40 select-none pointer-events-none"
         style={{
-          bottom: 'calc(60px + max(1.25rem, env(safe-area-inset-bottom)))'
+          bottom: 'calc(100px + max(env(safe-area-inset-bottom, 0px), 20px) + 1rem)'
         }}
       >
         <span>v{version}</span>
