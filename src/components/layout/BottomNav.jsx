@@ -2,10 +2,12 @@ import { useEffect, useRef, useState, useMemo } from 'react';
 import { Calendar as CalendarIcon, Users, Home, Banknote, Settings } from 'lucide-react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import { motion } from 'framer-motion';
+import { useVirtualKeyboard } from '../../hooks/useVirtualKeyboard';
 
 export default function BottomNav({ lang, setCurrentView, unreadCount = 0 }) {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isKeyboardOpen } = useVirtualKeyboard();
   const [isHidden, setIsHidden] = useState(false);
   const lastScrollY = useRef(0);
   const ticking = useRef(false);
@@ -118,6 +120,8 @@ export default function BottomNav({ lang, setCurrentView, unreadCount = 0 }) {
       window.removeEventListener('wheel', handleActivity);
     };
   }, []);
+
+  if (isKeyboardOpen) return null;
 
   return (
     <nav

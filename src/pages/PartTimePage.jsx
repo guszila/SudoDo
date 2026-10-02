@@ -1,4 +1,5 @@
 import { useState, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
@@ -21,6 +22,7 @@ import { calcSSO } from '../utils/socialSecurity';
 import { TASK_STATUS, TASK_PRIORITY, RATE_TYPE, DEFAULT_TASK_VALUES } from '../constants';
 import { translations } from '../i18n';
 import { useSwipeToClose } from '../hooks/useSwipeToClose';
+import { useVirtualKeyboard } from '../hooks/useVirtualKeyboard';
 
 const JOB_COLORS = {
   blue: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/20', borderL: 'border-l-blue-500', button: 'text-blue-500 hover:bg-blue-500/20' },
@@ -129,6 +131,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
   const extraFormSheet = useSwipeToClose(() => setShowAddExtraForm(false), { dragFromSheet: true });
   const widgetSelectorSheet = useSwipeToClose(() => setShowWidgetSelector(false));
   const goalSheet = useSwipeToClose(() => setShowGoalModal(false));
+  const { keyboardHeight } = useVirtualKeyboard();
 
   useEffect(() => {
     localStorage.setItem('income_dashboard', JSON.stringify(enabledWidgets));
@@ -137,6 +140,16 @@ export default function PartTimePage({ user, lang = 'en' }) {
   useEffect(() => {
     localStorage.setItem('income_goal', JSON.stringify(incomeGoal));
   }, [incomeGoal]);
+
+  useEffect(() => {
+    if (showAddExtraForm || showGoalModal || showWidgetSelector) {
+      const orig = document.body.style.overflow;
+      document.body.style.overflow = 'hidden';
+      return () => {
+        document.body.style.overflow = orig;
+      };
+    }
+  }, [showAddExtraForm, showGoalModal, showWidgetSelector]);
 
   const [extraFormData, setExtraFormData] = useState({
     title: '',
@@ -463,13 +476,18 @@ export default function PartTimePage({ user, lang = 'en' }) {
     const breakdownData = monthlyGross.breakdown[selectedMonth] || {};
     const jobBreakdown = Object.entries(breakdownData).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.total - a.total);
 
+    const total = earned + pending;
+    const afterSSO = Math.max(0, total - ssoDeducted);
+    const netTotal = Math.max(0, afterSSO - expenseTotal);
+
     return { 
       earned, 
       pending, 
-      total: earned + pending,
+      total,
       ssoDeducted,
+      afterSSO,
       expenseTotal,
-      netTotal: earned + pending - ssoDeducted - expenseTotal,
+      netTotal,
       jobBreakdown
     };
   }, [tasks, monthlyGross, selectedMonth]);
@@ -574,6 +592,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
   
   const AVAILABLE_WIDGETS = [
     { id: 'net', label: 'รายได้สุทธิ (Net Income)' },
+    { id: 'after_sso', label: 'รายได้หลังหักประกันสังคม (Income after SSO)' },
     { id: 'earned', label: 'รายได้ที่ได้แล้ว (Earned)' },
     { id: 'expected', label: 'คาดว่าได้รับ (Expected)' },
     { id: 'total_sso_net', label: 'รายได้รวม & หักประกันสังคม' },
@@ -624,10 +643,22 @@ export default function PartTimePage({ user, lang = 'en' }) {
         return (
           <div className={`liquid-glass-card p-4 flex ${isFull ? 'flex-row items-center justify-between' : 'flex-col justify-between'} h-full min-h-[96px] border-l-4 border-l-purple-500`}>
             <div>
-              <p className="text-xs text-main opacity-70 font-medium mb-0.5">{lang === 'en' ? 'Net income' : 'รายได้สุทธิ'}</p>
-              {isFull && <p className="text-[10px] text-main opacity-40">รายได้หลังหักค่าใช้จ่าย</p>}
+              <p className="text-xs text-main opacity-70 font-medium mb-0.5">{lang === 'en' ? 'Net income' : 'รายได้สุทธิคงเหลือ'}</p>
+              {isFull && <p className="text-[10px] text-main opacity-40">รายได้หลังหักประกันสังคมและค่าใช้จ่ายทั้งหมด</p>}
             </div>
             <span className="text-2xl font-bold text-purple-600 dark:text-primary-300">฿{stats.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+          </div>
+        );
+      }
+      case 'after_sso': {
+        const isFull = widgetLayoutMap['after_sso']?.colSpan === 2;
+        return (
+          <div className={`liquid-glass-card p-4 flex ${isFull ? 'flex-row items-center justify-between' : 'flex-col justify-between'} h-full min-h-[96px] border-l-4 border-l-teal-500`}>
+            <div>
+              <p className="text-xs text-main opacity-70 font-medium mb-0.5">{lang === 'en' ? 'Income after SSO' : 'รายได้หลังหักประกันสังคม'}</p>
+              {isFull && <p className="text-[10px] text-main opacity-40">ยอดเงินจริงก่อนหักค่าใช้จ่ายส่วนตัว</p>}
+            </div>
+            <span className="text-2xl font-bold text-teal-600 dark:text-teal-400">฿{stats.afterSSO.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
           </div>
         );
       }
@@ -790,15 +821,33 @@ export default function PartTimePage({ user, lang = 'en' }) {
                  <span className="text-lg font-bold text-red-600 dark:text-red-400">-฿{stats.ssoDeducted.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
                </div>
             )}
-            {stats.expenseTotal > 0 && (
-              <div className="flex justify-between items-center mb-1 border-t border-main/10 pt-2 mt-2">
-                   <p className="text-sm text-red-600 dark:text-red-400 opacity-90 font-medium">รวมรายจ่ายอื่นๆ</p>
-                   <span className="text-lg font-bold text-red-600 dark:text-red-400">-฿{stats.expenseTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+            
+            {stats.ssoDeducted > 0 && (
+              <div className="flex justify-between items-center mb-1 bg-teal-500/10 dark:bg-teal-500/15 px-3 py-2 rounded-xl mt-1.5 border border-teal-500/20">
+                <div>
+                  <p className="text-xs text-teal-700 dark:text-teal-300 font-bold">{lang === 'th' ? 'รายได้หลังหักประกันสังคม' : 'Income after SSO'}</p>
+                  <p className="text-[10px] text-teal-600/70 dark:text-teal-400/70">{lang === 'th' ? 'รายได้จริงก่อนหักรายจ่ายอื่นๆ' : 'Actual earnings before expenses'}</p>
+                </div>
+                <span className="text-base font-black text-teal-600 dark:text-teal-400">฿{stats.afterSSO.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
               </div>
             )}
-            <div className="flex justify-between items-center mt-2 bg-purple-500/10 dark:bg-primary-500/20 p-2.5 rounded-xl border border-transparent dark:border-primary-500/30">
-               <p className="text-sm text-purple-600 dark:text-primary-300 font-bold">{lang === 'th' ? 'รายได้สุทธิ' : 'Net Income'}</p>
-               <span className="text-xl font-bold text-purple-600 dark:text-primary-300">฿{stats.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+
+            {stats.expenseTotal > 0 && (
+              <div className="flex justify-between items-center mb-1 border-t border-main/10 pt-2 mt-2">
+                   <div>
+                     <p className="text-sm text-rose-600 dark:text-rose-400 opacity-90 font-medium">{lang === 'th' ? 'รวมรายจ่าย / หักเงินอื่นๆ' : 'Total Expenses'}</p>
+                     <p className="text-[10px] text-main/50">{lang === 'th' ? 'รายการหักเงินส่วนตัว/ค่าใช้จ่าย' : 'Personal expenses and deductions'}</p>
+                   </div>
+                   <span className="text-lg font-bold text-rose-600 dark:text-rose-400">-฿{stats.expenseTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+              </div>
+            )}
+
+            <div className="flex justify-between items-center mt-2.5 bg-purple-500/10 dark:bg-primary-500/20 p-2.5 rounded-xl border border-transparent dark:border-primary-500/30">
+               <div>
+                 <p className="text-sm text-purple-600 dark:text-primary-300 font-bold">{lang === 'th' ? 'รายได้สุทธิคงเหลือ' : 'Final Net Income'}</p>
+                 {stats.expenseTotal > 0 && <p className="text-[10px] text-main/60 dark:text-white/60">{lang === 'th' ? 'หลังหักประกันสังคมและรายจ่ายทั้งหมด' : 'After SSO & all expenses'}</p>}
+               </div>
+               <span className="text-xl font-black text-purple-600 dark:text-primary-300">฿{stats.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
             </div>
           </div>
         );
@@ -1383,119 +1432,207 @@ export default function PartTimePage({ user, lang = 'en' }) {
         </div>
       </div>
 
-      <AnimatePresence>
-        {showAddExtraForm && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-            <motion.div 
-              initial={{ opacity: 0 }} 
-              animate={{ opacity: 1 }} 
-              exit={{ opacity: 0 }} 
-              className="absolute inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm" 
-              onClick={() => setShowAddExtraForm(false)} 
-            />
-            <motion.div 
-              initial={{ opacity: 0, y: '100%' }} 
-              animate={{ opacity: 1, y: 0 }} 
-              exit={{ opacity: 0, y: '100%' }} 
-              transition={{ type: 'spring', damping: 25, stiffness: 350 }}
-              {...extraFormSheet.dragProps}
-              className={`relative w-full max-w-md max-h-[88vh] overflow-y-auto overscroll-contain bg-white dark:bg-[#1a182c] p-6 md:p-8 space-y-5 border border-slate-200/80 dark:border-white/10 border-x-0 border-b-0 sm:border shadow-2xl z-10 rounded-t-[32px] sm:rounded-3xl ${extraFormType === 'income' ? 'border-t-4 border-t-green-500' : 'border-t-4 border-t-red-500'}`}
+      {/* Extra Income / Expense Modal */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {showAddExtraForm && (
+            <div 
+              className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 dark:bg-black/70 backdrop-blur-md animate-fade-in transition-[padding] duration-150"
+              style={{
+                paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined
+              }}
+              onClick={() => setShowAddExtraForm(false)}
             >
-              <div {...extraFormSheet.handleProps} className={`${extraFormSheet.handleProps.className} sm:hidden`} />
-              <button 
-                onClick={() => setShowAddExtraForm(false)} 
-                className="absolute top-4 right-4 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main/50 hover:text-main"
-                type="button"
+              <motion.div 
+                initial={{ opacity: 0, y: '100%' }} 
+                animate={{ opacity: 1, y: 0 }} 
+                exit={{ opacity: 0, y: '100%' }} 
+                transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+                {...extraFormSheet.dragProps}
+                onClick={e => e.stopPropagation()}
+                className="relative w-full max-w-md flex flex-col bg-white dark:bg-[#1a182c] border border-slate-200/80 dark:border-white/10 shadow-2xl rounded-t-[32px] sm:rounded-[28px] overflow-hidden transition-[max-height] duration-150"
+                style={{
+                  maxHeight: keyboardHeight > 0 
+                    ? `calc(100dvh - ${keyboardHeight + 20}px)` 
+                    : 'min(90dvh, 720px)'
+                }}
               >
-                <X size={20} />
-              </button>
-              
-              <h3 className="font-bold text-xl text-main pr-8 flex items-center gap-2">
-                {extraFormType === 'income' ? <><Banknote className="text-green-500"/> {extraFormData.id ? ui.editExtraIncome : ui.addExtraIncome}</> : <><Receipt className="text-red-500"/> {extraFormData.id ? (lang === 'en' ? 'Edit expense' : 'แก้ไขรายจ่าย') : t.addExpenseTitle}</>}
-              </h3>
-              
-              <form onSubmit={handleAddExtraItem} className="space-y-4">
-                <div className="space-y-4">
-                  <div>
-                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
-                      {extraFormType === 'income' ? 'ชื่อรายการ' : t.expenseTitle}
-                    </label>
-                    <input 
-                      type="text" 
-                      value={extraFormData.title} 
-                      onChange={e => setExtraFormData({...extraFormData, title: e.target.value})} 
-                      required 
-                      className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm`} 
-                      placeholder={extraFormType === 'income' ? 'เช่น ทิป, ค่าคอมมิชชัน' : t.expenseTitlePlaceholder} 
-                    />
-                  </div>
-                  {extraFormType === 'income' && (
-                    <div>
-                      <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
-                        หมวดหมู่รายได้
-                      </label>
-                      <select
-                        value={extraFormData.incomeCategory}
-                        onChange={e => setExtraFormData({...extraFormData, incomeCategory: e.target.value})}
-                        className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-green-500 text-main font-bold bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm"
-                      >
-                        {incomeCategories.map(category => (
-                          <option key={category.id} value={category.id}>{category.label}</option>
-                        ))}
-                      </select>
-                    </div>
-                  )}
-                  <div>
-                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.amount}</label>
-                    <div className="relative">
-                      <input 
-                        type="number" 
-                        step="any" 
-                        value={extraFormData.amount} 
-                        onChange={e => setExtraFormData({...extraFormData, amount: e.target.value})} 
-                        required 
-                        min="0" 
-                        className={`w-full pl-4 pr-10 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm`} 
-                      />
-                      <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold opacity-50">฿</span>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">
-                      ประจำเดือน
-                    </label>
-                    <input 
-                      onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} 
-                      type="month" 
-                      value={extraFormData.month} 
-                      onChange={e => setExtraFormData({...extraFormData, month: e.target.value})} 
-                      required 
-                      className={`w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 ${extraFormType === 'income' ? 'focus:ring-green-500' : 'focus:ring-red-500'} text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm`} 
-                    />
-                  </div>
-                </div>
+                {/* Drag Handle */}
+                <div {...extraFormSheet.handleProps} className={`${extraFormSheet.handleProps.className} sm:hidden`} />
                 
-                <div className="pt-4 flex gap-3">
-                  {extraFormData.id && (
-                    <button 
-                      type="button" 
-                      onClick={() => {
-                        setDeleteConfirmTask({ id: extraFormData.id, title: extraFormData.title });
-                        setShowAddExtraForm(false);
-                      }}
-                      className="py-3 px-4 text-red-500 font-bold rounded-xl transition-colors hover:bg-red-500/10 border border-red-500/20"
-                    >
-                      <Trash2 size={20} />
-                    </button>
-                  )}
-                  <button type="submit" disabled={isMutating || isTasksLoading} className={`flex-1 py-4 text-white font-bold rounded-xl transition-colors shadow-lg active:scale-[0.98] ${extraFormType === 'income' ? 'bg-green-500 hover:bg-green-600 shadow-green-500/25' : 'bg-red-500 hover:bg-red-600 shadow-red-500/25'}`}>
-                    {extraFormData.id ? ui.save : (extraFormType === 'income' ? (lang === 'en' ? 'Save extra income' : 'บันทึกรายได้พิเศษ') : t.createExpense)}
+                {/* Modal Header */}
+                <div className="flex items-center justify-between px-6 pt-4 pb-3 border-b border-black/5 dark:border-white/5 flex-shrink-0">
+                  <div className="flex items-center gap-2.5">
+                    <div className={`p-2 rounded-2xl ${
+                      extraFormType === 'income' 
+                        ? 'bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/20' 
+                        : 'bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/20'
+                    }`}>
+                      {extraFormType === 'income' ? <Banknote size={20} /> : <Receipt size={20} />}
+                    </div>
+                    <div>
+                      <h3 className="font-bold text-lg text-main leading-tight">
+                        {extraFormType === 'income' 
+                          ? (extraFormData.id ? ui.editExtraIncome : ui.addExtraIncome) 
+                          : (extraFormData.id ? (lang === 'en' ? 'Edit expense' : 'แก้ไขรายจ่าย') : t.addExpenseTitle)
+                        }
+                      </h3>
+                      <p className="text-[11px] text-main/55 font-medium mt-0.5">
+                        {extraFormType === 'income'
+                          ? (lang === 'en' ? 'Tips, commissions, bonuses, etc.' : 'ทิป, คอมมิชชัน, โบนัส, รายได้อื่น ๆ')
+                          : (lang === 'en' ? 'Uniform, fine, tax, deductions, etc.' : 'ค่าชุด, ค่าปรับ, ภาษี, หักเงินอื่น ๆ')
+                        }
+                      </p>
+                    </div>
+                  </div>
+                  <button 
+                    onClick={() => setShowAddExtraForm(false)} 
+                    className="p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main/50 hover:text-main"
+                    type="button"
+                    aria-label="Close"
+                  >
+                    <X size={20} />
                   </button>
                 </div>
-              </form>
-            </motion.div>
-          </div>
-        )}
+                
+                {/* Form with scrollable body and sticky footer */}
+                <form onSubmit={handleAddExtraItem} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                  {/* Scrollable Form Body */}
+                  <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-4 custom-scrollbar">
+                    {/* Title */}
+                    <div>
+                      <label className="block text-xs font-bold text-main/80 mb-1.5 uppercase tracking-wider">
+                        {extraFormType === 'income' ? (lang === 'en' ? 'Title / Description' : 'ชื่อรายการ') : t.expenseTitle}
+                      </label>
+                      <input 
+                        type="text" 
+                        value={extraFormData.title} 
+                        onChange={e => setExtraFormData({...extraFormData, title: e.target.value})} 
+                        required 
+                        className={`w-full px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 ${
+                          extraFormType === 'income' ? 'focus:ring-emerald-500' : 'focus:ring-rose-500'
+                        } text-main font-medium bg-black/[0.03] dark:bg-white/5 border border-black/5 dark:border-white/10 shadow-sm`} 
+                        placeholder={extraFormType === 'income' ? (lang === 'en' ? 'e.g. Tips, Commission' : 'เช่น ทิป, ค่าคอมมิชชัน') : t.expenseTitlePlaceholder} 
+                      />
+                    </div>
+
+                    {/* Category (if income) */}
+                    {extraFormType === 'income' && (
+                      <div>
+                        <label className="block text-xs font-bold text-main/80 mb-1.5 uppercase tracking-wider">
+                          {lang === 'en' ? 'Income Category' : 'หมวดหมู่รายได้'}
+                        </label>
+                        <select
+                          value={extraFormData.incomeCategory}
+                          onChange={e => setExtraFormData({...extraFormData, incomeCategory: e.target.value})}
+                          className="w-full px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 focus:ring-emerald-500 text-main font-bold bg-black/[0.03] dark:bg-white/5 border border-black/5 dark:border-white/10 shadow-sm"
+                        >
+                          {incomeCategories.map(category => (
+                            <option key={category.id} value={category.id}>{category.label}</option>
+                          ))}
+                        </select>
+                      </div>
+                    )}
+
+                    {/* Amount with Quick Suggestions */}
+                    <div>
+                      <label className="block text-xs font-bold text-main/80 mb-1.5 uppercase tracking-wider">
+                        {lang === 'en' ? 'Amount (THB)' : t.amount}
+                      </label>
+                      <div className="relative">
+                        <input 
+                          type="number" 
+                          step="any" 
+                          value={extraFormData.amount} 
+                          onChange={e => setExtraFormData({...extraFormData, amount: e.target.value})} 
+                          required 
+                          min="0" 
+                          placeholder="0.00"
+                          className={`w-full pl-4 pr-10 py-3.5 rounded-2xl text-lg font-black focus:outline-none focus:ring-2 ${
+                            extraFormType === 'income' ? 'focus:ring-emerald-500' : 'focus:ring-rose-500'
+                          } text-main bg-black/[0.03] dark:bg-white/5 border border-black/5 dark:border-white/10 shadow-sm tracking-tight`} 
+                        />
+                        <span className="absolute right-4 top-1/2 -translate-y-1/2 font-bold opacity-40 text-base">฿</span>
+                      </div>
+
+                      {/* Quick chips */}
+                      <div className="flex flex-wrap gap-1.5 mt-2">
+                        {[100, 300, 500, 1000].map(amt => (
+                          <button
+                            key={amt}
+                            type="button"
+                            onClick={() => setExtraFormData({...extraFormData, amount: amt})}
+                            className="px-2.5 py-1 rounded-full text-xs font-semibold bg-black/[0.04] dark:bg-white/5 hover:bg-black/[0.08] dark:hover:bg-white/10 text-main/70 border border-black/5 dark:border-white/5 transition-colors active:scale-95"
+                          >
+                            +฿{amt.toLocaleString()}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* Month */}
+                    <div>
+                      <label className="block text-xs font-bold text-main/80 mb-1.5 uppercase tracking-wider">
+                        {lang === 'en' ? 'Month' : 'ประจำเดือน'}
+                      </label>
+                      <input 
+                        onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} 
+                        type="month" 
+                        value={extraFormData.month} 
+                        onChange={e => setExtraFormData({...extraFormData, month: e.target.value})} 
+                        required 
+                        className={`w-full px-4 py-3 rounded-2xl focus:outline-none focus:ring-2 ${
+                          extraFormType === 'income' ? 'focus:ring-emerald-500' : 'focus:ring-rose-500'
+                        } text-main font-semibold bg-black/[0.03] dark:bg-white/5 border border-black/5 dark:border-white/10 shadow-sm`} 
+                      />
+                    </div>
+                  </div>
+
+                  {/* Sticky Footer: Submit and Delete Buttons with solid background */}
+                  <div className={`flex-shrink-0 px-6 ${keyboardHeight > 0 ? 'py-3' : 'pt-3.5 pb-safe pb-4'} border-t border-black/5 dark:border-white/5 bg-white dark:bg-[#1a182c] flex gap-3 transition-all duration-150`}>
+                    {extraFormData.id && (
+                      <button 
+                        type="button" 
+                        onClick={() => {
+                          setDeleteConfirmTask({ id: extraFormData.id, title: extraFormData.title });
+                          setShowAddExtraForm(false);
+                        }}
+                        className="py-3.5 px-4 text-rose-500 font-bold rounded-2xl transition-colors hover:bg-rose-500/10 border border-rose-500/20 active:scale-95 flex items-center justify-center"
+                        title={lang === 'en' ? 'Delete' : 'ลบรายการ'}
+                      >
+                        <Trash2 size={20} />
+                      </button>
+                    )}
+                    <button 
+                      type="submit" 
+                      disabled={isMutating || isTasksLoading} 
+                      className={`flex-1 py-3.5 px-6 text-white font-black rounded-2xl transition-all shadow-lg active:scale-[0.98] ${
+                        extraFormType === 'income' 
+                          ? 'bg-gradient-to-r from-emerald-500 to-green-600 hover:from-emerald-600 hover:to-green-700 shadow-emerald-500/25' 
+                          : 'bg-gradient-to-r from-rose-500 to-red-600 hover:from-rose-600 hover:to-red-700 shadow-rose-500/25'
+                      }`}
+                    >
+                      {extraFormData.id 
+                        ? ui.save 
+                        : (extraFormType === 'income' 
+                            ? (lang === 'en' ? 'Save Extra Income' : 'บันทึกรายได้พิเศษ') 
+                            : (lang === 'en' ? 'Save Expense' : 'บันทึกรายจ่าย')
+                          )
+                      }
+                    </button>
+                  </div>
+                </form>
+
+                {/* Solid underlay skirt so no gap can EVER be seen beneath the card */}
+                <div className="absolute -bottom-[1000px] left-0 right-0 h-[1000px] bg-white dark:bg-[#1a182c] pointer-events-none" />
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
+
+      <AnimatePresence>
         {showAddForm && (
           <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-6">
             <form onSubmit={handleAddShift} className="bg-white/95 dark:bg-[#1a182c] backdrop-blur-xl p-6 space-y-5 border-2 border-primary-500/30 rounded-3xl shadow-lg">
@@ -2077,103 +2214,164 @@ export default function PartTimePage({ user, lang = 'en' }) {
         />
       </div>
 
-            {/* Widget Selector Bottom Sheet */}
-      <AnimatePresence>
-        {showWidgetSelector && (
-          <>
-            <motion.div 
-              initial={{ opacity: 0 }} animate={{ opacity: 1 }} exit={{ opacity: 0 }}
-              className="fixed inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm z-50"
+      {/* Widget Selector Bottom Sheet */}
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {showWidgetSelector && (
+            <div 
+              className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 dark:bg-black/70 backdrop-blur-md animate-fade-in"
               onClick={() => setShowWidgetSelector(false)}
-            />
-            <motion.div 
-              initial={{ y: '100%' }} animate={{ y: 0 }} exit={{ y: '100%' }}
-              transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-              {...widgetSelectorSheet.dragProps}
-              className="fixed bottom-0 left-0 right-0 z-50 bg-white dark:bg-[#1a182c] border border-slate-200/80 dark:border-white/10 rounded-b-none border-x-0 border-b-0 shadow-2xl p-6 max-h-[86vh] overflow-y-auto overscroll-contain max-w-4xl mx-auto"
             >
-              <div {...widgetSelectorSheet.handleProps} />
-              <h3 className="text-lg font-bold mb-4 flex items-center gap-2"><LayoutGrid size={20}/> {ui.chooseWidgets}</h3>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                {AVAILABLE_WIDGETS.map(w => {
-                  const isEnabled = enabledWidgets.includes(w.id);
-                  return (
+              <motion.div 
+                initial={{ opacity: 0, y: '100%' }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: '100%' }}
+                transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+                {...widgetSelectorSheet.dragProps}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full sm:max-w-xl max-h-[88vh] flex flex-col bg-white dark:bg-[#1a182c] border border-slate-200/80 dark:border-white/10 rounded-t-[32px] sm:rounded-[28px] shadow-2xl overflow-hidden relative"
+              >
+                {/* Drag Handle */}
+                <div {...widgetSelectorSheet.handleProps} className={`${widgetSelectorSheet.handleProps.className} sm:hidden`} />
+                
+                {/* Header */}
+                <div className="flex items-center justify-between px-5 pt-3 pb-3 sm:px-6 sm:pt-4 border-b border-black/5 dark:border-white/5 flex-shrink-0">
+                  <div className="flex items-center gap-2">
+                    <div className="p-1.5 rounded-lg bg-primary-500/10 text-primary-500">
+                      <LayoutGrid size={18} />
+                    </div>
+                    <h3 className="text-base sm:text-lg font-bold text-main">{ui.chooseWidgets}</h3>
+                  </div>
+                  <button 
+                    onClick={() => setShowWidgetSelector(false)} 
+                    className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 text-main/60 hover:text-main transition-colors"
+                    aria-label="Close"
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+
+                {/* Scrollable List */}
+                <div className="flex-1 overflow-y-auto overscroll-contain p-4 sm:p-6 custom-scrollbar space-y-3 pb-safe pb-10">
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-2.5 sm:gap-3">
+                    {AVAILABLE_WIDGETS.map(w => {
+                      const isEnabled = enabledWidgets.includes(w.id);
+                      return (
+                        <button 
+                          key={w.id}
+                          disabled={isEnabled}
+                          onClick={() => {
+                            setEnabledWidgets(prev => [...prev, w.id]);
+                            setShowWidgetSelector(false);
+                          }}
+                          className={`p-3.5 sm:p-4 rounded-2xl flex items-center justify-between gap-3 text-left transition-all active:scale-[0.98] ${
+                            isEnabled 
+                              ? 'bg-green-500/10 border-2 border-green-500/80 text-green-600 dark:text-green-400 opacity-70 cursor-default' 
+                              : 'bg-black/[0.03] dark:bg-white/5 border border-slate-200/80 dark:border-white/10 hover:border-primary-500/50 hover:bg-black/[0.05] dark:hover:bg-white/10 text-main shadow-sm'
+                          }`}
+                        >
+                          <span className="font-semibold text-sm sm:text-base leading-snug">{w.label}</span>
+                          {isEnabled ? (
+                            <div className="w-6 h-6 rounded-full bg-green-500/20 text-green-600 dark:text-green-400 flex items-center justify-center flex-shrink-0">
+                              <CheckCircle2 size={16} />
+                            </div>
+                          ) : (
+                            <div className="w-6 h-6 rounded-full bg-black/5 dark:bg-white/10 text-main/40 flex items-center justify-center flex-shrink-0">
+                              <Plus size={14} />
+                            </div>
+                          )}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div className="pt-2">
                     <button 
-                      key={w.id}
-                      disabled={isEnabled}
-                      onClick={() => {
-                        setEnabledWidgets(prev => [...prev, w.id]);
-                        setShowWidgetSelector(false);
-                      }}
-                      className={`p-4 rounded-xl flex items-center gap-3 text-left transition-all ${isEnabled ? 'bg-green-500/10 border-2 border-green-500 text-green-600 dark:text-green-400 opacity-60' : 'bg-slate-50 dark:bg-white/5 border border-slate-200/80 dark:border-white/10 hover:border-primary-500/50 text-main'}`}
+                      onClick={() => setShowWidgetSelector(false)} 
+                      className="w-full py-3.5 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-main rounded-2xl font-bold transition-colors active:scale-95"
                     >
-                      <div className="flex-1 font-medium">{w.label}</div>
-                      {isEnabled && <CheckCircle2 size={16} />}
+                      {lang === 'en' ? 'Close' : 'ปิด'}
                     </button>
-                  );
-                })}
-              </div>
-              <button onClick={() => setShowWidgetSelector(false)} className="w-full mt-6 py-4 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-main rounded-xl font-bold transition-colors">ปิด</button>
-            </motion.div>
-          </>
-        )}
-      </AnimatePresence>
+                  </div>
+                </div>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* Income Goal Modal */}
-      <AnimatePresence>
-        {showGoalModal && (
-          <div className="fixed inset-0 z-50 flex items-end sm:items-center justify-center p-0 sm:p-4">
-             <motion.div initial={{opacity:0}} animate={{opacity:1}} exit={{opacity:0}} className="absolute inset-0 bg-black/20 dark:bg-black/60 backdrop-blur-sm" onClick={() => setShowGoalModal(false)} />
-             <motion.div
-               initial={{ opacity: 0, y: '100%' }}
-               animate={{ opacity: 1, y: 0 }}
-               exit={{ opacity: 0, y: '100%' }}
-               transition={{ type: 'spring', damping: 25, stiffness: 300 }}
-               {...goalSheet.dragProps}
-               className="bg-white dark:bg-[#1a182c] border-2 border-primary-500/30 p-6 w-full max-w-md relative z-10 rounded-t-[32px] sm:rounded-[28px] max-h-[86vh] overflow-y-auto overscroll-contain shadow-2xl"
-             >
-               <div {...goalSheet.handleProps} className={`${goalSheet.handleProps.className} sm:hidden`} />
-               <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-primary-500"><Target size={24}/> ตั้งเป้าหมายรายได้</h3>
-               <div className="space-y-4">
-                 <div>
-                   <label className="block text-sm font-medium opacity-80 mb-1">เป้าหมายรายได้ (บาท/เดือน)</label>
-                   <input 
-                     type="number" 
-                     value={tempGoal.goalAmount} 
-                     onChange={e => setTempGoal({...tempGoal, goalAmount: Number(e.target.value)})}
-                     className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 bg-slate-50 dark:bg-white/10 border border-slate-200/90 dark:border-white/10 font-bold text-xl text-main shadow-sm"
-                   />
-                 </div>
-                 <div className="flex flex-wrap gap-2">
-                   {[3000, 5000, 10000, 15000].map(amt => (
-                     <button key={amt} onClick={() => setTempGoal({...tempGoal, goalAmount: amt})} className="px-3 py-1.5 bg-primary-500/10 text-primary-500 rounded-full text-sm font-medium hover:bg-primary-500/20 transition-colors">
-                       ฿{amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                     </button>
-                   ))}
-                 </div>
-                 <label className="flex items-center gap-2 mt-4 cursor-pointer">
-                   <input type="checkbox" checked={tempGoal.isRecurring} onChange={e => setTempGoal({...tempGoal, isRecurring: e.target.checked})} className="w-4 h-4 rounded text-primary-500 focus:ring-primary-500" />
-                   <span className="text-sm font-medium">ใช้เป้าหมายนี้ทุกเดือน</span>
-                 </label>
-                 
-                 <div className="flex gap-3 mt-6">
-                   <button onClick={() => setShowGoalModal(false)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-main rounded-xl font-bold transition-colors">{ui.cancel}</button>
-                   <button 
-                     onClick={() => {
-                       setIncomeGoal(tempGoal);
-                       setShowGoalModal(false);
-                     }} 
-                     className="flex-1 py-3 bg-primary-500 text-white rounded-xl font-bold shadow-lg shadow-primary-500/30"
-                   >
-                     {ui.save}
-                   </button>
-                 </div>
-               </div>
-             </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {showGoalModal && (
+            <div 
+              className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 dark:bg-black/70 backdrop-blur-md animate-fade-in transition-[padding] duration-150" 
+              style={{
+                paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined
+              }}
+              onClick={() => setShowGoalModal(false)}
+            >
+              <motion.div
+                initial={{ opacity: 0, y: '100%' }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: '100%' }}
+                transition={{ type: 'spring', damping: 26, stiffness: 320 }}
+                {...goalSheet.dragProps}
+                onClick={(e) => e.stopPropagation()}
+                className={`bg-white dark:bg-[#1a182c] border border-slate-200/80 dark:border-white/10 p-6 w-full max-w-md relative z-10 rounded-t-[32px] sm:rounded-[28px] overflow-y-auto overscroll-contain shadow-2xl ${keyboardHeight > 0 ? 'pb-4' : 'pb-safe pb-8'} transition-[max-height] duration-150`}
+                style={{
+                  maxHeight: keyboardHeight > 0 
+                    ? `calc(100dvh - ${keyboardHeight + 20}px)` 
+                    : 'min(88dvh, 600px)'
+                }}
+              >
+                <div {...goalSheet.handleProps} className={`${goalSheet.handleProps.className} sm:hidden`} />
+                <h3 className="text-xl font-bold mb-4 flex items-center gap-2 text-primary-500"><Target size={24}/> ตั้งเป้าหมายรายได้</h3>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-sm font-medium opacity-80 mb-1">เป้าหมายรายได้ (บาท/เดือน)</label>
+                    <input 
+                      type="number" 
+                      value={tempGoal.goalAmount} 
+                      onChange={e => setTempGoal({...tempGoal, goalAmount: Number(e.target.value)})}
+                      className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 bg-slate-50 dark:bg-white/10 border border-slate-200/90 dark:border-white/10 font-bold text-xl text-main shadow-sm"
+                    />
+                  </div>
+                  <div className="flex flex-wrap gap-2">
+                    {[3000, 5000, 10000, 15000].map(amt => (
+                      <button key={amt} onClick={() => setTempGoal({...tempGoal, goalAmount: amt})} className="px-3 py-1.5 bg-primary-500/10 text-primary-500 rounded-full text-sm font-medium hover:bg-primary-500/20 transition-colors">
+                        ฿{amt.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </button>
+                    ))}
+                  </div>
+                  <label className="flex items-center gap-2 mt-4 cursor-pointer">
+                    <input type="checkbox" checked={tempGoal.isRecurring} onChange={e => setTempGoal({...tempGoal, isRecurring: e.target.checked})} className="w-4 h-4 rounded text-primary-500 focus:ring-primary-500" />
+                    <span className="text-sm font-medium">ใช้เป้าหมายนี้ทุกเดือน</span>
+                  </label>
+                  
+                  <div className="flex gap-3 mt-6">
+                    <button onClick={() => setShowGoalModal(false)} className="flex-1 py-3 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-main rounded-xl font-bold transition-colors">{ui.cancel}</button>
+                    <button 
+                      onClick={() => {
+                        setIncomeGoal(tempGoal);
+                        setShowGoalModal(false);
+                      }} 
+                      className="flex-1 py-3 bg-primary-500 text-white rounded-xl font-bold shadow-lg shadow-primary-500/30"
+                    >
+                      {ui.save}
+                    </button>
+                  </div>
+                </div>
+
+                {/* Solid underlay skirt so no gap can EVER be seen beneath the card */}
+                <div className="absolute -bottom-[1000px] left-0 right-0 h-[1000px] bg-white dark:bg-[#1a182c] pointer-events-none" />
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       <TaskModal 
         isOpen={isModalOpen}

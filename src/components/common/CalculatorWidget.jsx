@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import { createPortal } from 'react-dom';
 import { motion, AnimatePresence } from 'framer-motion';
 import { X, Delete } from 'lucide-react';
 import { useSwipeToClose } from '../../hooks/useSwipeToClose';
@@ -98,7 +99,7 @@ export default function CalculatorWidget({ isOpen, onClose, lang = 'th' }) {
     performOperation(op);
   };
 
-  return (
+  const modalContent = (
     <AnimatePresence>
       {isOpen && (
         <div 
@@ -172,4 +173,6 @@ export default function CalculatorWidget({ isOpen, onClose, lang = 'th' }) {
       )}
     </AnimatePresence>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }

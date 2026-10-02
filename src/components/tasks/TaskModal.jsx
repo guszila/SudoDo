@@ -8,6 +8,7 @@ import { translations } from '../../i18n';
 import { TASK_STATUS, TASK_PRIORITY, DEFAULT_TASK_VALUES } from '../../constants';
 import { useSettings } from '../../contexts/SettingsContext';
 import { useSwipeToClose } from '../../hooks/useSwipeToClose';
+import { useVirtualKeyboard } from '../../hooks/useVirtualKeyboard';
 
 const JOB_COLORS = {
   blue: { bg: 'bg-blue-500/10', text: 'text-blue-600 dark:text-blue-400', border: 'border-blue-500/20' },
@@ -33,6 +34,7 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
   const statusT = translations[lang].status;
   const { dragProps, handleProps } = useSwipeToClose(onClose);
   const { settings } = useSettings();
+  const { keyboardHeight } = useVirtualKeyboard();
 
   const [formData, setFormData] = useState({
     title: '',
@@ -173,8 +175,11 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
           exit={{ opacity: 0 }}
           onClick={onClose}
           aria-hidden="true"
-          className="fixed inset-0 z-50 flex items-end md:items-center justify-center backdrop-blur-sm font-sans"
-          style={{ backgroundColor: 'var(--overlay-bg)' }}
+          className="fixed inset-0 z-[100] flex items-end md:items-center justify-center backdrop-blur-sm font-sans transition-[padding] duration-150"
+          style={{ 
+            backgroundColor: 'var(--overlay-bg)',
+            paddingBottom: keyboardHeight > 0 ? `${keyboardHeight}px` : undefined 
+          }}
         >
           <motion.div 
             initial={{ opacity: 0, y: 50, scale: 0.95 }}
@@ -188,7 +193,12 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
             aria-labelledby="task-modal-title"
             tabIndex={-1}
             onKeyDown={(event) => { if (event.key === 'Escape') onClose(); }}
-            className="bg-white dark:bg-[#1a182c] border border-slate-200/80 dark:border-white/10 shadow-2xl w-full max-w-md p-6 relative rounded-t-[32px] md:rounded-[24px] pb-safe max-h-[90vh] overflow-y-auto"
+            className="bg-white dark:bg-[#1a182c] border border-slate-200/80 dark:border-white/10 shadow-2xl w-full max-w-md p-6 relative rounded-t-[32px] md:rounded-[24px] pb-safe overflow-y-auto transition-[max-height] duration-150"
+            style={{
+              maxHeight: keyboardHeight > 0 
+                ? `calc(100dvh - ${keyboardHeight + 20}px)` 
+                : 'min(90dvh, 760px)'
+            }}
           >
         <div 
           {...handleProps}

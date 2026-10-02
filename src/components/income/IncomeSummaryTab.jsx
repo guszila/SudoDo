@@ -91,7 +91,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
     const targetDate = new Date(`${selectedMonth}-01T00:00:00`);
     const daysInMonth = getDaysInMonth(targetDate);
 
-    let totalIncome = 0, ssoGross = 0, shiftCount = 0, totalHours = 0;
+    let grossIncome = 0, totalExpenses = 0, ssoGross = 0, shiftCount = 0, totalHours = 0;
     const shiftsInMonth = [];
     const expensesList = [];
     const companyIncomeMap = {};
@@ -109,13 +109,13 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
       let hours, earnings = 0;
 
       if (t.isExpense) {
-        earnings = -(Number(t.amount) || 0);
-        if (isDone) totalIncome += earnings;
+        const expAmt = Number(t.amount) || 0;
+        if (isDone) totalExpenses += expAmt;
         expensesList.push(t);
       } else if (t.isExtraIncome) {
         earnings = Number(t.amount) || 0;
         if (isDone) {
-          totalIncome += earnings;
+          grossIncome += earnings;
           const n = t.title || 'อื่นๆ';
           companyIncomeMap[n] = (companyIncomeMap[n] || 0) + earnings;
         }
@@ -129,7 +129,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
           else if (hours > 0) earnings = hours * (Number(t.hourlyRate) || 0);
           if (t.isHolidayPay) earnings *= 2;
 
-          totalIncome += earnings;
+          grossIncome += earnings;
           shiftCount++;
           totalHours += hours;
 
@@ -196,15 +196,16 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
     const avg6 = sum6 / 6;
     const getChange = (cur, prev) => prev === 0 ? (cur > 0 ? 100 : 0) : ((cur - prev) / prev) * 100;
 
-    const totalGross = Math.max(0, totalIncome);
-    let ssoDeduction = 0, netIncome = totalGross;
+    const totalGross = Math.max(0, grossIncome);
+    let ssoDeduction = 0;
     if (ssoGross > 0 && settings.showInIncome) {
       ssoDeduction = calcSSO(ssoGross).deduction;
-      netIncome = totalGross - ssoDeduction;
     }
+    const incomeAfterSSO = Math.max(0, totalGross - ssoDeduction);
+    const netIncome = Math.max(0, incomeAfterSSO - totalExpenses);
 
     return {
-      summary: { totalGross, ssoDeduction, netIncome, shiftCount, totalHours },
+      summary: { totalGross, ssoDeduction, incomeAfterSSO, totalExpenses, netIncome, shiftCount, totalHours },
       companyChartData, companyStatsMap,
       chartData: chartArr,
       weeklyChartData: weeklyChartArr,
@@ -350,11 +351,26 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
             ฿{summary.netIncome.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </motion.h2>
 
-          {summary.ssoDeduction > 0 && (
-            <p className="text-white/60 text-xs font-medium mb-4">
-              หักประกันสังคม ฿{summary.ssoDeduction.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })} · รวม ฿{summary.totalGross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-            </p>
-          )}
+          <div className="flex flex-wrap items-center gap-x-2.5 gap-y-1.5 text-white/90 text-xs font-medium mb-4 mt-2">
+            {summary.ssoDeduction > 0 && (
+              <span className="bg-white/20 px-2.5 py-0.5 rounded-xl text-white font-bold border border-white/20">
+                {lang === 'th' ? 'หลังหัก ปกส.' : 'After SSO'}: ฿{summary.incomeAfterSSO.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            )}
+            <span className="opacity-80">
+              {lang === 'th' ? 'รายได้รวม' : 'Gross'}: ฿{summary.totalGross.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </span>
+            {summary.ssoDeduction > 0 && (
+              <span className="opacity-80">
+                · {lang === 'th' ? 'หัก ปกส.' : 'SSO'}: -฿{summary.ssoDeduction.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            )}
+            {summary.totalExpenses > 0 && (
+              <span className="bg-red-500/30 text-white px-2.5 py-0.5 rounded-xl font-bold border border-red-400/30">
+                {lang === 'th' ? 'หักรายจ่าย' : 'Expenses'}: -฿{summary.totalExpenses.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </span>
+            )}
+          </div>
 
           {/* 4-stat grid */}
           <div className="grid grid-cols-4 gap-1.5 mt-5">

@@ -495,7 +495,7 @@ button:disabled {
   .rbc-btn-group {
     @apply w-full flex justify-center;
   }
-  .rbc-toolbar button {
+  .rbc-btn-group button {
     @apply px-2 py-1 text-xs;
   }
   .rbc-header {
@@ -503,7 +503,7 @@ button:disabled {
   }
 }
 
-.rbc-toolbar button {
+.rbc-btn-group button {
   background-color: var(--glass-bg-input);
   backdrop-filter: blur(20px);
   border: 1px solid var(--glass-border);
@@ -513,15 +513,15 @@ button:disabled {
   z-index: 20;
 }
 
-.rbc-toolbar button:hover {
+.rbc-btn-group button:hover {
   background-color: var(--glass-bg-strong);
 }
 
-.rbc-toolbar button:active {
+.rbc-btn-group button:active {
   transform: scale(0.96);
 }
 
-.rbc-toolbar button.rbc-active {
+.rbc-btn-group button.rbc-active {
   @apply bg-primary-500 text-white border-primary-600 shadow-inner;
 }
 

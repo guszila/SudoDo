@@ -492,78 +492,81 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       : date.getMonth() === now.getMonth() && date.getFullYear() === now.getFullYear();
 
     return (
-      <div className="rbc-toolbar flex-col gap-0 mb-4 border-none bg-transparent p-0">
-        <div style={{
-          background: 'rgba(255,255,255,0.25)',
-          backdropFilter: 'blur(12px)',
-          border: '0.5px solid rgba(255,255,255,0.4)',
-          borderRadius: '16px',
-          padding: '12px 16px',
-          marginBottom: '12px'
-        }} className="flex justify-between items-center w-full shadow-sm">
-          
-          <button 
-            type="button"
-            onClick={goToToday}
-            disabled={isCurrent}
-            aria-label={lang === 'en' ? 'Go to today' : 'ไปวันนี้'}
-            style={{
-              padding: '5px 12px',
-              borderRadius: '20px',
-              background: 'rgba(127,119,221,0.15)',
-              border: '0.5px solid var(--theme-accent-border)',
-              fontSize: '12px',
-              color: 'var(--theme-nav-active)',
-              fontWeight: 500,
-              opacity: isCurrent ? 0.4 : 1,
-              cursor: isCurrent ? 'default' : 'pointer'
-            }}
-            className="transition-opacity active:scale-95 flex-shrink-0"
-          >
-            {lang === 'th' ? 'วันนี้' : 'Today'}
-          </button>
-
-          <div style={{ fontSize: '15px', fontWeight: 500, color: 'var(--theme-accent-dark)', textAlign: 'center' }} className="flex-1 px-2 truncate">
-            {view === 'month' ? `${format(date, 'MMMM', { locale: lang === 'th' ? th : enUS })} ${date.getFullYear()}` : label}
+      <div className="flex flex-col gap-0 mb-4 border-none bg-transparent p-0">
+        <div className="liquid-glass-card !rounded-2xl px-3.5 py-2.5 mb-3 grid grid-cols-[1fr_auto_1fr] items-center w-full border border-white/30 dark:border-white/10 shadow-sm">
+          {/* Left: Today Button */}
+          <div className="flex items-center justify-start">
+            <button 
+              type="button"
+              onClick={goToToday}
+              aria-label={lang === 'en' ? 'Go to today' : 'ไปวันนี้'}
+              className={`px-3.5 py-1.5 min-h-[36px] min-w-[62px] rounded-full text-xs sm:text-sm font-bold tracking-tight transition-all duration-150 select-none active:scale-90 cursor-pointer flex items-center justify-center shadow-xs ${
+                isCurrent
+                  ? 'bg-primary-500/15 dark:bg-primary-500/20 text-primary-600 dark:text-primary-300 border border-primary-500/25 hover:bg-primary-500/25'
+                  : 'bg-primary-500 text-white shadow-sm hover:bg-primary-600 hover:shadow-primary-500/25'
+              }`}
+            >
+              {lang === 'th' ? 'วันนี้' : 'Today'}
+            </button>
           </div>
 
-          <div className="flex gap-[4px] flex-shrink-0">
+          {/* Center: Month & Year Title */}
+          <div className="flex items-center justify-center text-center px-2 min-w-0">
+            <h2 className="text-base sm:text-lg font-bold text-main tracking-tight truncate select-none">
+              {view === 'month' ? `${format(date, 'MMMM', { locale: lang === 'th' ? th : enUS })} ${date.getFullYear()}` : label}
+            </h2>
+          </div>
+
+          {/* Right: Prev & Next Navigation Buttons */}
+          <div className="flex items-center justify-end gap-1.5">
             <button 
               type="button"
               onClick={goToBack}
               aria-label={lang === 'en' ? 'Previous period' : 'ช่วงเวลาก่อนหน้า'}
               style={{
-                width: '32px', height: '32px', borderRadius: '50%',
-                background: 'rgba(255,255,255,0.35)',
-                border: '0.5px solid rgba(255,255,255,0.4)',
+                width: '32px',
+                height: '32px',
+                minWidth: '32px',
+                minHeight: '32px',
                 padding: 0,
-                lineHeight: 0,
+                margin: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                lineHeight: 1,
                 boxSizing: 'border-box'
               }}
-              className="inline-flex shrink-0 items-center justify-center hover:bg-white/50 dark:hover:bg-white/10 transition-colors active:scale-90"
+              className="rounded-full bg-black/[0.04] dark:bg-white/[0.08] hover:bg-primary-500/15 dark:hover:bg-primary-500/25 text-main/80 hover:text-primary-600 dark:hover:text-primary-300 border border-black/[0.06] dark:border-white/10 transition-all duration-150 active:scale-90 shadow-xs cursor-pointer"
             >
-              <ChevronLeft size={14} color="var(--theme-nav-active)" className="block -translate-x-[0.5px]" strokeWidth={2.5} />
+              <ChevronLeft size={18} strokeWidth={2.2} className="shrink-0" />
             </button>
             <button 
               type="button"
               onClick={goToNext}
               aria-label={lang === 'en' ? 'Next period' : 'ช่วงเวลาถัดไป'}
               style={{
-                width: '32px', height: '32px', borderRadius: '50%',
-                background: 'rgba(255,255,255,0.35)',
-                border: '0.5px solid rgba(255,255,255,0.4)',
+                width: '32px',
+                height: '32px',
+                minWidth: '32px',
+                minHeight: '32px',
                 padding: 0,
-                lineHeight: 0,
+                margin: 0,
+                display: 'inline-flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+                borderRadius: '50%',
+                lineHeight: 1,
                 boxSizing: 'border-box'
               }}
-              className="inline-flex shrink-0 items-center justify-center hover:bg-white/50 dark:hover:bg-white/10 transition-colors active:scale-90"
+              className="rounded-full bg-black/[0.04] dark:bg-white/[0.08] hover:bg-primary-500/15 dark:hover:bg-primary-500/25 text-main/80 hover:text-primary-600 dark:hover:text-primary-300 border border-black/[0.06] dark:border-white/10 transition-all duration-150 active:scale-90 shadow-xs cursor-pointer"
             >
-              <ChevronRight size={14} color="var(--theme-nav-active)" className="block translate-x-[0.5px]" strokeWidth={2.5} />
+              <ChevronRight size={18} strokeWidth={2.2} className="shrink-0" />
             </button>
           </div>
         </div>
 
-        <div className="rbc-btn-group w-full flex flex-wrap justify-center gap-1 !mb-2 mt-0">
+        <div className="rbc-btn-group w-full flex flex-row justify-center gap-1 !mb-2 mt-0">
           {views.map(name => (
             <button
               type="button"
@@ -951,7 +954,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
             type="button"
             onClick={handleOpenNewTask}
             aria-label={lang === 'en' ? 'Add task or shift' : 'เพิ่มงานหรือกะงาน'}
-            className="tour-add-btn pointer-events-auto w-14 h-14 bg-[var(--theme-accent)] text-[var(--theme-accent-light)] rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:scale-105 active:scale-95 transition-all group"
+            className="tour-add-btn pointer-events-auto relative w-14 h-14 bg-[var(--theme-accent)] text-[var(--theme-accent-light)] rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:scale-105 active:scale-95 transition-all group"
           >
             <span className="absolute inset-0 rounded-full bg-[var(--theme-accent)] opacity-20 group-hover:animate-ping"></span>
             <Plus size={28} className="relative z-10" />

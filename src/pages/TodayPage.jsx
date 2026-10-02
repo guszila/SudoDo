@@ -1,11 +1,12 @@
 /* The widget renderer intentionally declares per-case values in this switch. */
 /* eslint-disable no-case-declarations */
 import { useState, useEffect, useMemo, useCallback } from 'react';
+import { createPortal } from 'react-dom';
 
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, isBefore, endOfDay, subMonths, eachDayOfInterval, startOfWeek, endOfWeek, isSameDay } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { Flame, Banknote, Check, Maximize2, X, Trash2, Bell, Briefcase, GripHorizontal, LayoutGrid, ListTodo, Plus, Calendar, ArrowRight, CloudRain, Timer, Play, Pause, RotateCcw, RefreshCw, Sun, Cloud, CloudFog, CloudLightning, Droplets } from 'lucide-react';
+import { Flame, Banknote, Check, Maximize2, X, Trash2, Bell, Briefcase, GripHorizontal, LayoutGrid, ListTodo, Plus, Calendar, ArrowRight, CloudRain, Timer, Play, Pause, RotateCcw, RefreshCw, Sun, Cloud, CloudFog, CloudLightning, Droplets, TrendingUp, Award } from 'lucide-react';
 import { BarChart, Bar, AreaChart, Area, LabelList, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -416,14 +417,19 @@ export default function TodayPage({ user, lang = 'th' }) {
       const d = subMonths(now, i);
       const key = format(d, 'yyyy-MM');
       monthKeys6.push(key);
-      monthlyIncome[key] = { name: format(d, 'MMM', { locale: th }), income: 0 };
+      monthlyIncome[key] = { name: format(d, 'MMM', { locale: lang === 'th' ? th : undefined }), income: 0, key };
     }
 
     for (let i = 11; i >= 0; i--) {
       const d = subMonths(now, i);
       const key = format(d, 'yyyy-MM');
       monthKeys12.push(key);
-      fullMonthlyIncome[key] = { name: format(d, 'MMM', { locale: th }), income: 0 };
+      fullMonthlyIncome[key] = { 
+        name: format(d, 'MMM', { locale: lang === 'th' ? th : undefined }), 
+        fullName: format(d, 'MMMM yyyy', { locale: lang === 'th' ? th : undefined }),
+        key, 
+        income: 0 
+      };
     }
 
     tasks.forEach(t => {
@@ -614,6 +620,21 @@ export default function TodayPage({ user, lang = 'th' }) {
   const pendingTasksList = useMemo(() => {
     return todayTasks.filter(t => t.status !== TASK_STATUS.DONE);
   }, [todayTasks]);
+
+  const chart12mStats = useMemo(() => {
+    if (!fullChartData || fullChartData.length === 0) {
+      return { total: 0, avg: 0, maxIncome: 0, peakMonth: null, activeCount: 0, breakdown: [] };
+    }
+    const total = fullChartData.reduce((acc, item) => acc + (item.income > 0 ? item.income : 0), 0);
+    const activeItems = fullChartData.filter(item => item.income > 0);
+    const activeCount = activeItems.length;
+    const avg = activeCount > 0 ? Math.round(total / activeCount) : 0;
+    const maxIncome = Math.max(...fullChartData.map(item => item.income || 0), 0);
+    const peakMonth = maxIncome > 0 ? fullChartData.find(item => item.income === maxIncome) : null;
+    const breakdown = [...activeItems].reverse();
+
+    return { total, avg, maxIncome, peakMonth, activeCount, breakdown };
+  }, [fullChartData]);
 
   useEffect(() => {
     if (pendingToday > 0 && pendingTasksList.length > 0) {
@@ -1464,236 +1485,482 @@ export default function TodayPage({ user, lang = 'th' }) {
       </div>
 
       {/* Expanded Chart Modal */}
-      {isChartExpanded && (
-        <div className="fixed inset-0 z-[100] flex items-end md:items-center justify-center p-0 md:p-8 bg-black/20 dark:bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setIsChartExpanded(false)}>
+      {isChartExpanded && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 dark:bg-black/70 backdrop-blur-md animate-fade-in" onClick={() => setIsChartExpanded(false)}>
           <motion.div 
-            initial={{ opacity: 0, y: '100%' }}
-            animate={{ opacity: 1, y: 0 }}
-            exit={{ opacity: 0, y: '100%' }}
-            transition={{ type: "spring", damping: 25, stiffness: 300 }}
+            initial={{ opacity: 0, y: 50, scale: 0.98 }}
+            animate={{ opacity: 1, y: 0, scale: 1 }}
+            exit={{ opacity: 0, y: 50, scale: 0.98 }}
+            transition={{ type: "spring", damping: 28, stiffness: 350 }}
             {...chartSheet.dragProps}
-            className="bg-white dark:bg-[#1a1b26] border border-slate-200/80 dark:border-white/10 shadow-2xl w-full max-w-5xl h-[82vh] md:h-[80vh] p-5 md:p-8 flex flex-col relative rounded-t-[32px] md:rounded-[28px]"
+            className="bg-white dark:bg-[#161522] border border-slate-200/80 dark:border-white/10 shadow-2xl w-full max-w-2xl max-h-[92vh] sm:max-h-[88vh] flex flex-col relative rounded-t-[32px] sm:rounded-[28px] overflow-hidden"
             onClick={e => e.stopPropagation()}
           >
-            <div {...chartSheet.handleProps} className={`${chartSheet.handleProps.className} md:hidden`} />
-            <button 
-              onClick={() => setIsChartExpanded(false)}
-              className="absolute top-4 right-4 md:top-6 md:right-6 p-2 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main/70 hover:text-main"
-            >
-              <X size={24} />
-            </button>
-            
-            <div className="mb-6">
-              <h2 className="text-2xl font-bold text-main">{t.last12Months}</h2>
-              <p className="text-main/60 text-sm mt-1">{t.last12MonthsSub}</p>
-            </div>
-            
-            <div className="flex bg-black/5 dark:bg-white/10 rounded-full p-1 w-max mb-6">
-              <button 
-                onClick={() => setChartType('bar')} 
-                className={`px-4 py-2 text-sm font-bold rounded-full transition-all ${chartType === 'bar' ? 'bg-[var(--glass-bg-strong)] text-primary-500 shadow-sm border border-[var(--glass-border)]' : 'text-main/60'}`}
-              >
-                {t.bar}
-              </button>
-              <button 
-                onClick={() => setChartType('line')} 
-                className={`px-4 py-2 text-sm font-bold rounded-full transition-all ${chartType === 'line' ? 'bg-[var(--glass-bg-strong)] text-primary-500 shadow-sm border border-[var(--glass-border)]' : 'text-main/60'}`}
-              >
-                {t.line}
-              </button>
+            {/* Drag Handle for mobile */}
+            <div {...chartSheet.handleProps} className={`${chartSheet.handleProps.className} sm:hidden`} />
+
+            {/* Modal Header */}
+            <div className="flex-shrink-0 px-5 pt-3 pb-3 sm:px-6 sm:pt-5 border-b border-black/5 dark:border-white/5 relative">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400 text-[11px] font-bold mb-1 border border-primary-500/15">
+                    <TrendingUp size={12} />
+                    <span>{lang === 'en' ? 'Income Analytics' : 'ภาพรวมรายได้'}</span>
+                  </div>
+                  <h2 className="text-xl sm:text-2xl font-black text-main tracking-tight">{t.last12Months}</h2>
+                  <p className="text-main/60 text-xs mt-0.5">{t.last12MonthsSub}</p>
+                </div>
+                
+                <div className="flex items-center gap-2">
+                  <div className="flex bg-black/5 dark:bg-white/10 rounded-full p-1 border border-black/5 dark:border-white/5">
+                    <button 
+                      type="button"
+                      onClick={() => setChartType('bar')} 
+                      className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${chartType === 'bar' ? 'bg-white dark:bg-white/20 text-primary-500 dark:text-white shadow-sm' : 'text-main/60 dark:text-white/60 hover:text-main'}`}
+                    >
+                      {t.bar}
+                    </button>
+                    <button 
+                      type="button"
+                      onClick={() => setChartType('line')} 
+                      className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${chartType === 'line' ? 'bg-white dark:bg-white/20 text-primary-500 dark:text-white shadow-sm' : 'text-main/60 dark:text-white/60 hover:text-main'}`}
+                    >
+                      {t.line}
+                    </button>
+                  </div>
+                  <button 
+                    type="button"
+                    onClick={() => setIsChartExpanded(false)}
+                    className="p-1.5 rounded-full hover:bg-black/5 dark:hover:bg-white/10 transition-colors text-main/60 hover:text-main"
+                    aria-label={t.close}
+                  >
+                    <X size={20} />
+                  </button>
+                </div>
+              </div>
             </div>
 
-            <div className="flex-1 flex justify-center items-center w-full relative overflow-x-auto overflow-y-hidden min-h-[300px]">
-              {!showModalChart ? (
-                <div className="flex flex-col items-center justify-center text-main/50 gap-3">
-                  <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
-                  <span className="text-sm font-bold">{t.loadingChart}</span>
+            {/* Scrollable Body */}
+            <div className="flex-1 overflow-y-auto overscroll-contain p-5 sm:p-6 custom-scrollbar space-y-4">
+              {/* Summary KPIs Row */}
+              <div className="grid grid-cols-3 gap-2 sm:gap-3">
+                {/* Total */}
+                <div className="p-3 rounded-2xl bg-gradient-to-br from-primary-500/10 to-primary-600/5 dark:from-primary-500/15 dark:to-primary-900/10 border border-primary-500/20">
+                  <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-primary-600 dark:text-primary-300 mb-1">
+                    <Banknote size={12} className="flex-shrink-0" />
+                    <span className="truncate">{lang === 'en' ? 'Total 12M' : 'รวม 12 เดือน'}</span>
+                  </div>
+                  <div className="text-sm sm:text-lg font-black text-main tracking-tight truncate">
+                    ฿{chart12mStats.total.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-main/50 font-medium truncate mt-0.5">
+                    {chart12mStats.activeCount} {lang === 'en' ? 'active mos' : 'เดือนที่มีรายได้'}
+                  </div>
+                </div>
+
+                {/* Avg */}
+                <div className="p-3 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/10">
+                  <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-main/70 mb-1">
+                    <TrendingUp size={12} className="text-primary-500 flex-shrink-0" />
+                    <span className="truncate">{lang === 'en' ? 'Avg / Month' : 'เฉลี่ย/เดือน'}</span>
+                  </div>
+                  <div className="text-sm sm:text-lg font-black text-main tracking-tight truncate">
+                    ฿{chart12mStats.avg.toLocaleString()}
+                  </div>
+                  <div className="text-[10px] text-main/50 font-medium truncate mt-0.5">
+                    {lang === 'en' ? 'Per active mo' : 'เฉลี่ยเดือนที่ทำงาน'}
+                  </div>
+                </div>
+
+                {/* Peak Month */}
+                <div className="p-3 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20">
+                  <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-600 dark:text-amber-400 mb-1">
+                    <Award size={12} className="flex-shrink-0" />
+                    <span className="truncate">{lang === 'en' ? 'Peak Month' : 'เดือนสูงสุด'}</span>
+                  </div>
+                  <div className="text-sm sm:text-lg font-black text-main tracking-tight truncate">
+                    {chart12mStats.peakMonth ? `฿${chart12mStats.peakMonth.income.toLocaleString()}` : '-'}
+                  </div>
+                  <div className="text-[10px] text-amber-600/80 dark:text-amber-400/80 font-medium truncate mt-0.5">
+                    {chart12mStats.peakMonth ? chart12mStats.peakMonth.name : (lang === 'en' ? 'No data' : 'ยังไม่มีข้อมูล')}
+                  </div>
+                </div>
+              </div>
+
+              {/* Chart Container Card */}
+              <div className="p-3.5 sm:p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+                <div className="h-[220px] sm:h-[250px] w-full relative">
+                  {!showModalChart ? (
+                    <div className="h-full flex flex-col items-center justify-center text-main/50 gap-3">
+                      <div className="w-8 h-8 border-4 border-primary-500 border-t-transparent rounded-full animate-spin" />
+                      <span className="text-xs font-bold">{t.loadingChart}</span>
+                    </div>
+                  ) : (
+                    <ResponsiveContainer width="100%" height="100%">
+                      {chartType === 'bar' ? (
+                        <BarChart data={fullChartData} margin={{ top: 20, right: 8, left: -22, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="modalBarPeak" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
+                              <stop offset="100%" stopColor="#6366f1" stopOpacity={0.9} />
+                            </linearGradient>
+                            <linearGradient id="modalBarActive" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="var(--color-primary-500)" stopOpacity={0.9} />
+                              <stop offset="100%" stopColor="var(--color-primary-600)" stopOpacity={0.7} />
+                            </linearGradient>
+                            <linearGradient id="modalBarZero" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="var(--color-primary-400)" stopOpacity={0.18} />
+                              <stop offset="100%" stopColor="var(--color-primary-500)" stopOpacity={0.08} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.35} />
+                          <XAxis 
+                            dataKey="name" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.75 }} 
+                            dy={8} 
+                            interval={0} 
+                          />
+                          <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            domain={[0, chart12mStats.maxIncome > 0 ? 'auto' : 1000]}
+                            ticks={chart12mStats.maxIncome === 0 ? [0, 500, 1000] : undefined}
+                            tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.6 }} 
+                            tickFormatter={(value) => { 
+                              if (value === 0) return '0'; 
+                              const abs = Math.abs(value); 
+                              return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000).toFixed(abs % 1000 === 0 ? 0 : 1) + 'k' : abs); 
+                            }} 
+                          />
+                          <Tooltip 
+                            cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.3 }}
+                            contentStyle={{ 
+                              backgroundColor: 'var(--glass-bg-strong)', 
+                              backdropFilter: 'blur(16px)', 
+                              borderRadius: '14px', 
+                              border: '1px solid var(--glass-border-strong)', 
+                              boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
+                              padding: '10px 14px'
+                            }}
+                            formatter={(value) => [`฿${(value || 0).toLocaleString()}`, lang === 'en' ? 'Income' : 'รายได้']}
+                            labelFormatter={(label, payload) => {
+                              const item = payload?.[0]?.payload;
+                              const isPeak = item && item.income > 0 && item.income === chart12mStats.maxIncome;
+                              return `${label} ${isPeak ? '🏆 (สูงสุดในรอบปี)' : ''}`;
+                            }}
+                            labelStyle={{ color: 'var(--color-text-main)', fontWeight: 'bold', fontSize: '12px', marginBottom: '4px' }}
+                            itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold', fontSize: '13px' }}
+                          />
+                          <Bar 
+                            dataKey="income" 
+                            radius={[6, 6, 2, 2]} 
+                            maxBarSize={28}
+                            minPointSize={5}
+                          >
+                            <LabelList 
+                              dataKey="income" 
+                              position="top" 
+                              content={(props) => {
+                                const { x, y, width, value } = props;
+                                if (!value || value === 0) return null;
+                                const isPeak = value === chart12mStats.maxIncome;
+                                const formatted = value >= 1000 
+                                  ? `${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k` 
+                                  : `${value}`;
+                                return (
+                                  <text 
+                                    x={x + width / 2} 
+                                    y={y - 5} 
+                                    fill={isPeak ? '#8b5cf6' : 'var(--color-text-main)'} 
+                                    textAnchor="middle" 
+                                    fontSize="8.5" 
+                                    fontWeight={isPeak ? "800" : "600"} 
+                                    opacity={isPeak ? 1 : 0.75}
+                                  >
+                                    {formatted}
+                                  </text>
+                                );
+                              }}
+                            />
+                            {fullChartData.map((entry, index) => {
+                              const isPeak = entry.income > 0 && entry.income === chart12mStats.maxIncome;
+                              const fillUrl = isPeak 
+                                ? 'url(#modalBarPeak)' 
+                                : entry.income > 0 
+                                  ? 'url(#modalBarActive)' 
+                                  : 'url(#modalBarZero)';
+                              return <Cell key={`cell-${index}`} fill={fillUrl} />;
+                            })}
+                          </Bar>
+                        </BarChart>
+                      ) : (
+                        <AreaChart data={fullChartData} margin={{ top: 20, right: 8, left: -22, bottom: 0 }}>
+                          <defs>
+                            <linearGradient id="modalLineArea" x1="0" y1="0" x2="0" y2="1">
+                              <stop offset="0%" stopColor="var(--color-primary-500)" stopOpacity={0.4} />
+                              <stop offset="100%" stopColor="var(--color-primary-500)" stopOpacity={0.02} />
+                            </linearGradient>
+                          </defs>
+                          <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.35} />
+                          <XAxis 
+                            dataKey="name" 
+                            axisLine={false} 
+                            tickLine={false} 
+                            tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.75 }} 
+                            dy={8} 
+                            interval={0} 
+                          />
+                          <YAxis 
+                            axisLine={false} 
+                            tickLine={false} 
+                            domain={[0, chart12mStats.maxIncome > 0 ? 'auto' : 1000]}
+                            ticks={chart12mStats.maxIncome === 0 ? [0, 500, 1000] : undefined}
+                            tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.6 }} 
+                            tickFormatter={(value) => { 
+                              if (value === 0) return '0'; 
+                              const abs = Math.abs(value); 
+                              return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000).toFixed(abs % 1000 === 0 ? 0 : 1) + 'k' : abs); 
+                            }} 
+                          />
+                          <Tooltip 
+                            contentStyle={{ 
+                              backgroundColor: 'var(--glass-bg-strong)', 
+                              backdropFilter: 'blur(16px)', 
+                              borderRadius: '14px', 
+                              border: '1px solid var(--glass-border-strong)', 
+                              boxShadow: '0 8px 30px rgba(0,0,0,0.18)',
+                              padding: '10px 14px'
+                            }}
+                            formatter={(value) => [`฿${(value || 0).toLocaleString()}`, lang === 'en' ? 'Income' : 'รายได้']}
+                            labelStyle={{ color: 'var(--color-text-main)', fontWeight: 'bold', fontSize: '12px', marginBottom: '4px' }}
+                            itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold', fontSize: '13px' }}
+                          />
+                          <Area 
+                            type="monotone" 
+                            dataKey="income" 
+                            stroke="var(--color-primary-500)" 
+                            strokeWidth={3} 
+                            fill="url(#modalLineArea)" 
+                            dot={(dotProps) => {
+                              const { cx, cy, payload } = dotProps;
+                              if (!payload || payload.income <= 0) return null;
+                              const isPeak = payload.income === chart12mStats.maxIncome;
+                              return (
+                                <circle 
+                                  key={`dot-${cx}-${cy}`}
+                                  cx={cx} 
+                                  cy={cy} 
+                                  r={isPeak ? 5 : 3.5} 
+                                  fill={isPeak ? '#8b5cf6' : 'var(--color-primary-500)'} 
+                                  stroke="#fff" 
+                                  strokeWidth={2} 
+                                />
+                              );
+                            }} 
+                            activeDot={{ r: 6, fill: '#8b5cf6', stroke: '#fff', strokeWidth: 2 }} 
+                          >
+                            <LabelList 
+                              dataKey="income" 
+                              position="top" 
+                              content={(props) => {
+                                const { x, y, value } = props;
+                                if (!value || value === 0) return null;
+                                const isPeak = value === chart12mStats.maxIncome;
+                                const formatted = value >= 1000 
+                                  ? `${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k` 
+                                  : `${value}`;
+                                return (
+                                  <text 
+                                    x={x} 
+                                    y={y - 8} 
+                                    fill={isPeak ? '#8b5cf6' : 'var(--color-text-main)'} 
+                                    textAnchor="middle" 
+                                    fontSize="8.5" 
+                                    fontWeight={isPeak ? "800" : "600"} 
+                                    opacity={isPeak ? 1 : 0.75}
+                                  >
+                                    {formatted}
+                                  </text>
+                                );
+                              }}
+                            />
+                          </Area>
+                        </AreaChart>
+                      )}
+                    </ResponsiveContainer>
+                  )}
+                </div>
+              </div>
+
+              {/* Monthly Breakdown List */}
+              {chart12mStats.breakdown.length > 0 ? (
+                <div>
+                  <div className="flex items-center justify-between mb-2">
+                    <h3 className="text-xs sm:text-sm font-bold text-main flex items-center gap-1.5">
+                      <Calendar size={14} className="text-primary-500" />
+                      <span>{lang === 'en' ? 'Monthly Breakdown' : 'สรุปรายได้ตามเดือน'}</span>
+                    </h3>
+                    <span className="text-[11px] text-main/50 font-medium">
+                      {lang === 'en' ? `${chart12mStats.breakdown.length} active months` : `พบข้อมูล ${chart12mStats.breakdown.length} เดือน`}
+                    </span>
+                  </div>
+
+                  <div className="space-y-2">
+                    {chart12mStats.breakdown.map((item, idx) => {
+                      const isPeak = item.income === chart12mStats.maxIncome;
+                      const pct = chart12mStats.maxIncome > 0 ? Math.round((item.income / chart12mStats.maxIncome) * 100) : 0;
+                      return (
+                        <div 
+                          key={item.key || idx}
+                          className={`p-3 rounded-2xl flex items-center gap-3 transition-all ${
+                            isPeak 
+                              ? 'bg-primary-500/10 dark:bg-primary-500/15 border border-primary-500/25' 
+                              : 'bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/5'
+                          }`}
+                        >
+                          {/* Month Name */}
+                          <div className="w-14 sm:w-16 flex-shrink-0">
+                            <div className="text-xs sm:text-sm font-bold text-main">{item.name}</div>
+                            {isPeak && (
+                              <span className="inline-block text-[9px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400">
+                                ★ {lang === 'en' ? 'Peak' : 'สูงสุด'}
+                              </span>
+                            )}
+                          </div>
+
+                          {/* Progress Bar */}
+                          <div className="flex-1">
+                            <div className="h-2 w-full rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                              <div 
+                                className={`h-full rounded-full transition-all duration-500 ${
+                                  isPeak 
+                                    ? 'bg-gradient-to-r from-violet-500 to-primary-500' 
+                                    : 'bg-primary-500'
+                                }`}
+                                style={{ width: `${pct}%` }}
+                              />
+                            </div>
+                          </div>
+
+                          {/* Amount */}
+                          <div className="text-right flex-shrink-0">
+                            <div className={`text-xs sm:text-sm font-black ${isPeak ? 'text-primary-600 dark:text-primary-400' : 'text-main'}`}>
+                              ฿{item.income.toLocaleString()}
+                            </div>
+                            <div className="text-[10px] text-main/50 font-medium">
+                              {pct}% {lang === 'en' ? 'of peak' : 'ของยอดสูงสุด'}
+                            </div>
+                          </div>
+                        </div>
+                      );
+                    })}
+                  </div>
                 </div>
               ) : (
-                <div style={{ width: '100%', height: '100%' }}>
-                  <ResponsiveContainer width="100%" height="100%">
-                    {chartType === 'bar' ? (
-                      <BarChart data={fullChartData} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="modalBarActive" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--color-primary-500)" stopOpacity={1} />
-                            <stop offset="100%" stopColor="var(--color-primary-600)" stopOpacity={0.8} />
-                          </linearGradient>
-                          <linearGradient id="modalBarNormal" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--color-primary-400)" stopOpacity={0.55} />
-                            <stop offset="100%" stopColor="var(--color-primary-300)" stopOpacity={0.25} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.4} />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} interval={0} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--color-text-main)', opacity: 0.7 }} tickFormatter={(value) => { if (value === 0) return '0'; const abs = Math.abs(value); return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000)+'k' : abs); }} />
-                        <Tooltip 
-                          cursor={{ fill: 'var(--glass-bg-strong)', opacity: 0.4 }}
-                          contentStyle={{ backgroundColor: 'var(--glass-bg-strong)', backdropFilter: 'blur(16px)', borderRadius: '14px', border: '1px solid var(--glass-border-strong)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
-                          itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
-                          formatter={(value) => [`฿${(value || 0).toLocaleString()}`, 'รายได้']}
-                          labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
-                        />
-                        <Bar dataKey="income" radius={[8, 8, 2, 2]} maxBarSize={36}>
-                          <LabelList 
-                            dataKey="income" 
-                            position="top" 
-                            content={(props) => {
-                              const { x, y, width, value } = props;
-                              if (!value || value === 0) return null;
-                              const formatted = value >= 1000 ? `฿${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k` : `฿${value}`;
-                              return (
-                                <text x={x + width / 2} y={y - 6} fill="var(--color-text-main)" textAnchor="middle" fontSize="9" fontWeight="700" opacity={0.85}>
-                                  {formatted}
-                                </text>
-                              );
-                            }}
-                          />
-                          {fullChartData.map((entry, index) => (
-                            <Cell key={`cell-${index}`} fill={index === fullChartData.length - 1 ? 'url(#modalBarActive)' : 'url(#modalBarNormal)'} />
-                          ))}
-                        </Bar>
-                      </BarChart>
-                    ) : (
-                      <AreaChart data={fullChartData} margin={{ top: 25, right: 10, left: -20, bottom: 0 }}>
-                        <defs>
-                          <linearGradient id="modalLineArea" x1="0" y1="0" x2="0" y2="1">
-                            <stop offset="0%" stopColor="var(--color-primary-500)" stopOpacity={0.35} />
-                            <stop offset="100%" stopColor="var(--color-primary-500)" stopOpacity={0.0} />
-                          </linearGradient>
-                        </defs>
-                        <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="var(--glass-border)" opacity={0.4} />
-                        <XAxis dataKey="name" axisLine={false} tickLine={false} tick={{ fontSize: 10, fill: 'var(--color-text-main)', opacity: 0.8 }} dy={10} interval={0} />
-                        <YAxis axisLine={false} tickLine={false} tick={{ fontSize: 11, fill: 'var(--color-text-main)', opacity: 0.7 }} tickFormatter={(value) => { if (value === 0) return '0'; const abs = Math.abs(value); return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000)+'k' : abs); }} />
-                        <Tooltip 
-                          contentStyle={{ backgroundColor: 'var(--glass-bg-strong)', backdropFilter: 'blur(16px)', borderRadius: '14px', border: '1px solid var(--glass-border-strong)', boxShadow: '0 8px 30px rgba(0,0,0,0.12)' }}
-                          itemStyle={{ color: 'var(--color-primary-500)', fontWeight: 'bold' }}
-                          formatter={(value) => [`฿${(value || 0).toLocaleString()}`, 'รายได้']}
-                          labelStyle={{ color: 'var(--color-text-main)', opacity: 0.8, marginBottom: '4px' }}
-                        />
-                        <Area 
-                          type="monotone" 
-                          dataKey="income" 
-                          stroke="var(--color-primary-500)" 
-                          strokeWidth={3} 
-                          fill="url(#modalLineArea)" 
-                          dot={{ r: 4, fill: 'var(--color-primary-500)', strokeWidth: 2, stroke: '#fff' }} 
-                          activeDot={{ r: 7, fill: 'var(--color-primary-500)', stroke: '#fff', strokeWidth: 2 }} 
-                        >
-                          <LabelList 
-                            dataKey="income" 
-                            position="top" 
-                            content={(props) => {
-                              const { x, y, value } = props;
-                              if (!value || value === 0) return null;
-                              const formatted = value >= 1000 ? `฿${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k` : `฿${value}`;
-                              return (
-                                <text x={x} y={y - 8} fill="var(--color-text-main)" textAnchor="middle" fontSize="9" fontWeight="700" opacity={0.85}>
-                                  {formatted}
-                                </text>
-                              );
-                            }}
-                          />
-                        </Area>
-                      </AreaChart>
-                    )}
-                  </ResponsiveContainer>
+                <div className="p-5 text-center rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-dashed border-black/10 dark:border-white/10 text-main/50 text-xs">
+                  {lang === 'en' ? 'No earnings recorded in the past 12 months.' : 'ยังไม่มีข้อมูลรายได้จากกะงานในช่วง 12 เดือนนี้'}
                 </div>
               )}
             </div>
           </motion.div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Widget Selector Bottom Sheet */}
-      <AnimatePresence>
-        {showWidgetSelector && (
-          <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/20 dark:bg-black/60 backdrop-blur-sm" onClick={() => setShowWidgetSelector(false)}>
-            <motion.div 
-              initial={{ opacity: 0, y: '100%' }}
-              animate={{ opacity: 1, y: 0 }}
-              exit={{ opacity: 0, y: '100%' }}
-              transition={{ type: "spring", damping: 25, stiffness: 300 }}
-              {...widgetSelectorSheet.dragProps}
-              onClick={(e) => e.stopPropagation()}
-              className="w-full sm:max-w-md max-h-[86vh] overflow-y-auto overscroll-contain bg-white dark:bg-[#1a1b26] rounded-t-[32px] sm:rounded-[32px] p-6 pb-safe shadow-2xl"
-            >
-              <div {...widgetSelectorSheet.handleProps} />
-              
-              <h3 className="text-lg font-bold mb-2 flex items-center gap-2"><LayoutGrid size={20}/> {t.selectWidget}</h3>
-              
-              <div className="mb-4 text-sm text-main/70">
-                <div className="flex items-center gap-2 font-bold text-primary-500">
-                  <div className="flex-1 bg-black/10 dark:bg-white/10 h-2 rounded-full overflow-hidden">
-                    <div 
-                      className="h-full bg-primary-500 transition-all duration-300"
-                      style={{ width: `${(selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(w => w.id === id)?.size || 1), 0) / 6) * 100}%` }}
-                    />
+      {typeof document !== 'undefined' && createPortal(
+        <AnimatePresence>
+          {showWidgetSelector && (
+            <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 dark:bg-black/70 backdrop-blur-md animate-fade-in" onClick={() => setShowWidgetSelector(false)}>
+              <motion.div 
+                initial={{ opacity: 0, y: '100%' }}
+                animate={{ opacity: 1, y: 0 }}
+                exit={{ opacity: 0, y: '100%' }}
+                transition={{ type: "spring", damping: 25, stiffness: 300 }}
+                {...widgetSelectorSheet.dragProps}
+                onClick={(e) => e.stopPropagation()}
+                className="w-full sm:max-w-md max-h-[86vh] overflow-y-auto overscroll-contain bg-white dark:bg-[#1a1b26] rounded-t-[32px] sm:rounded-[32px] p-6 pb-safe pb-8 shadow-2xl"
+              >
+                <div {...widgetSelectorSheet.handleProps} />
+                
+                <h3 className="text-lg font-bold mb-2 flex items-center gap-2"><LayoutGrid size={20}/> {t.selectWidget}</h3>
+                
+                <div className="mb-4 text-sm text-main/70">
+                  <div className="flex items-center gap-2 font-bold text-primary-500">
+                    <div className="flex-1 bg-black/10 dark:bg-white/10 h-2 rounded-full overflow-hidden">
+                      <div 
+                        className="h-full bg-primary-500 transition-all duration-300"
+                        style={{ width: `${(selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(w => w.id === id)?.size || 1), 0) / 6) * 100}%` }}
+                      />
+                    </div>
+                    <span>
+                      {selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(w => w.id === id)?.size || 1), 0)} / 6 {t.slots}
+                    </span>
                   </div>
-                  <span>
-                    {selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(w => w.id === id)?.size || 1), 0)} / 6 {t.slots}
-                  </span>
                 </div>
-              </div>
 
-              <div className="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
-                {AVAILABLE_WIDGETS.map(w => {
-                  const isEnabled = selectedWidgets.includes(w.id);
-                  const currentSize = selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(widget => widget.id === id)?.size || 1), 0);
-                  const canAdd = isEnabled || (currentSize + w.size <= 6);
-                  
-                  return (
-                    <button 
-                      key={w.id}
-                      disabled={!isEnabled && !canAdd}
-                      onClick={() => {
-                        if (isEnabled) {
-                          setSelectedWidgets(prev => prev.filter(id => id !== w.id));
-                        } else if (canAdd) {
-                          setSelectedWidgets(prev => [...prev, w.id]);
-                          setShowWidgetSelector(false); // Close after adding
-                        }
-                      }}
-                      className={`w-full flex justify-between items-center p-4 rounded-2xl border transition-all ${
-                        isEnabled 
-                          ? 'bg-primary-500/10 border-primary-500 text-primary-600 dark:text-primary-400' 
-                          : (!canAdd ? 'bg-black/5 dark:bg-white/5 border-transparent opacity-40 cursor-not-allowed' : 'bg-black/5 dark:bg-white/5 border-transparent hover:bg-black/10 dark:hover:bg-white/10 text-main')
-                      }`}
-                    >
-                      <div className="text-left">
-                        <div className="font-bold">{t[w.labelKey] || w.label}</div>
-                        <div className="text-[10px] opacity-70">{t.space} {w.size} {t.slots}</div>
-                      </div>
-                      {isEnabled ? (
-                        <div className="w-6 h-6 rounded-full bg-primary-500 text-white flex items-center justify-center">
-                          <Check size={14} />
+                <div className="space-y-2 max-h-[50vh] overflow-y-auto custom-scrollbar pr-2">
+                  {AVAILABLE_WIDGETS.map(w => {
+                    const isEnabled = selectedWidgets.includes(w.id);
+                    const currentSize = selectedWidgets.reduce((acc, id) => acc + (AVAILABLE_WIDGETS.find(widget => widget.id === id)?.size || 1), 0);
+                    const canAdd = isEnabled || (currentSize + w.size <= 6);
+                    
+                    return (
+                      <button 
+                        key={w.id}
+                        disabled={!isEnabled && !canAdd}
+                        onClick={() => {
+                          if (isEnabled) {
+                            setSelectedWidgets(prev => prev.filter(id => id !== w.id));
+                          } else if (canAdd) {
+                            setSelectedWidgets(prev => [...prev, w.id]);
+                            setShowWidgetSelector(false); // Close after adding
+                          }
+                        }}
+                        className={`w-full flex justify-between items-center p-4 rounded-2xl border transition-all ${
+                          isEnabled 
+                            ? 'bg-primary-500/10 border-primary-500 text-primary-600 dark:text-primary-400' 
+                            : (!canAdd ? 'bg-black/5 dark:bg-white/5 border-transparent opacity-40 cursor-not-allowed' : 'bg-black/5 dark:bg-white/5 border-transparent hover:bg-black/10 dark:hover:bg-white/10 text-main')
+                        }`}
+                      >
+                        <div className="text-left">
+                          <div className="font-bold">{t[w.labelKey] || w.label}</div>
+                          <div className="text-[10px] opacity-70">{t.space} {w.size} {t.slots}</div>
                         </div>
-                      ) : (
-                        <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${!canAdd ? 'border-main/20 text-main/20' : 'border-main/20 text-main/40'}`}>
-                          <Plus size={14} />
-                        </div>
-                      )}
-                    </button>
-                  );
-                })}
-              </div>
-              
-              <button onClick={() => setShowWidgetSelector(false)} className="w-full mt-6 py-4 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-main rounded-xl font-bold transition-colors">{t.close}</button>
-            </motion.div>
-          </div>
-        )}
-      </AnimatePresence>
+                        {isEnabled ? (
+                          <div className="w-6 h-6 rounded-full bg-primary-500 text-white flex items-center justify-center">
+                            <Check size={14} />
+                          </div>
+                        ) : (
+                          <div className={`w-6 h-6 rounded-full border-2 flex items-center justify-center ${!canAdd ? 'border-main/20 text-main/20' : 'border-main/20 text-main/40'}`}>
+                            <Plus size={14} />
+                          </div>
+                        )}
+                      </button>
+                    );
+                  })}
+                </div>
+                
+                <button onClick={() => setShowWidgetSelector(false)} className="w-full mt-6 py-4 bg-slate-100 hover:bg-slate-200 dark:bg-white/10 dark:hover:bg-white/15 text-main rounded-xl font-bold transition-colors">{t.close}</button>
+              </motion.div>
+            </div>
+          )}
+        </AnimatePresence>,
+        document.body
+      )}
 
       {/* D-Day Config Modal */}
-      {showDdayModal && (
-        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/20 dark:bg-black/60 backdrop-blur-sm animate-fade-in" onClick={() => setShowDdayModal(false)}>
+      {showDdayModal && typeof document !== 'undefined' && createPortal(
+        <div className="fixed inset-0 z-[100] flex items-end sm:items-center justify-center p-0 sm:p-4 bg-black/40 dark:bg-black/70 backdrop-blur-md animate-fade-in" onClick={() => setShowDdayModal(false)}>
           <motion.div 
             initial={{ opacity: 0, y: '100%' }}
             animate={{ opacity: 1, y: 0 }}
             exit={{ opacity: 0, y: '100%' }}
             transition={{ type: "spring", damping: 25, stiffness: 300 }}
             {...ddaySheet.dragProps}
-            className="bg-white dark:bg-[#1a1b26] border border-slate-200/80 dark:border-white/10 shadow-2xl w-full max-w-sm p-6 flex flex-col relative rounded-t-[32px] sm:rounded-[28px] max-h-[86vh] overflow-y-auto overscroll-contain"
+            className="bg-white dark:bg-[#1a1b26] border border-slate-200/80 dark:border-white/10 shadow-2xl w-full max-w-sm p-6 pb-safe pb-8 flex flex-col relative rounded-t-[32px] sm:rounded-[28px] max-h-[86vh] overflow-y-auto overscroll-contain"
             onClick={e => e.stopPropagation()}
           >
             <div {...ddaySheet.handleProps} className={`${ddaySheet.handleProps.className} sm:hidden`} />
@@ -1739,8 +2006,8 @@ export default function TodayPage({ user, lang = 'th' }) {
                        const parts = savedDate.split('-');
                        if (parts.length === 3 && parseInt(parts[0], 10) > 2400) {
                            parts[0] = (parseInt(parts[0], 10) - 543).toString();
-                           savedDate = parts.join('-');
                        }
+                       savedDate = parts.join('-');
                    }
                    setDdayConfig({ ...ddayInput, date: savedDate });
                    setShowDdayModal(false);
@@ -1751,7 +2018,8 @@ export default function TodayPage({ user, lang = 'th' }) {
               </button>
             </div>
           </motion.div>
-        </div>
+        </div>,
+        document.body
       )}
 
     </motion.div>
