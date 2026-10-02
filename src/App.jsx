@@ -655,7 +655,7 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="min-h-screen font-sans pb-32 pt-safe md:pb-8 overflow-x-hidden"
     >
-      <div className="max-w-7xl mx-auto px-4 md:px-8 relative z-10 animate-slide-up mt-8">
+      <div className="w-full px-4 relative z-10 animate-slide-up mt-8">
         <header className="flex justify-between items-start mb-6 animate-slide-up">
           <div>
             <h1 className="text-3xl md:text-4xl font-black text-main flex items-center gap-2 mb-1">
@@ -946,12 +946,12 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
       
       {/* Global Add Button — only on calendar pages */}
       {location.pathname === '/calendar' && (
-        <div className="fixed bottom-28 right-4 md:bottom-28 md:right-8 z-[45]">
+        <div className="fixed bottom-28 inset-x-0 max-w-[440px] mx-auto pointer-events-none z-[45] flex justify-end px-5">
           <button 
             type="button"
             onClick={handleOpenNewTask}
             aria-label={lang === 'en' ? 'Add task or shift' : 'เพิ่มงานหรือกะงาน'}
-            className="tour-add-btn w-14 h-14 bg-[var(--theme-accent)] text-[var(--theme-accent-light)] rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:scale-105 active:scale-95 transition-all group"
+            className="tour-add-btn pointer-events-auto w-14 h-14 bg-[var(--theme-accent)] text-[var(--theme-accent-light)] rounded-full flex items-center justify-center shadow-[0_4px_20px_rgba(0,0,0,0.15)] hover:scale-105 active:scale-95 transition-all group"
           >
             <span className="absolute inset-0 rounded-full bg-[var(--theme-accent)] opacity-20 group-hover:animate-ping"></span>
             <Plus size={28} className="relative z-10" />
@@ -1110,13 +1110,15 @@ export default function App() {
                 <ThemeProvider>
                   <NotificationsProvider user={user}>
                     <ErrorBoundary>
-                      <MainApp 
-                        user={user} 
-                        lang={lang} 
-                        setLang={setLang} 
-                        theme={theme} 
-                        setThemeMode={setTheme} 
-                      />
+                      <div className="w-full max-w-[440px] mx-auto min-h-screen min-h-[100dvh] relative flex flex-col sm:shadow-[0_0_60px_-15px_rgba(0,0,0,0.25)] sm:border-x sm:border-white/10 dark:sm:border-white/5">
+                        <MainApp 
+                          user={user} 
+                          lang={lang} 
+                          setLang={setLang} 
+                          theme={theme} 
+                          setThemeMode={setTheme} 
+                        />
+                      </div>
                     </ErrorBoundary>
                   </NotificationsProvider>
                 </ThemeProvider>

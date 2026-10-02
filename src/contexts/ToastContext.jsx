@@ -25,7 +25,8 @@ export function ToastProvider({ children }) {
       id: Date.now(),
       message,
       onUndo: options.onUndo,
-      isError: options.isError === true,
+      isError: options.isError === true || options.type === 'error',
+      icon: options.icon,
       duration: options.duration || 4000,
     });
 
@@ -67,14 +68,17 @@ export function ToastProvider({ children }) {
               className="pointer-events-auto"
             >
               <div 
-                className={`rounded-full py-2.5 px-4 md:px-5 flex items-center gap-2.5 backdrop-blur-2xl border transition-colors ${
+                onClick={toast.onUndo ? undefined : hideToast}
+                className={`rounded-full py-2.5 px-4 md:px-5 flex items-center gap-2.5 backdrop-blur-2xl border transition-all cursor-pointer active:scale-95 ${
                   toast.isError 
                     ? 'bg-rose-500/95 text-white border-rose-400/40 shadow-[0_16px_36px_-8px_rgba(244,63,94,0.35),0_4px_12px_rgba(244,63,94,0.2)]' 
                     : 'bg-white/92 dark:bg-zinc-900/90 text-main border-white/80 dark:border-white/12 shadow-[0_16px_36px_-8px_rgba(25,15,45,0.18),0_4px_12px_rgba(25,15,45,0.06),inset_0_1px_1px_rgba(255,255,255,0.95)] dark:shadow-[0_20px_40px_-10px_rgba(0,0,0,0.6),inset_0_1px_1px_rgba(255,255,255,0.15)]'
                 }`}
               >
                 <div className={`flex-shrink-0 ${toast.isError ? 'text-white' : 'text-emerald-500'}`}>
-                  {toast.isError ? (
+                  {toast.icon ? (
+                    toast.icon
+                  ) : toast.isError ? (
                     <AlertCircle size={18} className="fill-white/20" />
                   ) : (
                     <CheckCircle2 size={18} className="fill-emerald-500/20" />
@@ -84,7 +88,7 @@ export function ToastProvider({ children }) {
                 {toast.onUndo && (
                   <button
                     type="button"
-                    onClick={handleUndo}
+                    onClick={(e) => { e.stopPropagation(); handleUndo(); }}
                     className="ml-1 flex items-center gap-1 px-2.5 py-1 bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 rounded-full font-bold text-xs transition-transform active:scale-95 text-main"
                   >
                     <RotateCcw size={12} /> ยกเลิก

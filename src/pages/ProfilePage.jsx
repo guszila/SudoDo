@@ -9,6 +9,7 @@ import {
 } from 'lucide-react';
 
 import { useTasks } from '../contexts/TasksContext';
+import { useToast } from '../contexts/ToastContext';
 import { BADGE_LIST, getUnlockedBadges, calculateStreaks, getGamificationStats } from '../utils/gamification';
 import { getPublicProfile, updatePublicProfileSettings, syncPublicProfile } from '../services/friendService';
 import { useSwipeToClose } from '../hooks/useSwipeToClose';
@@ -24,6 +25,7 @@ const PRESET_BANNERS = [
 
 export default function ProfilePage({ user, lang = 'th' }) {
   const navigate = useNavigate();
+  const { showToast } = useToast();
   
   const [activeTab, setActiveTab] = useState('private'); // 'private', 'public', 'achievements'
   const [badgePage, setBadgePage] = useState(0);
@@ -45,8 +47,7 @@ export default function ProfilePage({ user, lang = 'th' }) {
   const [loading, setLoading] = useState(false);
   const [sendingVerification, setSendingVerification] = useState(false);
   
-  const [successMsg, setSuccessMsg] = useState('');
-  const [errorMsg, setErrorMsg] = useState('');
+
 
   const { tasks } = useTasks();
   
@@ -183,11 +184,10 @@ export default function ProfilePage({ user, lang = 'th' }) {
         // Sync public profile immediately to Firestore
         syncPublicProfile(user, tasks).catch(err => console.error("Error syncing profile on avatar change", err));
 
-        setSuccessMsg('เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว!');
-        setTimeout(() => setSuccessMsg(''), 3000);
+        showToast('เปลี่ยนรูปโปรไฟล์เรียบร้อยแล้ว!');
       } catch (err) {
         console.error("Cropping error", err);
-        setErrorMsg('เกิดข้อผิดพลาดในการตัดครอบรูปภาพ');
+        showToast('เกิดข้อผิดพลาดในการตัดครอบรูปภาพ', { isError: true });
       } finally {
         setIsSavingCrop(false);
         setShowCropModal(false);
@@ -201,6 +201,7 @@ export default function ProfilePage({ user, lang = 'th' }) {
     setAvatarUrl('');
     // Sync public profile immediately to Firestore
     syncPublicProfile(user, tasks).catch(err => console.error("Error syncing profile on avatar remove", err));
+    showToast('ลบรูปโปรไฟล์เรียบร้อยแล้ว');
   };
 
   if (!user) return null;
@@ -210,15 +211,12 @@ export default function ProfilePage({ user, lang = 'th' }) {
     if (!displayName.trim() || displayName === user.displayName) return;
     
     setLoading(true);
-    setSuccessMsg('');
-    setErrorMsg('');
     try {
       await updateProfile(user, { displayName: displayName.trim() });
-      setSuccessMsg('อัปเดตชื่อแสดงผลสำเร็จแล้ว!');
-      setTimeout(() => setSuccessMsg(''), 3000);
+      showToast('อัปเดตชื่อแสดงผลสำเร็จแล้ว!');
     } catch (error) {
       console.error("Error updating profile", error);
-      setErrorMsg('เกิดข้อผิดพลาดในการอัปเดตชื่อ');
+      showToast('เกิดข้อผิดพลาดในการอัปเดตชื่อ', { isError: true });
     } finally {
       setLoading(false);
     }
@@ -227,21 +225,18 @@ export default function ProfilePage({ user, lang = 'th' }) {
   const handleSavePublicProfile = async (e) => {
     e.preventDefault();
     setIsSavingPublic(true);
-    setSuccessMsg('');
-    setErrorMsg('');
     try {
       const res = await updatePublicProfileSettings(user.uid, {
         statusMessage: statusMessage.trim(),
         featuredBadgeId
       });
       if (res) {
-        setSuccessMsg(lang === 'en' ? 'Public profile updated!' : 'อัปเดตโปรไฟล์สาธารณะเรียบร้อยแล้ว!');
-        setTimeout(() => setSuccessMsg(''), 3000);
+        showToast(lang === 'en' ? 'Public profile updated!' : 'อัปเดตโปรไฟล์สาธารณะเรียบร้อยแล้ว!');
       } else {
-        setErrorMsg('เกิดข้อผิดพลาดในการบันทึกโปรไฟล์สาธารณะ');
+        showToast('เกิดข้อผิดพลาดในการบันทึกโปรไฟล์สาธารณะ', { isError: true });
       }
     } catch {
-      setErrorMsg('เกิดข้อผิดพลาดในการบันทึกโปรไฟล์สาธารณะ');
+      showToast('เกิดข้อผิดพลาดในการบันทึกโปรไฟล์สาธารณะ', { isError: true });
     } finally {
       setIsSavingPublic(false);
     }
@@ -249,17 +244,15 @@ export default function ProfilePage({ user, lang = 'th' }) {
 
   const handleVerifyEmail = async () => {
     setSendingVerification(true);
-    setSuccessMsg('');
-    setErrorMsg('');
     try {
       await sendEmailVerification(user);
-      setSuccessMsg('ส่งลิงก์ยืนยันไปที่อีเมลแล้ว กรุณาตรวจสอบกล่องจดหมาย');
+      showToast('ส่งลิงก์ยืนยันไปที่อีเมลแล้ว กรุณาตรวจสอบกล่องจดหมาย');
     } catch (error) {
       console.error(error);
       if (error.code === 'auth/too-many-requests') {
-        setErrorMsg('ส่งลิงก์บ่อยเกินไป กรุณารอสักครู่');
+        showToast('ส่งลิงก์บ่อยเกินไป กรุณารอสักครู่', { isError: true });
       } else {
-        setErrorMsg('เกิดข้อผิดพลาดในการส่งลิงก์ยืนยันอีเมล');
+        showToast('เกิดข้อผิดพลาดในการส่งลิงก์ยืนยันอีเมล', { isError: true });
       }
     } finally {
       setSendingVerification(false);
@@ -291,9 +284,9 @@ export default function ProfilePage({ user, lang = 'th' }) {
       animate={{ opacity: 1, x: 0 }}
       exit={{ opacity: 0, x: -50 }}
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
-      className="min-h-screen p-4 pt-safe md:p-8 font-sans pb-24 md:pb-8 overflow-x-hidden"
+      className="min-h-screen font-sans pb-24 pt-safe md:pb-8 overflow-x-hidden"
     >
-      <div className="max-w-2xl mx-auto">
+      <div className="w-full px-4 relative z-10 animate-slide-up mt-8">
         
         {/* Header */}
         <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
@@ -308,18 +301,7 @@ export default function ProfilePage({ user, lang = 'th' }) {
           </button>
         </div>
 
-        {/* Global Messages */}
-        {successMsg && (
-          <div className="mb-6 p-4 bg-green-500/20 border border-green-500/30 rounded-[16px] flex items-center gap-2 text-green-700 font-medium">
-            <Check size={20} /> {successMsg}
-          </div>
-        )}
-        
-        {errorMsg && (
-          <div className="mb-6 p-4 bg-red-500/20 border border-red-500/30 rounded-[16px] flex items-center gap-2 text-red-700 font-medium">
-            <AlertTriangle size={20} /> {errorMsg}
-          </div>
-        )}
+
 
         {/* Custom Tabs */}
         <div className="flex bg-black/5 dark:bg-white/5 p-1 rounded-2xl mb-8 border border-main/10 shadow-inner overflow-x-auto hide-scrollbar snap-x">

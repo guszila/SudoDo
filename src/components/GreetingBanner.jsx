@@ -314,10 +314,10 @@ export default function GreetingBanner({ name = "โฟกัส", dateLabel, fo
           <Scene />
         </svg>
 
-        <div className="max-w-4xl mx-auto w-full h-full relative">
+        <div className="w-full h-full relative">
           {/* greeting text */}
           <div
-            className="greeting-banner-text absolute bottom-8 left-4 md:bottom-12 md:left-8 z-10 pr-[100px] md:pr-[120px] max-w-full"
+            className="greeting-banner-text absolute bottom-8 left-4 z-10 pr-[100px] max-w-full"
           >
             <p style={{
               margin: 0,
@@ -341,7 +341,7 @@ export default function GreetingBanner({ name = "โฟกัส", dateLabel, fo
           </div>
 
           {/* time badge and streak */}
-          <div className="absolute bottom-8 right-4 md:bottom-12 md:right-8 z-10 flex flex-col items-end gap-2">
+          <div className="absolute bottom-8 right-4 z-10 flex flex-col items-end gap-2">
             {streak > 0 && (
               <div className="flex items-center gap-1.5 px-3 py-1.5 rounded-full bg-black/20 backdrop-blur-md border border-white/20 text-white font-bold text-sm shadow-[0_4px_15px_rgba(0,0,0,0.1)]">
                 🔥 {streak}

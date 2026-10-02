@@ -12,8 +12,7 @@ import ActionSheet from '../components/common/ActionSheet';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import CalculatorWidget from '../components/common/CalculatorWidget';
 import IncomeSummaryTab from '../components/income/IncomeSummaryTab';
-import ShiftSuccessModal from '../components/income/ShiftSuccessModal';
-import ExtraSuccessModal from '../components/income/ExtraSuccessModal';
+
 import { useTasks } from '../contexts/TasksContext';
 import { useToast } from '../contexts/ToastContext';
 import { useSettings } from '../contexts/SettingsContext';
@@ -107,8 +106,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
     endTime: DEFAULT_TASK_VALUES.END_TIME,
     selectedDays: []
   });
-  const [successShiftData, setSuccessShiftData] = useState(null);
-  const [successExtraData, setSuccessExtraData] = useState(null);
+
   
   const [enabledWidgets, setEnabledWidgets] = useState(() => {
     const saved = localStorage.getItem('income_dashboard');
@@ -936,7 +934,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
     }
 
     if (shiftsToAdd.length === 0) {
-      alert(lang === 'en' ? 'No dates matched the selected range.' : 'ไม่พบวันที่ตรงกับเงื่อนไขในช่วงเวลาที่เลือก');
+      showToast(lang === 'en' ? 'No dates matched the selected range.' : 'ไม่พบวันที่ตรงกับเงื่อนไขในช่วงเวลาที่เลือก', { isError: true });
       setIsMutating(false);
       return;
     }
@@ -970,7 +968,12 @@ export default function PartTimePage({ user, lang = 'en' }) {
       return;
     }
     setShowAddForm(false);
-    setSuccessShiftData(successData);
+    const shiftCount = shiftsToAdd.length;
+    showToast(
+      lang === 'en'
+        ? (shiftCount > 1 ? `${shiftCount} shifts saved.` : 'Shift saved successfully.')
+        : (shiftCount > 1 ? `บันทึกกะงาน ${shiftCount} รายการเรียบร้อยแล้ว` : 'บันทึกกะงานเรียบร้อยแล้ว')
+    );
     setIsMutating(false);
   };
   const openExtraItemForm = (type) => {
@@ -1022,12 +1025,11 @@ export default function PartTimePage({ user, lang = 'en' }) {
     } else {
       const result = await saveTask('ADD', extraTask, user.uid);
       if (!result) throw new Error('Save failed');
-      setSuccessExtraData({
-        title: extraTask.title,
-        amount: extraTask.amount,
-        month,
-        type: extraFormType
-      });
+      showToast(
+        lang === 'en'
+          ? (extraFormType === 'income' ? 'Extra income recorded.' : 'Expense recorded.')
+          : (extraFormType === 'income' ? 'บันทึกรายได้พิเศษเรียบร้อยแล้ว' : 'บันทึกรายจ่ายเรียบร้อยแล้ว')
+      );
     }
     setShowAddExtraForm(false);
     setExtraFormData(getInitialExtraFormData());
@@ -1157,10 +1159,11 @@ export default function PartTimePage({ user, lang = 'en' }) {
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
-      className="min-h-screen font-sans pb-32 md:pb-8 p-4 pt-safe md:p-8 max-w-4xl mx-auto"
+      className="min-h-screen font-sans pb-32 pt-safe md:pb-8 overflow-x-hidden"
     >
-      {/* Header */}
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-5 px-2">
+      <div className="w-full px-4 relative z-10 animate-slide-up mt-8">
+        {/* Header */}
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
         <div className="flex items-center gap-4">
 
           <h1 className="text-2xl font-bold text-main flex items-center gap-2 m-0">
@@ -2312,18 +2315,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
         lang={lang} 
       />
 
-      <ShiftSuccessModal
-        isOpen={!!successShiftData}
-        onClose={() => setSuccessShiftData(null)}
-        data={successShiftData}
-        lang={lang}
-      />
-      <ExtraSuccessModal
-        isOpen={!!successExtraData}
-        onClose={() => setSuccessExtraData(null)}
-        data={successExtraData}
-        lang={lang}
-      />
+
 
       <ConfirmDialog
         isOpen={false}
@@ -2336,6 +2328,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
       />
 
       {/* End of Shifts tab wrapper */}
+      </div>
       </div>
     </motion.div>
   );

@@ -600,7 +600,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
         }}
         initial="hidden"
         animate="show"
-        className="max-w-2xl mx-auto"
+        className="w-full mt-8"
       >
         <motion.header
           variants={{

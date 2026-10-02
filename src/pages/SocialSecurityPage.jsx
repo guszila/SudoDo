@@ -133,10 +133,10 @@ export default function SocialSecurityPage({ lang }) {
       exit={{ opacity: 0, x: -50 }}
       className="min-h-screen font-sans pb-32 pt-safe overflow-x-hidden"
     >
-      <div className="max-w-2xl mx-auto">
+      <div className="w-full px-4 relative z-10 animate-slide-up mt-8">
         
         {/* Header */}
-        <div className="flex items-center gap-4 mx-4 mb-6">
+        <div className="flex items-center gap-4 mb-6">
           <button 
             onClick={() => navigate(-1)}
             className="w-10 h-10 flex items-center justify-center rounded-full bg-[rgba(255,255,255,0.6)] dark:bg-[rgba(255,255,255,0.08)] backdrop-blur-[20px] border-[0.5px] border-white/40 dark:border-[rgba(255,255,255,0.12)] text-main active:scale-[0.95] transition-transform shadow-sm"

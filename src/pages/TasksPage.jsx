@@ -242,9 +242,10 @@ export default function TasksPage({ user, lang = 'en' }) {
       initial={{ opacity: 0, scale: 0.98 }}
       animate={{ opacity: 1, scale: 1 }}
       exit={{ opacity: 0, scale: 0.98 }}
-      className="min-h-screen font-sans pb-32 md:pb-8 p-4 pt-safe md:p-8 max-w-4xl mx-auto"
+      className="min-h-screen font-sans pb-32 pt-safe md:pb-8 overflow-x-hidden"
     >
-      <div className="flex flex-wrap items-center justify-between gap-3 mb-6 px-2">
+      <div className="w-full px-4 relative z-10 animate-slide-up mt-8">
+        <div className="flex flex-wrap items-center justify-between gap-3 mb-6">
         <div className="flex items-center gap-4">
 
           <h1 className="text-2xl font-bold text-main flex items-center gap-2 m-0">
@@ -507,6 +508,7 @@ export default function TasksPage({ user, lang = 'en' }) {
         task={editingTask}
         lang={lang}
       />
+      </div>
     </motion.div>
   );
 }

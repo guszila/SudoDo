@@ -336,10 +336,11 @@ export default function FriendsPage({ user, lang = 'th' }) {
       animate={{ opacity: 1, y: 0 }}
       exit={{ opacity: 0, y: -20 }}
       transition={{ type: 'spring', stiffness: 280, damping: 28 }}
-      className="min-h-screen p-4 pt-safe md:p-8 font-sans pb-28 max-w-2xl mx-auto"
+      className="min-h-screen font-sans pb-28 pt-safe md:pb-8 overflow-x-hidden"
     >
-      {/* ── Header ─────────────────────────────────── */}
-      <div className="flex items-center justify-between mb-4">
+      <div className="w-full px-4 relative z-10 animate-slide-up mt-8">
+        {/* ── Header ─────────────────────────────────── */}
+        <div className="flex items-center justify-between mb-4">
         <div>
           <h1 className="text-3xl font-black text-main flex items-center gap-2">
             <Users className="text-primary-500" size={30} />
@@ -1163,6 +1164,7 @@ export default function FriendsPage({ user, lang = 'th' }) {
           </div>
         )}
       </AnimatePresence>
+      </div>
     </motion.div>
   );
 }

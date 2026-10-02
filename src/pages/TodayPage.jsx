@@ -11,6 +11,7 @@ import { useNavigate } from 'react-router-dom';
 
 import { useTasks } from '../contexts/TasksContext';
 import { useSettings } from '../contexts/SettingsContext';
+import { useToast } from '../contexts/ToastContext';
 import { updateUserStreak } from '../services/userService';
 import { saveTask } from '../services/taskService';
 import { calcSSO } from '../utils/socialSecurity';
@@ -350,6 +351,7 @@ export default function TodayPage({ user, lang = 'th' }) {
   }, [selectedWidgets, lang, weatherRefreshKey]);
 
   const navigate = useNavigate();
+  const { showToast } = useToast();
   
   const [now] = useState(new Date());
 
@@ -357,8 +359,9 @@ export default function TodayPage({ user, lang = 'th' }) {
     if (window.confirm(t.deleteConfirm)) {
       try {
         await saveTask('DELETE', { id: taskId }, user?.uid);
+        showToast(lang === 'en' ? 'Task deleted.' : 'ลบงานเรียบร้อยแล้ว');
       } catch {
-        alert(t.deleteError);
+        showToast(t.deleteError, { isError: true });
       }
     }
   };
@@ -950,7 +953,7 @@ export default function TodayPage({ user, lang = 'th' }) {
       transition={{ type: "spring", stiffness: 300, damping: 30 }}
       className="min-h-screen font-sans pb-32 md:pb-8 overflow-x-hidden"
     >
-      <div className="relative w-full h-[220px] md:h-[240px] mb-6">
+      <div className="relative w-full h-[240px] md:h-[260px] mb-6">
         <GreetingBanner 
           name={user?.displayName?.split(' ')[0] || ''} 
           dateLabel={format(now, 'EEEE d MMM yyyy', { locale: lang === 'th' ? th : undefined })} 
@@ -958,10 +961,10 @@ export default function TodayPage({ user, lang = 'th' }) {
           className="rounded-b-[24px] shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-b border-white/10" 
         />
         
-        <div className="absolute top-0 left-0 right-0 p-4 pt-safe md:p-8 flex justify-end items-start z-30 max-w-4xl mx-auto w-full">
+        <div className="absolute top-0 left-0 right-0 px-4 pt-safe flex justify-end items-start z-30 w-full">
 
           
-          <div className="flex items-center gap-2 mt-2">
+          <div className="flex items-center gap-2 mt-8">
 
             <button 
                onClick={() => setIsEditWidgetMode(!isEditWidgetMode)} 
@@ -990,7 +993,7 @@ export default function TodayPage({ user, lang = 'th' }) {
         </div>
       </div>
 
-      <div className="max-w-4xl mx-auto px-4 md:px-8">
+      <div className="w-full px-4">
         <header className="flex justify-between items-start mb-6 animate-slide-up">
           <div className="flex-1 w-full">
             
