@@ -4,10 +4,10 @@ import { format, subMonths, getDaysInMonth, getWeekOfMonth, startOfWeek, endOfWe
 import { th } from 'date-fns/locale';
 import {
   CheckCircle2, Clock, Calendar as CalendarIcon,
-  CalendarOff, Banknote, X,
+  CalendarOff, Banknote, X, Award,
   TrendingUp, TrendingDown, Minus, ChevronUp, ChevronDown
 } from 'lucide-react';
-import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell } from 'recharts';
+import { BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer, Cell, LabelList, AreaChart, Area } from 'recharts';
 
 import SwipeableRow from '../common/SwipeableRow';
 import ConfirmDialog from '../common/ConfirmDialog';
@@ -41,14 +41,26 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
         monthlySummary: 'Monthly income summary', daily: 'Daily', weekly: 'Weekly',
         noCompleted: 'No completed items yet', companyBreakdown: 'By workplace', expenseTotal: 'Expenses this month',
         shiftList: 'Shift list', records: 'records', noMonthData: 'No data for this month',
-        compareLast: 'Compared with last month', average6: '6-month average', hoursUnit: 'hrs', shiftsUnit: 'shifts'
+        compareLast: 'Compared with last month', average6: '6-month average', hoursUnit: 'hrs', shiftsUnit: 'shifts',
+        incomeAnalytics: 'Income Analytics', last12Months: 'Last 12 Months',
+        last12MonthsSub: 'Total earnings from shifts over the past year',
+        bar: 'Bar', line: 'Line', total12M: 'Total 12M', activeMos: 'months with income',
+        avgPerMonth: 'Avg / Month', perActiveMo: 'Per active month', peakMonth: 'Peak Month',
+        monthlyBreakdown: 'Monthly Breakdown', ofPeak: 'of peak', peak: 'Peak',
+        selectedMonthBadge: 'Viewing', noData: 'No data'
       }
     : {
         netIncome: 'รายได้สุทธิ', shift: 'กะงาน', hours: 'ชั่วโมง', perShift: '฿/กะ', perHour: '฿/ชม.',
         monthlySummary: 'สรุปรายได้ (เดือนนี้)', daily: 'รายวัน', weekly: 'รายสัปดาห์',
         noCompleted: 'ยังไม่มีรายการที่เสร็จแล้ว', companyBreakdown: 'สัดส่วนตามบริษัท', expenseTotal: 'รวมรายจ่ายเดือนนี้',
         shiftList: 'รายการกะงาน', records: 'รายการ', noMonthData: 'ไม่มีข้อมูลเดือนนี้',
-        compareLast: 'เทียบเดือนที่แล้ว', average6: 'เฉลี่ย 6 เดือน', hoursUnit: 'ชม.', shiftsUnit: 'กะ'
+        compareLast: 'เทียบเดือนที่แล้ว', average6: 'เฉลี่ย 6 เดือน', hoursUnit: 'ชม.', shiftsUnit: 'กะ',
+        incomeAnalytics: 'ภาพรวมรายได้', last12Months: 'รายได้ 12 เดือนล่าสุด',
+        last12MonthsSub: 'ยอดรวมรายได้จากกะงานในช่วง 1 ปีที่ผ่านมา',
+        bar: 'บาร์', line: 'เส้น', total12M: 'รวม 12 เดือน', activeMos: 'เดือนที่มีรายได้',
+        avgPerMonth: 'เฉลี่ย/เดือน', perActiveMo: 'เฉลี่ยเดือนที่ทำงาน', peakMonth: 'เดือนสูงสุด',
+        monthlyBreakdown: 'สรุปรายได้ตามเดือน', ofPeak: 'ของยอดสูงสุด', peak: 'สูงสุด',
+        selectedMonthBadge: 'กำลังดูเดือนนี้', noData: 'ยังไม่มีข้อมูล'
       };
 
   const [selectedMonth, setSelectedMonth] = useState(format(new Date(), 'yyyy-MM'));
@@ -56,6 +68,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
   const [selectedCompany, setSelectedCompany] = useState(null); // null = all
   const [isShiftListCollapsed, setIsShiftListCollapsed] = useState(false);
   const [chartMode, setChartMode] = useState('daily'); // 'daily' | 'weekly'
+  const [chart12mType, setChart12mType] = useState('bar'); // 'bar' | 'line'
 
   const partTimeTasks = useMemo(() =>
     allTasks.filter(t => t.isPartTime).sort((a, b) => new Date(b.start) - new Date(a.start)),
@@ -68,6 +81,67 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
     partTimeTasks.forEach(t => { if (t.start) s.add(format(new Date(t.start), 'yyyy-MM')); });
     return Array.from(s).sort().reverse();
   }, [partTimeTasks]);
+
+  // 12-Month Historical Data and Stats
+  const fullChartData = useMemo(() => {
+    const now = new Date();
+    const monthKeys12 = [];
+    const fullMonthlyIncome = {};
+
+    for (let i = 11; i >= 0; i--) {
+      const d = subMonths(now, i);
+      const key = format(d, 'yyyy-MM');
+      monthKeys12.push(key);
+      fullMonthlyIncome[key] = {
+        name: format(d, 'MMM', { locale: lang === 'th' ? th : undefined }),
+        fullName: format(d, 'MMMM yyyy', { locale: lang === 'th' ? th : undefined }),
+        key,
+        income: 0,
+        shiftCount: 0
+      };
+    }
+
+    partTimeTasks.forEach(t => {
+      const isDone = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
+      if (!isDone || !t.start) return;
+
+      const key = format(new Date(t.start), 'yyyy-MM');
+      if (fullMonthlyIncome[key] === undefined) return;
+
+      if (t.isExpense) {
+        return;
+      } else if (t.isExtraIncome) {
+        fullMonthlyIncome[key].income += (Number(t.amount) || 0);
+      } else {
+        let hours = t.actualStart && t.actualEnd
+          ? (new Date(t.actualEnd) - new Date(t.actualStart)) / 3600000
+          : (new Date(t.end) - new Date(t.start)) / 3600000;
+        hours = Math.max(0, hours - (Number(t.breakHours) || 0));
+        let earnings = t.rateType === RATE_TYPE.DAILY ? Number(t.hourlyRate) || 0 : hours * (Number(t.hourlyRate) || 0);
+        if (t.isHolidayPay) earnings *= 2;
+
+        fullMonthlyIncome[key].income += earnings;
+        fullMonthlyIncome[key].shiftCount += 1;
+      }
+    });
+
+    return monthKeys12.map(k => fullMonthlyIncome[k]);
+  }, [partTimeTasks, lang]);
+
+  const chart12mStats = useMemo(() => {
+    if (!fullChartData || fullChartData.length === 0) {
+      return { total: 0, avg: 0, maxIncome: 0, peakMonth: null, activeCount: 0, breakdown: [] };
+    }
+    const total = fullChartData.reduce((acc, item) => acc + (item.income > 0 ? item.income : 0), 0);
+    const activeItems = fullChartData.filter(item => item.income > 0);
+    const activeCount = activeItems.length;
+    const avg = activeCount > 0 ? Math.round(total / activeCount) : 0;
+    const maxIncome = Math.max(...fullChartData.map(item => item.income || 0), 0);
+    const peakMonth = maxIncome > 0 ? fullChartData.find(item => item.income === maxIncome) : null;
+    const breakdown = [...activeItems].reverse();
+
+    return { total, avg, maxIncome, peakMonth, activeCount, breakdown };
+  }, [fullChartData]);
 
   const handleConfirmDelete = async () => {
     if (!deleteConfirmTask) return;
@@ -510,6 +584,370 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
           </div>
         </div>
       )}
+
+      {/* ── 12-Month Historical Analytics Section ── */}
+      <div className="liquid-glass-card p-5 rounded-[28px] space-y-4">
+        {/* Header */}
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <div className="inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full bg-primary-500/10 text-primary-600 dark:text-primary-400 text-[11px] font-bold mb-1 border border-primary-500/15">
+              <TrendingUp size={12} />
+              <span>{ui.incomeAnalytics}</span>
+            </div>
+            <h3 className="text-lg sm:text-xl font-black text-main tracking-tight">
+              {ui.last12Months}
+            </h3>
+            <p className="text-main/60 text-xs mt-0.5">
+              {ui.last12MonthsSub}
+            </p>
+          </div>
+
+          {/* Bar / Line toggle */}
+          <div className="flex bg-black/5 dark:bg-white/10 rounded-full p-1 border border-black/5 dark:border-white/5 shrink-0">
+            <button 
+              type="button"
+              onClick={() => setChart12mType('bar')} 
+              className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${chart12mType === 'bar' ? 'bg-white dark:bg-white/20 text-primary-500 dark:text-white shadow-sm' : 'text-main/60 dark:text-white/60 hover:text-main'}`}
+            >
+              {ui.bar}
+            </button>
+            <button 
+              type="button"
+              onClick={() => setChart12mType('line')} 
+              className={`px-3 py-1 text-xs font-bold rounded-full transition-all ${chart12mType === 'line' ? 'bg-white dark:bg-white/20 text-primary-500 dark:text-white shadow-sm' : 'text-main/60 dark:text-white/60 hover:text-main'}`}
+            >
+              {ui.line}
+            </button>
+          </div>
+        </div>
+
+        {/* 3 Summary KPIs */}
+        <div className="grid grid-cols-3 gap-2 sm:gap-3">
+          {/* Total 12M */}
+          <div className="p-3 rounded-2xl bg-gradient-to-br from-primary-500/10 to-primary-600/5 dark:from-primary-500/15 dark:to-primary-900/10 border border-primary-500/20">
+            <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-primary-600 dark:text-primary-300 mb-1">
+              <Banknote size={12} className="flex-shrink-0" />
+              <span className="truncate">{ui.total12M}</span>
+            </div>
+            <div className="text-sm sm:text-base font-black text-main tracking-tight truncate">
+              ฿{chart12mStats.total.toLocaleString()}
+            </div>
+            <div className="text-[10px] text-main/50 font-medium truncate mt-0.5">
+              {chart12mStats.activeCount} {ui.activeMos}
+            </div>
+          </div>
+
+          {/* Avg / Month */}
+          <div className="p-3 rounded-2xl bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/10">
+            <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-main/70 mb-1">
+              <TrendingUp size={12} className="text-primary-500 flex-shrink-0" />
+              <span className="truncate">{ui.avgPerMonth}</span>
+            </div>
+            <div className="text-sm sm:text-base font-black text-main tracking-tight truncate">
+              ฿{chart12mStats.avg.toLocaleString()}
+            </div>
+            <div className="text-[10px] text-main/50 font-medium truncate mt-0.5">
+              {ui.perActiveMo}
+            </div>
+          </div>
+
+          {/* Peak Month */}
+          <div className="p-3 rounded-2xl bg-amber-500/10 dark:bg-amber-500/15 border border-amber-500/20">
+            <div className="flex items-center gap-1 text-[10px] sm:text-[11px] font-bold text-amber-600 dark:text-amber-400 mb-1">
+              <Award size={12} className="flex-shrink-0" />
+              <span className="truncate">{ui.peakMonth}</span>
+            </div>
+            <div className="text-sm sm:text-base font-black text-main tracking-tight truncate">
+              {chart12mStats.peakMonth ? `฿${chart12mStats.peakMonth.income.toLocaleString()}` : '-'}
+            </div>
+            <div className="text-[10px] text-amber-600/80 dark:text-amber-400/80 font-medium truncate mt-0.5">
+              {chart12mStats.peakMonth ? chart12mStats.peakMonth.name : ui.noData}
+            </div>
+          </div>
+        </div>
+
+        {/* 12-Month Chart */}
+        <div className="p-3 sm:p-4 rounded-2xl bg-black/[0.02] dark:bg-white/[0.02] border border-black/5 dark:border-white/5">
+          <div className="h-[210px] sm:h-[240px] w-full relative">
+            <ResponsiveContainer width="100%" height="100%">
+              {chart12mType === 'bar' ? (
+                <BarChart data={fullChartData} margin={{ top: 20, right: 8, left: -22, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="incTab12mBarPeak" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="#8b5cf6" stopOpacity={1} />
+                      <stop offset="100%" stopColor="#6366f1" stopOpacity={0.9} />
+                    </linearGradient>
+                    <linearGradient id="incTab12mBarActive" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--theme-accent, #ec4899)" stopOpacity={0.85} />
+                      <stop offset="100%" stopColor="var(--theme-accent, #ec4899)" stopOpacity={0.65} />
+                    </linearGradient>
+                    <linearGradient id="incTab12mBarZero" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--theme-accent, #ec4899)" stopOpacity={0.16} />
+                      <stop offset="100%" stopColor="var(--theme-accent, #ec4899)" stopOpacity={0.06} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(100,100,120,0.08)" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9.5, fill: 'var(--color-text-main)', opacity: 0.75, fontWeight: 'bold' }} 
+                    dy={8} 
+                    interval={0} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    domain={[0, chart12mStats.maxIncome > 0 ? 'auto' : 1000]}
+                    ticks={chart12mStats.maxIncome === 0 ? [0, 500, 1000] : undefined}
+                    tick={{ fontSize: 9.5, fill: 'var(--color-text-main)', opacity: 0.6 }} 
+                    tickFormatter={(value) => { 
+                      if (value === 0) return '0'; 
+                      const abs = Math.abs(value); 
+                      return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000).toFixed(abs % 1000 === 0 ? 0 : 1) + 'k' : abs); 
+                    }} 
+                  />
+                  <Tooltip 
+                    cursor={{ fill: 'rgba(255,255,255,0.05)' }}
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null;
+                      const item = payload[0]?.payload;
+                      const isPeak = item && item.income > 0 && item.income === chart12mStats.maxIncome;
+                      return (
+                        <div className="liquid-glass-card px-3.5 py-2 rounded-xl shadow-xl border border-white/20 dark:border-white/10 text-xs">
+                          <div className="font-bold text-main flex items-center gap-1 mb-1">
+                            <span>{item?.fullName || label}</span>
+                            {isPeak && <span className="text-amber-500 font-black">🏆 ({ui.peak})</span>}
+                          </div>
+                          <div className="text-primary-500 font-black text-sm">
+                            ฿{(payload[0].value || 0).toLocaleString()}
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Bar 
+                    dataKey="income" 
+                    radius={[6, 6, 2, 2]} 
+                    maxBarSize={28}
+                    minPointSize={5}
+                  >
+                    <LabelList 
+                      dataKey="income" 
+                      position="top" 
+                      content={(props) => {
+                        const { x, y, width, value } = props;
+                        if (!value || value === 0) return null;
+                        const isPeak = value === chart12mStats.maxIncome;
+                        const formatted = value >= 1000 
+                          ? `${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k` 
+                          : `${value}`;
+                        return (
+                          <text 
+                            x={x + width / 2} 
+                            y={y - 5} 
+                            fill={isPeak ? '#8b5cf6' : 'var(--color-text-main, #64748b)'} 
+                            textAnchor="middle" 
+                            fontSize="8.5" 
+                            fontWeight={isPeak ? "800" : "600"} 
+                            opacity={isPeak ? 1 : 0.75}
+                          >
+                            {formatted}
+                          </text>
+                        );
+                      }}
+                    />
+                    {fullChartData.map((entry, index) => {
+                      const isPeak = entry.income > 0 && entry.income === chart12mStats.maxIncome;
+                      const fillUrl = isPeak 
+                        ? 'url(#incTab12mBarPeak)' 
+                        : entry.income > 0 
+                          ? 'url(#incTab12mBarActive)' 
+                          : 'url(#incTab12mBarZero)';
+                      return <Cell key={`cell-12m-${index}`} fill={fillUrl} />;
+                    })}
+                  </Bar>
+                </BarChart>
+              ) : (
+                <AreaChart data={fullChartData} margin={{ top: 20, right: 8, left: -22, bottom: 0 }}>
+                  <defs>
+                    <linearGradient id="incTab12mLineArea" x1="0" y1="0" x2="0" y2="1">
+                      <stop offset="0%" stopColor="var(--theme-accent, #ec4899)" stopOpacity={0.35} />
+                      <stop offset="100%" stopColor="var(--theme-accent, #ec4899)" stopOpacity={0.02} />
+                    </linearGradient>
+                  </defs>
+                  <CartesianGrid strokeDasharray="3 3" vertical={false} stroke="rgba(100,100,120,0.08)" />
+                  <XAxis 
+                    dataKey="name" 
+                    axisLine={false} 
+                    tickLine={false} 
+                    tick={{ fontSize: 9.5, fill: 'var(--color-text-main)', opacity: 0.75, fontWeight: 'bold' }} 
+                    dy={8} 
+                    interval={0} 
+                  />
+                  <YAxis 
+                    axisLine={false} 
+                    tickLine={false} 
+                    domain={[0, chart12mStats.maxIncome > 0 ? 'auto' : 1000]}
+                    ticks={chart12mStats.maxIncome === 0 ? [0, 500, 1000] : undefined}
+                    tick={{ fontSize: 9.5, fill: 'var(--color-text-main)', opacity: 0.6 }} 
+                    tickFormatter={(value) => { 
+                      if (value === 0) return '0'; 
+                      const abs = Math.abs(value); 
+                      return (value < 0 ? '-' : '') + '฿' + (abs >= 1000 ? (abs/1000).toFixed(abs % 1000 === 0 ? 0 : 1) + 'k' : abs); 
+                    }} 
+                  />
+                  <Tooltip 
+                    content={({ active, payload, label }) => {
+                      if (!active || !payload?.length) return null;
+                      const item = payload[0]?.payload;
+                      const isPeak = item && item.income > 0 && item.income === chart12mStats.maxIncome;
+                      return (
+                        <div className="liquid-glass-card px-3.5 py-2 rounded-xl shadow-xl border border-white/20 dark:border-white/10 text-xs">
+                          <div className="font-bold text-main flex items-center gap-1 mb-1">
+                            <span>{item?.fullName || label}</span>
+                            {isPeak && <span className="text-amber-500 font-black">🏆 ({ui.peak})</span>}
+                          </div>
+                          <div className="text-primary-500 font-black text-sm">
+                            ฿{(payload[0].value || 0).toLocaleString()}
+                          </div>
+                        </div>
+                      );
+                    }}
+                  />
+                  <Area 
+                    type="monotone" 
+                    dataKey="income" 
+                    stroke="var(--theme-accent, #ec4899)" 
+                    strokeWidth={3} 
+                    fill="url(#incTab12mLineArea)" 
+                    dot={(dotProps) => {
+                      const { cx, cy, payload } = dotProps;
+                      if (!payload || payload.income <= 0) return null;
+                      const isPeak = payload.income === chart12mStats.maxIncome;
+                      return (
+                        <circle 
+                          key={`dot-${cx}-${cy}`}
+                          cx={cx} 
+                          cy={cy} 
+                          r={isPeak ? 5 : 3.5} 
+                          fill={isPeak ? '#8b5cf6' : 'var(--theme-accent, #ec4899)'} 
+                          stroke="#fff" 
+                          strokeWidth={2} 
+                        />
+                      );
+                    }} 
+                    activeDot={{ r: 6, fill: '#8b5cf6', stroke: '#fff', strokeWidth: 2 }} 
+                  >
+                    <LabelList 
+                      dataKey="income" 
+                      position="top" 
+                      content={(props) => {
+                        const { x, y, value } = props;
+                        if (!value || value === 0) return null;
+                        const isPeak = value === chart12mStats.maxIncome;
+                        const formatted = value >= 1000 
+                          ? `${(value / 1000).toFixed(value % 1000 === 0 ? 0 : 1)}k` 
+                          : `${value}`;
+                        return (
+                          <text 
+                            x={x} 
+                            y={y - 8} 
+                            fill={isPeak ? '#8b5cf6' : 'var(--color-text-main, #64748b)'} 
+                            textAnchor="middle" 
+                            fontSize="8.5" 
+                            fontWeight={isPeak ? "800" : "600"} 
+                            opacity={isPeak ? 1 : 0.75}
+                          >
+                            {formatted}
+                          </text>
+                        );
+                      }}
+                    />
+                  </Area>
+                </AreaChart>
+              )}
+            </ResponsiveContainer>
+          </div>
+        </div>
+
+        {/* Monthly Breakdown List */}
+        {chart12mStats.breakdown.length > 0 && (
+          <div>
+            <div className="flex items-center justify-between mb-2.5">
+              <h4 className="text-xs sm:text-sm font-bold text-main flex items-center gap-1.5">
+                <CalendarIcon size={14} className="text-primary-500" />
+                <span>{ui.monthlyBreakdown}</span>
+              </h4>
+              <span className="text-[11px] text-main/50 font-medium">
+                {lang === 'en' ? `${chart12mStats.breakdown.length} active months` : `พบข้อมูล ${chart12mStats.breakdown.length} เดือน`}
+              </span>
+            </div>
+
+            <div className="space-y-2">
+              {chart12mStats.breakdown.map((item, idx) => {
+                const isPeak = item.income === chart12mStats.maxIncome;
+                const isCurrentSelected = item.key === selectedMonth;
+                const pct = chart12mStats.maxIncome > 0 ? Math.round((item.income / chart12mStats.maxIncome) * 100) : 0;
+                return (
+                  <div 
+                    key={item.key || idx}
+                    onClick={() => {
+                      setSelectedMonth(item.key);
+                      setSelectedCompany(null);
+                      window.scrollTo({ top: 0, behavior: 'smooth' });
+                    }}
+                    className={`p-3 rounded-2xl flex items-center gap-3 transition-all cursor-pointer hover:scale-[1.01] active:scale-[0.99] ${
+                      isCurrentSelected
+                        ? 'ring-2 ring-primary-500 bg-primary-500/10 dark:bg-primary-500/20'
+                        : isPeak 
+                          ? 'bg-primary-500/10 dark:bg-primary-500/15 border border-primary-500/25' 
+                          : 'bg-black/[0.03] dark:bg-white/[0.04] border border-black/5 dark:border-white/5 hover:bg-black/5 dark:hover:bg-white/10'
+                    }`}
+                  >
+                    {/* Month Name */}
+                    <div className="w-14 sm:w-16 flex-shrink-0">
+                      <div className="text-xs sm:text-sm font-bold text-main flex items-center gap-1">
+                        {item.name}
+                        {isCurrentSelected && <span className="w-1.5 h-1.5 rounded-full bg-primary-500" />}
+                      </div>
+                      {isPeak && (
+                        <span className="inline-block text-[9px] font-black uppercase tracking-wider text-amber-500 dark:text-amber-400">
+                          ★ {ui.peak}
+                        </span>
+                      )}
+                    </div>
+
+                    {/* Progress Bar */}
+                    <div className="flex-1">
+                      <div className="h-2 w-full rounded-full bg-black/10 dark:bg-white/10 overflow-hidden">
+                        <div 
+                          className={`h-full rounded-full transition-all duration-500 ${
+                            isPeak 
+                              ? 'bg-gradient-to-r from-violet-500 to-primary-500' 
+                              : 'bg-primary-500'
+                          }`}
+                          style={{ width: `${pct}%` }}
+                        />
+                      </div>
+                    </div>
+
+                    {/* Amount */}
+                    <div className="text-right flex-shrink-0">
+                      <div className={`text-xs sm:text-sm font-black ${isPeak ? 'text-primary-600 dark:text-primary-400' : 'text-main'}`}>
+                        ฿{item.income.toLocaleString()}
+                      </div>
+                      <div className="text-[10px] text-main/50 font-medium">
+                        {pct}% {ui.ofPeak}
+                      </div>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        )}
+      </div>
 
       {/* ── Comparison Cards ── */}
       <div className="grid grid-cols-2 gap-3">

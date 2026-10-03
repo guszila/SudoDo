@@ -933,3 +933,10 @@ button:disabled {
     opacity: 1 !important;
   }
 }
+
+/* Prevent native browser invalid outline from clashing with custom focus rings */
+input:invalid, select:invalid, textarea:invalid,
+input:-moz-ui-invalid, select:-moz-ui-invalid, textarea:-moz-ui-invalid {
+  outline: none !important;
+  box-shadow: none;
+}

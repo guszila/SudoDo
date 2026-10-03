@@ -7,6 +7,7 @@ import { X, Trash2, CheckCircle2, Circle, FileText, Coins, Bell, CheckSquare, Br
 import { translations } from '../../i18n';
 import { TASK_STATUS, TASK_PRIORITY, DEFAULT_TASK_VALUES } from '../../constants';
 import { useSettings } from '../../contexts/SettingsContext';
+import { useTasks } from '../../contexts/TasksContext';
 import { useSwipeToClose } from '../../hooks/useSwipeToClose';
 import { useVirtualKeyboard } from '../../hooks/useVirtualKeyboard';
 
@@ -34,7 +35,25 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
   const statusT = translations[lang].status;
   const { dragProps, handleProps } = useSwipeToClose(onClose);
   const { settings } = useSettings();
+  const { tasks } = useTasks();
   const { keyboardHeight } = useVirtualKeyboard();
+
+  const getJobLatestHistory = (jobName) => {
+    if (!jobName || !tasks) return null;
+    const pastShifts = tasks
+      .filter(item => item.isPartTime && !item.isExpense && !item.isExtraIncome && item.title?.trim() === jobName.trim())
+      .sort((a, b) => new Date(b.start) - new Date(a.start));
+    
+    if (pastShifts.length > 0) {
+      const latest = pastShifts[0];
+      return {
+        hourlyRate: latest.hourlyRate,
+        rateType: latest.rateType || 'hourly',
+        breakHours: latest.breakHours !== undefined ? latest.breakHours : 0
+      };
+    }
+    return null;
+  };
 
   const [formData, setFormData] = useState({
     title: '',
@@ -333,7 +352,15 @@ export default function TaskModal({ isOpen, onClose, onSave, onDelete, task, lan
                         if (formData.title === job.name) {
                           setFormData({...formData, title: '', hourlyRate: DEFAULT_TASK_VALUES.HOURLY_RATE, deductSSO: false});
                         } else {
-                          setFormData({...formData, title: job.name, hourlyRate: job.rate || formData.hourlyRate, rateType: job.rateType || formData.rateType, deductSSO: job.deductSSO});
+                          const history = getJobLatestHistory(job.name);
+                          setFormData({
+                            ...formData,
+                            title: job.name,
+                            hourlyRate: history?.hourlyRate ?? (job.rate !== undefined && job.rate !== '' ? job.rate : formData.hourlyRate),
+                            rateType: history?.rateType ?? job.rateType ?? formData.rateType,
+                            breakHours: history?.breakHours !== undefined ? history.breakHours : formData.breakHours,
+                            deductSSO: job.deductSSO !== undefined ? job.deductSSO : formData.deductSSO
+                          });
                         }
                       }}
                       className={`flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 transition-all snap-start shadow-sm ${formData.title === job.name ? `${c.border} ${c.bg} scale-105` : 'border-transparent bg-black/5 dark:bg-white/5 hover:bg-black/10 dark:hover:bg-white/10'}`}

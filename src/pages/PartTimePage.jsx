@@ -4,7 +4,7 @@ import { createPortal } from 'react-dom';
 import { motion, AnimatePresence, Reorder } from 'framer-motion';
 import { format, startOfMonth, endOfMonth, startOfWeek, endOfWeek, eachDayOfInterval, isSameDay, parseISO } from 'date-fns';
 import { th } from 'date-fns/locale';
-import { CheckCircle2, Check, Plus, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, GripHorizontal, Flame, ChevronDown, Banknote, Receipt, Calculator, RotateCcw } from 'lucide-react';
+import { CheckCircle2, Check, Plus, Trash2, CalendarDays, History, Edit, Target, X, Settings, List, LayoutGrid, BarChart2, GripHorizontal, Flame, ChevronDown, ChevronLeft, ChevronRight, Calendar, Sparkles, Banknote, Receipt, Calculator, RotateCcw, Clock } from 'lucide-react';
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer } from 'recharts';
 import { useNavigate } from 'react-router-dom';
 
@@ -37,9 +37,42 @@ const JOB_COLORS = {
 export default function PartTimePage({ user, lang = 'en' }) {
   const t = translations[lang].partTime;
   const { tasks: allTasks, isLoading: isTasksLoading } = useTasks();
-  const { settings } = useSettings();
+  const { settings, updateSettings } = useSettings();
   const navigate = useNavigate();
   const weekStartsOn = settings?.weekStart === 'จันทร์' || settings?.weekStart === 'Monday' ? 1 : 0;
+
+  // Retrieve most recent shift history (rates, rateType, break, times) for a given workplace
+  const getJobLatestHistory = (jobName) => {
+    if (!jobName) return null;
+    const pastShifts = allTasks
+      .filter(t => t.isPartTime && !t.isExpense && !t.isExtraIncome && t.title?.trim() === jobName.trim())
+      .sort((a, b) => new Date(b.start) - new Date(a.start));
+    
+    if (pastShifts.length > 0) {
+      const latest = pastShifts[0];
+      const rateHistory = [];
+      const seen = new Set();
+      pastShifts.forEach(s => {
+        if (!s.hourlyRate) return;
+        const key = `${s.hourlyRate}_${s.rateType || RATE_TYPE.HOURLY}`;
+        if (!seen.has(key)) {
+          seen.add(key);
+          rateHistory.push({ rate: Number(s.hourlyRate), rateType: s.rateType || RATE_TYPE.HOURLY });
+        }
+      });
+
+      return {
+        hourlyRate: latest.hourlyRate,
+        rateType: latest.rateType || RATE_TYPE.HOURLY,
+        breakHours: latest.breakHours !== undefined ? latest.breakHours : 0,
+        startTime: latest.start ? format(new Date(latest.start), 'HH:mm') : undefined,
+        endTime: latest.end ? format(new Date(latest.end), 'HH:mm') : undefined,
+        isHolidayPay: !!latest.isHolidayPay,
+        allRates: rateHistory.slice(0, 3)
+      };
+    }
+    return null;
+  };
   const ui = lang === 'en'
     ? {
         shifts: 'Shifts', summary: 'Income summary', editWidgets: 'Edit widgets', done: 'Done', addWidget: 'Add widget',
@@ -112,7 +145,19 @@ export default function PartTimePage({ user, lang = 'en' }) {
   
   const [enabledWidgets, setEnabledWidgets] = useState(() => {
     const saved = localStorage.getItem('income_dashboard');
-    return saved ? JSON.parse(saved) : ['total_sso_net', 'expense_list', 'goal', 'earned', 'expected', 'work_streak'];
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        const filtered = parsed
+          .map(id => id === 'total_sso_net' ? 'job_breakdown' : id)
+          .filter(id => !['net', 'after_sso', 'earned', 'expected'].includes(id));
+        const unique = Array.from(new Set(filtered));
+        if (unique.length > 0) return unique;
+      } catch {
+        // fallback
+      }
+    }
+    return ['goal', 'job_breakdown', 'expense_list', 'extra_income_list', 'work_streak'];
   });
   const [isEditWidgetMode, setIsEditWidgetMode] = useState(false);
   const [showWidgetSelector, setShowWidgetSelector] = useState(false);
@@ -586,32 +631,116 @@ export default function PartTimePage({ user, lang = 'en' }) {
     });
   }, [tasks, selectedMonth]);
 
+  // Monthly shift statistics specifically for selectedMonth
+  const monthlyShiftStats = useMemo(() => {
+    let completedShifts = 0;
+    let totalShifts = 0;
+    let completedHours = 0;
+    let totalHours = 0;
+
+    tasks.forEach(t => {
+      if (t.isExpense || t.isExtraIncome) return;
+      const d = new Date(t.start);
+      if (isNaN(d.getTime())) return;
+      const monthKey = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`;
+      if (monthKey !== selectedMonth) return;
+
+      totalShifts++;
+      const isDone = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
+      if (isDone) completedShifts++;
+
+      let hours;
+      if (t.actualStart && t.actualEnd) {
+        hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
+      } else {
+        hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
+      }
+      hours = Math.max(0, hours - (Number(t.breakHours) || 0));
+
+      if (hours > 0) {
+        totalHours += hours;
+        if (isDone) completedHours += hours;
+      }
+    });
+
+    return {
+      completedShifts,
+      totalShifts,
+      completedHours: Math.round(completedHours * 10) / 10,
+      totalHours: Math.round(totalHours * 10) / 10
+    };
+  }, [tasks, selectedMonth]);
+
+  // Calculate average per shift and per hour (no duplicate numbers)
+  const avgPerShift = useMemo(() => {
+    if (monthlyShiftStats.completedShifts > 0) {
+      return Math.round(stats.earned / monthlyShiftStats.completedShifts);
+    }
+    if (monthlyShiftStats.totalShifts > 0) {
+      return Math.round(stats.total / monthlyShiftStats.totalShifts);
+    }
+    return 0;
+  }, [monthlyShiftStats, stats]);
+
+  const avgPerHour = useMemo(() => {
+    if (monthlyShiftStats.completedHours > 0) {
+      return Math.round((stats.earned / monthlyShiftStats.completedHours) * 10) / 10;
+    }
+    return 0;
+  }, [monthlyShiftStats, stats]);
+
+  const formatMonthName = (mStr) => {
+    try {
+      const [year, month] = mStr.split('-').map(Number);
+      const d = new Date(year, month - 1, 1);
+      if (lang === 'th') {
+        return `${format(d, 'MMMM', { locale: th })} ${d.getFullYear() + 543}`;
+      }
+      return format(d, 'MMMM yyyy');
+    } catch {
+      return mStr;
+    }
+  };
+
+  const handlePrevMonth = () => {
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const prevDate = new Date(year, month - 2, 1);
+    setSelectedMonth(format(prevDate, 'yyyy-MM'));
+  };
+
+  const handleNextMonth = () => {
+    const [year, month] = selectedMonth.split('-').map(Number);
+    const nextDate = new Date(year, month, 1);
+    setSelectedMonth(format(nextDate, 'yyyy-MM'));
+  };
+
   const removeWidget = (id) => {
     setEnabledWidgets(prev => prev.filter(w => w !== id));
   };
   
   const AVAILABLE_WIDGETS = [
-    { id: 'net', label: 'รายได้สุทธิ (Net Income)' },
-    { id: 'after_sso', label: 'รายได้หลังหักประกันสังคม (Income after SSO)' },
-    { id: 'earned', label: 'รายได้ที่ได้แล้ว (Earned)' },
-    { id: 'expected', label: 'คาดว่าได้รับ (Expected)' },
-    { id: 'total_sso_net', label: 'รายได้รวม & หักประกันสังคม' },
-    { id: 'extra_income_list', label: 'รายได้พิเศษทั้งหมด (Extra Income List)' },
-    { id: 'expense_list', label: 'รายจ่ายทั้งหมด (Expense List)' },
     { id: 'goal', label: 'เป้าหมายรายได้ (Income Goal)' },
+    { id: 'job_breakdown', label: 'รายได้แยกตามบริษัท (By Company)' },
+    { id: 'expense_list', label: 'รายจ่ายทั้งหมด (Expense List)' },
+    { id: 'extra_income_list', label: 'รายได้พิเศษทั้งหมด (Extra Income List)' },
     { id: 'work_streak', label: 'วันทำงานต่อเนื่อง (Work Streak)' },
+    { id: 'chart', label: 'กราฟรายเดือน (Monthly Chart)' },
     { id: 'shift_count', label: 'จำนวนกะ (Shift Count)' },
-    { id: 'total_hours', label: 'ชั่วโมงรวม (Total Hours)' },
-    { id: 'chart', label: 'กราฟรายเดือน (Monthly Chart)' }
+    { id: 'total_hours', label: 'ชั่วโมงรวม (Total Hours)' }
   ];
 
-  const isFullWidthWidget = (id) => ['total_sso_net', 'expense_list', 'extra_income_list', 'goal', 'chart'].includes(id);
+  const isFullWidthWidget = (id) => ['job_breakdown', 'total_sso_net', 'expense_list', 'extra_income_list', 'goal', 'chart'].includes(id);
+
+  // Filter out redundant summary totals since the Hero Card displays them
+  const sortedWidgets = useMemo(() => {
+    return enabledWidgets.filter(id => !['total_sso_net', 'net', 'after_sso', 'earned', 'expected'].includes(id));
+  }, [enabledWidgets]);
 
   const widgetLayoutMap = useMemo(() => {
     const map = {};
     let currentHalf = null;
 
-    enabledWidgets.forEach((id) => {
+    sortedWidgets.forEach((id) => {
       if (isFullWidthWidget(id)) {
         if (currentHalf) {
           map[currentHalf] = { colSpan: 2, isOrphan: true };
@@ -634,10 +763,53 @@ export default function PartTimePage({ user, lang = 'en' }) {
     }
 
     return map;
-  }, [enabledWidgets]);
+  }, [sortedWidgets]);
 
   const renderWidgetContent = (id) => {
     switch(id) {
+      case 'job_breakdown': {
+        if (!stats.jobBreakdown || stats.jobBreakdown.length === 0) {
+          return (
+            <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-primary-500">
+              <p className="text-xs text-main opacity-70 font-bold mb-1 uppercase flex items-center gap-1.5">
+                <span>🏢</span> {lang === 'th' ? 'รายได้แยกตามบริษัท' : 'Income by Workplace'}
+              </p>
+              <p className="text-xs opacity-50 py-2 text-center">{lang === 'th' ? 'ไม่มีข้อมูลบริษัทในเดือนนี้' : 'No workplace data'}</p>
+            </div>
+          );
+        }
+        return (
+          <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-primary-500">
+            <p className="text-xs text-main opacity-70 font-bold mb-2 uppercase flex items-center gap-1.5">
+              <span>🏢</span> {lang === 'th' ? 'รายได้แยกตามบริษัท' : 'Income by Workplace'}
+            </p>
+            <div className="space-y-1.5">
+              {stats.jobBreakdown.map((b, i) => {
+                const c = JOB_COLORS[b.job ? b.job.color : 'primary'] || JOB_COLORS.primary;
+                if (b.total === 0) return null;
+                const matchingExtra = extraIncomesList.find(e => e.title === b.name);
+                return (
+                  <div 
+                    key={i} 
+                    onClick={() => {
+                      if (matchingExtra) handleEditExtraItemClick(matchingExtra);
+                    }}
+                    className={`flex justify-between items-center text-xs py-1.5 px-3 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 ${matchingExtra ? 'cursor-pointer hover:bg-green-500/15' : ''}`}
+                  >
+                    <div className="flex items-center gap-1.5">
+                      <span>{b.job ? b.job.emoji : (matchingExtra ? '💵' : '🏢')}</span>
+                      <span className="font-semibold text-main">{b.name}</span>
+                      {b.deductsSSO && <span className="text-[9px] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded font-bold">ปกส.</span>}
+                      {matchingExtra && <span className="text-[9px] text-green-600 dark:text-green-400 bg-green-500/15 px-1.5 py-0.5 rounded-full font-bold ml-1">แก้ไข</span>}
+                    </div>
+                    <span className={`font-bold ${c.text}`}>฿{b.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                  </div>
+                );
+              })}
+            </div>
+          </div>
+        );
+      }
       case 'net': {
         const isFull = widgetLayoutMap['net']?.colSpan === 2;
         return (
@@ -1023,6 +1195,17 @@ export default function PartTimePage({ user, lang = 'en' }) {
         ? (shiftCount > 1 ? `${shiftCount} shifts saved.` : 'Shift saved successfully.')
         : (shiftCount > 1 ? `บันทึกกะงาน ${shiftCount} รายการเรียบร้อยแล้ว` : 'บันทึกกะงานเรียบร้อยแล้ว')
     );
+    // Keep settings.jobs in sync with latest rate for this workplace
+    const matchedJob = (settings?.jobs || []).find(j => j.name === formData.title);
+    if (matchedJob && (matchedJob.rate !== Number(formData.hourlyRate) || matchedJob.rateType !== formData.rateType)) {
+      const updatedJobs = (settings.jobs || []).map(j => 
+        j.name === formData.title 
+          ? { ...j, rate: Number(formData.hourlyRate), rateType: formData.rateType } 
+          : j
+      );
+      updateSettings({ jobs: updatedJobs });
+    }
+
     setIsMutating(false);
   };
   const openExtraItemForm = (type) => {
@@ -1042,8 +1225,18 @@ export default function PartTimePage({ user, lang = 'en' }) {
     const month = extraFormData.month || new Date().toISOString().slice(0, 7);
     const startDate = new Date(`${month}-01T00:00:00`);
 
-    if (!title || !Number.isFinite(amount) || amount <= 0 || Number.isNaN(startDate.getTime())) {
-      showToast(lang === 'en' ? 'Please check the item details.' : 'กรุณาตรวจสอบข้อมูลรายการ');
+    if (!title) {
+      showToast(lang === 'en' ? 'Please enter a title / description.' : 'กรุณากรอกชื่อรายการ', { isError: true });
+      return;
+    }
+
+    if (!Number.isFinite(amount) || amount <= 0) {
+      showToast(lang === 'en' ? 'Please enter a valid amount.' : 'กรุณากรอกจำนวนเงินให้ถูกต้อง', { isError: true });
+      return;
+    }
+
+    if (Number.isNaN(startDate.getTime())) {
+      showToast(lang === 'en' ? 'Please select a valid month.' : 'กรุณาเลือกเดือนให้ถูกต้อง', { isError: true });
       return;
     }
 
@@ -1201,8 +1394,6 @@ export default function PartTimePage({ user, lang = 'en' }) {
     );
   }
 
-  const sortedWidgets = enabledWidgets;
-
   return (
     <motion.div 
       initial={{ opacity: 0, scale: 0.98 }}
@@ -1229,28 +1420,40 @@ export default function PartTimePage({ user, lang = 'en' }) {
         </button>
       </div>
 
-      {/* Main Tab Bar */}
-      <div className="flex gap-1.5 bg-black/5 dark:bg-white/5 rounded-full p-1.5 mb-6 mx-2 border border-black/5 dark:border-white/10">
-        <button
-          onClick={() => setMainTab('shifts')}
-          className={`flex-1 py-2.5 rounded-full text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
-            mainTab === 'shifts' 
-              ? 'bg-white dark:bg-primary-500/25 shadow-md text-primary-600 dark:text-white border border-transparent dark:border-primary-400/30' 
-              : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white'
-          }`}
-        >
-          <CalendarDays size={14} /> {ui.shifts}
-        </button>
-        <button
-          onClick={() => setMainTab('summary')}
-          className={`flex-1 py-2.5 rounded-full text-xs md:text-sm font-bold transition-all flex items-center justify-center gap-1.5 ${
-            mainTab === 'summary' 
-              ? 'bg-white dark:bg-primary-500/25 shadow-md text-primary-600 dark:text-white border border-transparent dark:border-primary-400/30' 
-              : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white'
-          }`}
-        >
-          <BarChart2 size={14} /> {ui.summary}
-        </button>
+      {/* Main Tab Bar with smooth sliding capsule indicator */}
+      <div className="relative flex gap-1 bg-black/5 dark:bg-white/5 rounded-full p-1.5 mb-6 mx-2 border border-black/5 dark:border-white/10">
+        {[
+          { id: 'shifts', label: ui.shifts, icon: CalendarDays },
+          { id: 'summary', label: ui.summary, icon: BarChart2 }
+        ].map(tab => {
+          const isActive = mainTab === tab.id;
+          const Icon = tab.icon;
+          return (
+            <button
+              key={tab.id}
+              type="button"
+              onClick={() => setMainTab(tab.id)}
+              className={`relative flex-1 py-2.5 rounded-full text-xs md:text-sm font-bold transition-colors duration-200 flex items-center justify-center gap-1.5 active:scale-[0.97] ${
+                isActive
+                  ? 'text-primary-600 dark:text-white'
+                  : 'text-main/60 dark:text-white/70 hover:text-main dark:hover:text-white'
+              }`}
+            >
+              {/* Smooth animated sliding pill indicator */}
+              {isActive && (
+                <motion.div
+                  layoutId="activeMainTabPill"
+                  className="absolute inset-0 rounded-full bg-white dark:bg-[#1e1c31] border border-black/5 dark:border-white/10 shadow-[0_2px_8px_-1px_rgba(0,0,0,0.08),0_1px_3px_rgba(0,0,0,0.05)] dark:shadow-[0_2px_12px_rgba(0,0,0,0.4)]"
+                  transition={{ type: 'spring', stiffness: 440, damping: 32 }}
+                />
+              )}
+              <span className="relative z-10 flex items-center justify-center gap-2">
+                <Icon size={15} className={`transition-transform duration-200 ${isActive ? 'scale-110' : ''}`} />
+                <span>{tab.label}</span>
+              </span>
+            </button>
+          );
+        })}
       </div>
 
       {/* Income Summary Tab */}
@@ -1261,23 +1464,188 @@ export default function PartTimePage({ user, lang = 'en' }) {
       {/* Shifts Tab wrapper — hidden when on summary */}
       <div className={mainTab !== 'shifts' ? 'hidden' : ''}>
 
-      <div className="flex justify-between items-center mb-4 px-2 mt-2">
-        <div className="flex flex-col gap-1">
-          <h2 className="font-bold text-lg text-main leading-none">ภาพรวมรายได้</h2>
-          <input 
-            type="month" 
-            value={selectedMonth}
-            onChange={(e) => setSelectedMonth(e.target.value)}
-            className="text-sm font-bold text-primary-500 bg-transparent outline-none cursor-pointer p-0"
-          />
-        </div>
-        <button 
-          onClick={() => setIsEditWidgetMode(!isEditWidgetMode)} 
-          className={`text-sm px-3 py-1.5 rounded-full transition-colors flex items-center gap-1 ${isEditWidgetMode ? 'bg-primary-500 text-white shadow-md' : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20'}`}
+        {/* ── Shifts Tab Hero Summary Card ── */}
+        <motion.div
+          initial={{ opacity: 0, scale: 0.98 }}
+          animate={{ opacity: 1, scale: 1 }}
+          transition={{ duration: 0.25 }}
+          className="relative rounded-[28px] overflow-hidden mb-5 text-white shadow-xl mt-1"
+          style={{
+            background: 'linear-gradient(135deg, var(--theme-accent) 0%, color-mix(in srgb, var(--theme-accent) 60%, #8B5CF6) 100%)',
+            boxShadow: '0 12px 36px rgba(108,99,255,0.28)'
+          }}
         >
-          {isEditWidgetMode ? ui.done : <><Settings size={14}/> {ui.editWidgets}</>}
-        </button>
-      </div>
+          {/* Decorative glowing glass blobs */}
+          <div className="absolute top-0 right-0 w-44 h-44 bg-white/10 rounded-full -translate-y-1/2 translate-x-1/3 blur-2xl pointer-events-none" />
+          <div className="absolute bottom-0 left-0 w-32 h-32 bg-white/10 rounded-full translate-y-1/2 -translate-x-1/4 blur-2xl pointer-events-none" />
+
+          <div className="relative z-10 p-5 sm:p-6">
+            {/* Top row: Month Navigator + Work Streak Badge */}
+            <div className="flex items-center justify-between gap-2 mb-3">
+              {/* Month Navigator Pill */}
+              <div className="flex items-center gap-1 bg-black/20 backdrop-blur-md rounded-full p-1 border border-white/15">
+                <button
+                  type="button"
+                  onClick={handlePrevMonth}
+                  aria-label="เดือนก่อนหน้า"
+                  className="w-7 h-7 rounded-full hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/90 hover:text-white transition-all"
+                >
+                  <ChevronLeft size={16} />
+                </button>
+                <div className="relative flex items-center gap-1.5 px-2.5 py-0.5 text-xs font-bold text-white cursor-pointer select-none">
+                  <Calendar size={13} className="text-white/80" />
+                  <span>{formatMonthName(selectedMonth)}</span>
+                  <ChevronDown size={13} className="opacity-70" />
+                  <input
+                    type="month"
+                    value={selectedMonth}
+                    onChange={(e) => setSelectedMonth(e.target.value)}
+                    className="absolute inset-0 opacity-0 w-full h-full cursor-pointer"
+                    aria-label="เลือกเดือน"
+                  />
+                </div>
+                <button
+                  type="button"
+                  onClick={handleNextMonth}
+                  aria-label="เดือนถัดไป"
+                  className="w-7 h-7 rounded-full hover:bg-white/20 active:scale-95 flex items-center justify-center text-white/90 hover:text-white transition-all"
+                >
+                  <ChevronRight size={16} />
+                </button>
+              </div>
+
+              {/* Work Streak Badge */}
+              {extraStats.currentWorkStreak > 0 ? (
+                <div className="flex items-center gap-1.5 bg-orange-500/25 backdrop-blur-md border border-orange-400/35 px-3 py-1 rounded-full text-xs font-bold text-orange-100 shadow-sm">
+                  <Flame size={14} className="text-orange-300 fill-orange-400 animate-pulse" />
+                  <span>{extraStats.currentWorkStreak} {lang === 'th' ? 'วันติด' : 'days streak'}</span>
+                </div>
+              ) : (
+                <div className="flex items-center gap-1 bg-white/15 backdrop-blur-md border border-white/20 px-3 py-1 rounded-full text-[11px] font-bold text-white/90">
+                  <Sparkles size={12} className="text-amber-300" />
+                  <span>{lang === 'th' ? 'กะงาน & รายได้' : 'Shifts & Income'}</span>
+                </div>
+              )}
+            </div>
+
+            {/* Label & Main Hero Net Income */}
+            <p className="text-white/75 text-xs font-bold mb-1 flex items-center gap-1">
+              <span>{lang === 'th' ? 'รายได้สุทธิคงเหลือ' : 'Monthly Net Income'}</span>
+              {stats.ssoDeducted > 0 || stats.expenseTotal > 0 ? (
+                <span className="text-[10px] text-white/60 font-normal">({lang === 'th' ? 'หัก ปกส./ค่าใช้จ่ายแล้ว' : 'net of SSO & expenses'})</span>
+              ) : null}
+            </p>
+            <motion.h2
+              key={stats.netTotal}
+              initial={{ opacity: 0, y: 6 }}
+              animate={{ opacity: 1, y: 0 }}
+              className="text-white text-[32px] sm:text-[38px] font-black tracking-tight leading-none mb-2"
+            >
+              ฿{stats.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+            </motion.h2>
+
+            {/* Sub-badges: ONLY show deductions if any; otherwise show clean context */}
+            {(stats.ssoDeducted > 0 || stats.expenseTotal > 0) ? (
+              <div className="flex flex-wrap items-center gap-x-2 gap-y-1.5 text-xs font-semibold mb-4 mt-1">
+                {stats.ssoDeducted > 0 && (
+                  <span className="bg-white/20 backdrop-blur-sm px-2.5 py-0.5 rounded-xl text-white font-bold border border-white/25">
+                    {lang === 'th' ? 'หลังหัก ปกส.' : 'After SSO'}: ฿{stats.afterSSO.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                )}
+                <span className="text-white/80">
+                  {lang === 'th' ? 'รวมก่อนหัก' : 'Gross'}: ฿{stats.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                </span>
+                {stats.ssoDeducted > 0 && (
+                  <span className="text-white/70">
+                    · {lang === 'th' ? 'หัก ปกส.' : 'SSO'}: -฿{stats.ssoDeducted.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                )}
+                {stats.expenseTotal > 0 && (
+                  <span className="bg-rose-500/30 text-rose-100 px-2.5 py-0.5 rounded-xl font-bold border border-rose-400/35">
+                    {lang === 'th' ? 'หักรายจ่าย' : 'Expenses'}: -฿{stats.expenseTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                  </span>
+                )}
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-2 text-xs font-semibold mb-4 mt-1">
+                <span className="bg-white/15 backdrop-blur-sm px-2.5 py-0.5 rounded-xl text-white/90 font-medium border border-white/15">
+                  {lang === 'th' ? '✓ รายรับเต็มจำนวน' : '✓ Full Earnings'}
+                </span>
+                {stats.jobBreakdown.length > 0 && (
+                  <span className="bg-white/15 backdrop-blur-sm px-2.5 py-0.5 rounded-xl text-white/90 font-medium border border-white/15">
+                    🏢 {stats.jobBreakdown.map(j => j.name).filter(Boolean).join(', ')}
+                  </span>
+                )}
+              </div>
+            )}
+
+            {/* 4-Stat Glass Grid with Non-Duplicate Useful Insights */}
+            <div className="grid grid-cols-4 gap-2">
+              <div className="bg-black/20 backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/10 shadow-inner">
+                <p className="text-white font-black text-[15px] sm:text-[17px] leading-tight truncate">
+                  {monthlyShiftStats.completedShifts}<span className="text-[11px] font-normal text-white/60">/{monthlyShiftStats.totalShifts}</span>
+                </p>
+                <p className="text-white/80 text-[10px] sm:text-[11px] font-bold mt-1 truncate">{lang === 'th' ? 'กะที่เสร็จ' : 'Shifts'}</p>
+              </div>
+
+              <div className="bg-black/20 backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/10 shadow-inner">
+                <p className="text-white font-black text-[15px] sm:text-[17px] leading-tight truncate">
+                  {monthlyShiftStats.totalHours} <span className="text-[10px] font-normal text-white/60">ชม.</span>
+                </p>
+                <p className="text-white/80 text-[10px] sm:text-[11px] font-bold mt-1 truncate">{lang === 'th' ? 'ชั่วโมงงาน' : 'Hours'}</p>
+              </div>
+
+              <div className="bg-black/20 backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/10 shadow-inner">
+                <p className="text-emerald-300 font-black text-[15px] sm:text-[17px] leading-tight truncate">
+                  ฿{avgPerShift.toLocaleString()}
+                </p>
+                <p className="text-white/80 text-[10px] sm:text-[11px] font-bold mt-1 truncate">{lang === 'th' ? 'เฉลี่ย/กะ' : 'Avg/Shift'}</p>
+              </div>
+
+              <div className="bg-black/20 backdrop-blur-md rounded-2xl p-2.5 text-center border border-white/10 shadow-inner">
+                {stats.pending > 0 ? (
+                  <>
+                    <p className="text-amber-300 font-black text-[15px] sm:text-[17px] leading-tight truncate">
+                      ฿{stats.pending >= 100000 ? `${(stats.pending / 1000).toFixed(0)}k` : stats.pending.toLocaleString(undefined, { maximumFractionDigits: 0 })}
+                    </p>
+                    <p className="text-white/80 text-[10px] sm:text-[11px] font-bold mt-1 truncate">{lang === 'th' ? 'รอรับ' : 'Pending'}</p>
+                  </>
+                ) : (
+                  <>
+                    <p className="text-purple-200 font-black text-[15px] sm:text-[17px] leading-tight truncate">
+                      ฿{avgPerHour > 0 ? avgPerHour.toLocaleString() : '0'}<span className="text-[10px] font-normal text-white/60">/ชม.</span>
+                    </p>
+                    <p className="text-white/80 text-[10px] sm:text-[11px] font-bold mt-1 truncate">{lang === 'th' ? 'เฉลี่ย/ชม.' : 'Avg/Hour'}</p>
+                  </>
+                )}
+              </div>
+            </div>
+          </div>
+        </motion.div>
+
+        {/* Section Header: Custom Widgets & Edit Button */}
+        <div className="flex justify-between items-center mb-3 px-1">
+          <div className="flex items-center gap-2">
+            <h3 className="font-bold text-sm text-main/80 flex items-center gap-1.5">
+              <LayoutGrid size={15} className="text-primary-500" />
+              <span>{lang === 'th' ? 'วิดเจ็ตสรุปเพิ่มเติม' : 'Custom Widgets'}</span>
+            </h3>
+            <span className="text-[11px] px-2 py-0.5 rounded-full bg-main/5 dark:bg-white/10 text-main/60 font-bold">
+              {sortedWidgets.length}
+            </span>
+          </div>
+          <button 
+            type="button"
+            onClick={() => setIsEditWidgetMode(!isEditWidgetMode)} 
+            className={`text-xs px-3 py-1.5 rounded-full transition-all flex items-center gap-1.5 font-bold ${
+              isEditWidgetMode 
+                ? 'bg-primary-500 text-white shadow-md scale-105' 
+                : 'bg-black/5 dark:bg-white/10 hover:bg-black/10 dark:hover:bg-white/20 text-main/70'
+            }`}
+          >
+            {isEditWidgetMode ? ui.done : <><Settings size={13}/> {ui.editWidgets}</>}
+          </button>
+        </div>
 
       <Reorder.Group 
         axis="y"
@@ -1496,7 +1864,7 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 </div>
                 
                 {/* Form with scrollable body and sticky footer */}
-                <form onSubmit={handleAddExtraItem} className="flex-1 flex flex-col min-h-0 overflow-hidden">
+                <form noValidate onSubmit={handleAddExtraItem} className="flex-1 flex flex-col min-h-0 overflow-hidden">
                   {/* Scrollable Form Body */}
                   <div className="flex-1 overflow-y-auto overscroll-contain px-6 py-4 space-y-4 custom-scrollbar">
                     {/* Title */}
@@ -1634,67 +2002,179 @@ export default function PartTimePage({ user, lang = 'en' }) {
 
       <AnimatePresence>
         {showAddForm && (
-          <motion.div initial={{ height: 0, opacity: 0 }} animate={{ height: 'auto', opacity: 1 }} exit={{ height: 0, opacity: 0 }} className="overflow-hidden mb-6">
-            <form onSubmit={handleAddShift} className="bg-white/95 dark:bg-[#1a182c] backdrop-blur-xl p-6 space-y-5 border-2 border-primary-500/30 rounded-3xl shadow-lg">
-              <h3 className="font-bold text-main">{lang === 'en' ? 'Add upcoming shifts (multiple days supported)' : `เพิ่ม${t.upcoming} (สามารถเพิ่มหลายวันได้)`}</h3>
-              
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="col-span-1 md:col-span-2 mb-2">
-                  <label className="block text-sm font-medium text-main mb-2 opacity-80">{t.jobTitle}</label>
-                  <div className="flex gap-3 overflow-x-auto pb-2 snap-x hide-scrollbar">
-                    {(settings.jobs || []).map(job => {
-                      const c = JOB_COLORS[job.color] || JOB_COLORS.primary;
-                      return (
-                      <button 
-                        key={job.id} type="button"
-                        onClick={() => setFormData({...formData, title: job.name, hourlyRate: job.rate || formData.hourlyRate, rateType: job.rateType || formData.rateType, deductSSO: job.deductSSO})}
-                        className={`flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 transition-all snap-start shadow-sm ${formData.title === job.name ? `${c.border} ${c.bg} scale-105` : 'border-transparent bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10'}`}
-                      >
-                        <span className="text-3xl mb-1">{job.emoji || '🏢'}</span>
-                        <span className="text-xs font-bold text-main whitespace-nowrap truncate w-full px-1">{job.name}</span>
-                      </button>
-                    )})}
-                    <button type="button" onClick={() => navigate('/settings', { state: { openSheet: 'manageJobs' } })} className="flex flex-col items-center justify-center min-w-[90px] h-[90px] p-3 rounded-2xl border-2 border-dashed border-main/20 bg-transparent hover:bg-black/5 dark:hover:bg-white/5 transition-all snap-start shadow-sm">
-                      <Plus className="text-main opacity-50 mb-1" size={24} />
-                      <span className="text-xs font-bold text-main opacity-50">{ui.manageJobs}</span>
-                    </button>
-                  </div>
-                  {!((settings.jobs || []).some(j => j.name === formData.title)) && (
-                    <input type="text" value={formData.title} onChange={e => setFormData({...formData, title: e.target.value})} required className="w-full mt-3 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" placeholder="ระบุชื่อบริษัท..." />
-                  )}
-                </div>
+          <motion.div 
+            initial={{ height: 0, opacity: 0 }} 
+            animate={{ height: 'auto', opacity: 1 }} 
+            exit={{ height: 0, opacity: 0 }} 
+            className="overflow-hidden mb-8"
+          >
+            <form 
+              onSubmit={handleAddShift} 
+              noValidate
+              className="bg-white/95 dark:bg-[#1a182c] backdrop-blur-xl p-4 sm:p-5 space-y-3.5 border border-primary-500/30 rounded-2xl sm:rounded-3xl shadow-lg"
+            >
+              {/* Form Header with Close Button */}
+              <div className="flex items-center justify-between pb-2 border-b border-black/5 dark:border-white/5">
                 <div>
-                  <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.hourlyRate}</label>
-                  <div className="flex gap-2">
-                    <input type="number" step="any" value={formData.hourlyRate} onChange={e => setFormData({...formData, hourlyRate: e.target.value})} required min="0" className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" />
-                    <select 
-                      value={formData.rateType} 
-                      onChange={e => setFormData({...formData, rateType: e.target.value})}
-                      className="px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main font-bold bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm"
-                    >
-                      <option value="hourly">{t.perHour}</option>
-                      <option value="daily">{t.perDay}</option>
-                    </select>
-                  </div>
+                  <h3 className="font-bold text-sm sm:text-base text-main flex items-center gap-1.5">
+                    <CalendarDays size={16} className="text-primary-500" />
+                    <span>{lang === 'en' ? 'Add Upcoming Shift' : `เพิ่ม${t.upcoming}`}</span>
+                  </h3>
+                  <p className="text-[11px] text-main/50 font-medium">
+                    {lang === 'en' ? 'Supports single day or date ranges' : 'กำหนดกะงาน วันที่ และเวลาทำงาน'}
+                  </p>
                 </div>
+                <button 
+                  type="button" 
+                  onClick={() => setShowAddForm(false)} 
+                  className="p-1.5 rounded-full text-main/50 hover:text-main hover:bg-black/5 dark:hover:bg-white/10 transition-colors"
+                  aria-label="ปิดฟอร์ม"
+                >
+                  <X size={18} />
+                </button>
               </div>
-
-              <div className="flex items-center mt-2">
-                <input 
-                  type="checkbox" 
-                  id="isHolidayPay"
-                  checked={formData.isHolidayPay} 
-                  onChange={e => setFormData({...formData, isHolidayPay: e.target.checked})}
-                  className="w-5 h-5 rounded text-primary-500 focus:ring-primary-500"
-                />
-                <label htmlFor="isHolidayPay" className="ml-2 text-sm font-bold text-main cursor-pointer">ทำในวันหยุด (ค่าแรง x2)</label>
-              </div>
-
+              
+              {/* Workplace Selection */}
               <div>
-                <label className="block text-sm font-medium text-main mb-1.5 opacity-80">หมายเหตุ (เช่น ทำกะแทนใคร)</label>
-                <input type="text" value={formData.note} onChange={e => setFormData({...formData, note: e.target.value})} className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" placeholder="ตัวอย่าง: ทำแทนคุณ A" />
+                <label className="block text-xs font-bold text-main mb-1.5 opacity-80">{t.jobTitle}</label>
+                <div className="flex gap-2 overflow-x-auto pb-1.5 snap-x hide-scrollbar">
+                  {(settings.jobs || []).map(job => {
+                    const c = JOB_COLORS[job.color] || JOB_COLORS.primary;
+                    const isSelected = formData.title === job.name;
+                    return (
+                      <button 
+                        key={job.id} 
+                        type="button"
+                        onClick={() => {
+                          const history = getJobLatestHistory(job.name);
+                          setFormData(prev => ({
+                            ...prev,
+                            title: job.name,
+                            hourlyRate: history?.hourlyRate ?? (job.rate !== undefined && job.rate !== '' ? job.rate : prev.hourlyRate),
+                            rateType: history?.rateType ?? job.rateType ?? prev.rateType,
+                            breakHours: history?.breakHours !== undefined ? history.breakHours : prev.breakHours,
+                            startTime: history?.startTime || prev.startTime,
+                            endTime: history?.endTime || prev.endTime,
+                            isHolidayPay: history?.isHolidayPay !== undefined ? history.isHolidayPay : prev.isHolidayPay,
+                            deductSSO: job.deductSSO !== undefined ? job.deductSSO : prev.deductSSO
+                          }));
+                        }}
+                        className={`flex flex-col items-center justify-center min-w-[76px] h-[72px] p-2 rounded-xl border-2 transition-all snap-start shadow-xs ${
+                          isSelected 
+                            ? `${c.border} ${c.bg} scale-102 font-bold` 
+                            : 'border-transparent bg-slate-100 dark:bg-white/5 hover:bg-slate-200 dark:hover:bg-white/10'
+                        }`}
+                      >
+                        <span className="text-2xl mb-0.5">{job.emoji || '🏢'}</span>
+                        <span className="text-[11px] font-bold text-main whitespace-nowrap truncate w-full px-1 text-center">{job.name}</span>
+                      </button>
+                    );
+                  })}
+                  <button 
+                    type="button" 
+                    onClick={() => navigate('/settings', { state: { openSheet: 'manageJobs' } })} 
+                    className="flex flex-col items-center justify-center min-w-[76px] h-[72px] p-2 rounded-xl border-2 border-dashed border-main/20 bg-transparent hover:bg-black/5 dark:hover:bg-white/5 transition-all snap-start shadow-xs"
+                  >
+                    <Plus className="text-main opacity-50 mb-0.5" size={20} />
+                    <span className="text-[10px] font-bold text-main opacity-50 whitespace-nowrap">{ui.manageJobs}</span>
+                  </button>
+                </div>
+                {!((settings.jobs || []).some(j => j.name === formData.title)) && (
+                  <input 
+                    type="text" 
+                    value={formData.title} 
+                    onChange={e => setFormData({...formData, title: e.target.value})} 
+                    required 
+                    className="w-full mt-2 px-3.5 py-2.5 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-xs" 
+                    placeholder="ระบุชื่อบริษัท..." 
+                  />
+                )}
               </div>
 
+              {/* Wage Rate + Rate Type + Holiday Pay Chip */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-main/80">{t.hourlyRate}</label>
+                  <label className={`inline-flex items-center gap-1.5 px-2.5 py-0.5 rounded-full text-[11px] font-bold cursor-pointer transition-all border ${
+                    formData.isHolidayPay 
+                      ? 'bg-amber-500/20 text-amber-700 dark:text-amber-300 border-amber-500/40 shadow-xs' 
+                      : 'bg-black/5 dark:bg-white/5 text-main/60 border-transparent hover:bg-black/10'
+                  }`}>
+                    <input 
+                      type="checkbox" 
+                      id="isHolidayPay"
+                      checked={formData.isHolidayPay} 
+                      onChange={e => setFormData({...formData, isHolidayPay: e.target.checked})}
+                      className="hidden"
+                    />
+                    <span>🏖️ ทำวันหยุด (x2)</span>
+                  </label>
+                </div>
+
+                <div className="flex gap-2">
+                  <input 
+                    type="number" 
+                    step="any" 
+                    value={formData.hourlyRate} 
+                    onChange={e => setFormData({...formData, hourlyRate: e.target.value})} 
+                    required 
+                    min="0" 
+                    placeholder="100"
+                    className="w-full px-3.5 py-2.5 text-xs sm:text-sm font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-xs" 
+                  />
+                  <select 
+                    value={formData.rateType} 
+                    onChange={e => setFormData({...formData, rateType: e.target.value})}
+                    className="px-3 py-2.5 text-xs font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-xs shrink-0 cursor-pointer"
+                  >
+                    <option value="hourly">{t.perHour}</option>
+                    <option value="daily">{t.perDay}</option>
+                  </select>
+                </div>
+
+                {/* Rate History Chips */}
+                {(() => {
+                  const jobHistory = getJobLatestHistory(formData.title);
+                  if (!jobHistory?.allRates?.length) return null;
+                  return (
+                    <div className="flex items-center gap-1.5 mt-1.5 overflow-x-auto hide-scrollbar py-0.5">
+                      <span className="text-[10px] text-main/55 font-bold flex items-center gap-1 shrink-0">
+                        <Clock size={11} className="text-primary-500" />
+                        {lang === 'en' ? 'Past:' : 'ประวัติ:'}
+                      </span>
+                      {jobHistory.allRates.map((h, idx) => (
+                        <button
+                          key={idx}
+                          type="button"
+                          onClick={() => setFormData(prev => ({ ...prev, hourlyRate: h.rate, rateType: h.rateType }))}
+                          className={`px-2 py-0.5 rounded-full text-[11px] font-bold border transition-all flex items-center gap-0.5 active:scale-95 ${
+                            Number(formData.hourlyRate) === h.rate && formData.rateType === h.rateType
+                              ? 'bg-primary-500 text-white border-primary-500 shadow-xs'
+                              : 'bg-black/5 dark:bg-white/5 text-main/70 border-black/5 dark:border-white/10 hover:bg-black/10'
+                          }`}
+                        >
+                          <span>฿{h.rate.toLocaleString()}</span>
+                          <span className="text-[9px] opacity-75">/{h.rateType === 'daily' ? (lang === 'en' ? 'd' : 'วัน') : (lang === 'en' ? 'h' : 'ชม.')}</span>
+                        </button>
+                      ))}
+                    </div>
+                  );
+                })()}
+              </div>
+
+              {/* Note (หมายเหตุ) */}
+              <div>
+                <label className="block text-xs font-bold text-main mb-1 opacity-80">หมายเหตุ</label>
+                <input 
+                  type="text" 
+                  value={formData.note} 
+                  onChange={e => setFormData({...formData, note: e.target.value})} 
+                  className="w-full px-3.5 py-2 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-xs" 
+                  placeholder="ตัวอย่าง: ทำกะแทนคุณ A, กะดึก..." 
+                />
+              </div>
+
+              {/* Break Time & Pay Estimation */}
               {(() => {
                 const startDt = new Date(`${formData.startDate}T${formData.startTime}:00`);
                 let endDt = new Date(`${formData.startDate}T${formData.endTime}:00`);
@@ -1706,47 +2186,44 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 let estPay = formData.rateType === 'daily' ? (Number(formData.hourlyRate) || 0) : (netHrs * (Number(formData.hourlyRate) || 0));
                 if (formData.isHolidayPay) estPay *= 2;
                 return (
-                  <div>
-                    <div className="flex items-center gap-2 mb-1.5">
-                      <label className="text-sm font-medium text-main opacity-80">เวลาพักเบรก</label>
-                      {grossHrs > 0 && (
-                        grossHrs > 0
-                          ? <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/20">✓ ทำงาน {grossHrs.toFixed(1)} ชม.</span>
-                          : null
-                      )}
+                  <div className="flex items-center justify-between gap-2 p-2.5 rounded-xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 flex-wrap sm:flex-nowrap">
+                    <div className="flex items-center gap-2">
+                      <label className="text-xs font-bold text-main/80 shrink-0">เวลาพักเบรก</label>
+                      <div className="flex items-center gap-1">
+                        <input
+                          type="number"
+                          value={formData.breakHours}
+                          onChange={e => setFormData({...formData, breakHours: e.target.value})}
+                          min="0"
+                          step="0.5"
+                          disabled={!canTakeBreak}
+                          className="w-16 px-2 py-1 text-center text-xs font-bold rounded-lg bg-white dark:bg-white/10 border border-slate-200 dark:border-white/15 focus:ring-2 focus:ring-amber-500 text-main"
+                          placeholder="0"
+                        />
+                        <span className="text-xs text-main/60 font-semibold">ชม.</span>
+                      </div>
                     </div>
-                    <div className="flex items-center gap-3 flex-wrap">
-                      <input
-                        type="number"
-                        value={formData.breakHours}
-                        onChange={e => setFormData({...formData, breakHours: e.target.value})}
-                        min="0"
-                        step="0.5"
-                        disabled={!canTakeBreak}
-                        className={`w-28 px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-amber-500 text-main font-bold transition-opacity bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm ${!canTakeBreak ? 'opacity-30 cursor-not-allowed' : ''}`}
-                        placeholder="0"
-                      />
-                      <span className={`text-sm font-bold transition-opacity ${!canTakeBreak ? 'opacity-30' : 'text-main/70'}`}>ชั่วโมง</span>
-                      {canTakeBreak && grossHrs > 0 && (
-                        <div className="ml-auto flex items-center gap-2 px-3 py-2 rounded-xl bg-green-500/10 border border-green-500/20">
-                          <span className="text-xs font-bold text-green-600 dark:text-green-400">
-                            ทำงาน {netHrs % 1 === 0 ? netHrs : netHrs.toFixed(1)} ชม.
-                          </span>
-                          <span className="text-green-500/40 text-xs">·</span>
-                          <span className="text-sm font-black text-green-600 dark:text-green-400">
-                            ≈ ฿{estPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                          </span>
-                        </div>
-                      )}
-                    </div>
+
+                    {canTakeBreak && grossHrs > 0 && (
+                      <div className="flex items-center gap-1.5 px-2.5 py-1 rounded-lg bg-green-500/10 border border-green-500/20 text-xs font-bold text-green-600 dark:text-green-400">
+                        <span>ทำงาน {netHrs % 1 === 0 ? netHrs : netHrs.toFixed(1)} ชม.</span>
+                        <span className="opacity-40">·</span>
+                        <span className="font-black text-green-700 dark:text-green-300">
+                          ≈ ฿{estPay.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        </span>
+                      </div>
+                    )}
                   </div>
                 );
               })()}
 
-              <div className="mb-4">
-                <label className="block text-sm font-medium text-main mb-1 opacity-80">{ui.selectWorkDate}</label>
-                <p className="text-xs text-main/45 mb-2">{ui.selectWorkDateHelp}</p>
-                <div className="flex flex-wrap gap-2">
+              {/* Day of Week Selection */}
+              <div>
+                <div className="flex items-center justify-between mb-1">
+                  <label className="text-xs font-bold text-main/80">{ui.selectWorkDate}</label>
+                  <span className="text-[10px] text-main/45">{ui.selectWorkDateHelp}</span>
+                </div>
+                <div className="flex flex-wrap gap-1.5">
                   {daysOfWeek.map(day => (
                     <button
                       key={day.id}
@@ -1759,9 +2236,9 @@ export default function PartTimePage({ user, lang = 'en' }) {
                             : [...(prev.selectedDays || []), day.id]
                         }));
                       }}
-                      className={`px-3 py-1.5 rounded-full text-xs font-bold transition-all border ${
+                      className={`px-2.5 py-1 rounded-full text-xs font-bold transition-all border ${
                         formData.selectedDays?.includes(day.id)
-                          ? 'bg-primary-500 text-white border-primary-500 shadow-md'
+                          ? 'bg-primary-500 text-white border-primary-500 shadow-xs'
                           : 'bg-black/5 dark:bg-white/5 text-main/70 border-transparent hover:border-main/20'
                       }`}
                     >
@@ -1771,31 +2248,99 @@ export default function PartTimePage({ user, lang = 'en' }) {
                 </div>
               </div>
 
-              <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.fromDate}</label>
-                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={formData.startDate} onChange={e => setFormData({...formData, startDate: e.target.value})} required className="w-full px-2 sm:px-4 py-3 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0 bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" />
+              {/* ── Grouped Work Dates & Hours Panel (Unified, No Clutter) ── */}
+              <div className="p-3 rounded-2xl bg-black/5 dark:bg-white/5 border border-black/5 dark:border-white/10 space-y-3">
+                {/* Dates Row */}
+                <div>
+                  <div className="flex items-center justify-between mb-1.5">
+                    <span className="text-xs font-bold text-main/80 flex items-center gap-1.5">
+                      <Calendar size={13} className="text-primary-500" />
+                      <span>{lang === 'th' ? 'ช่วงวันที่ทำงาน' : 'Work Dates'}</span>
+                    </span>
+                    {formData.startDate === formData.endDate ? (
+                      <span className="text-[10px] font-bold text-primary-600 dark:text-primary-400 bg-primary-500/10 px-2 py-0.5 rounded-full">
+                        {lang === 'th' ? '1 วัน' : 'Single day'}
+                      </span>
+                    ) : (
+                      <span className="text-[10px] font-bold text-main/50">
+                        {lang === 'th' ? 'หลายวัน' : 'Date range'}
+                      </span>
+                    )}
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.startTime}</label>
-                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="time" value={formData.startTime} onChange={e => setFormData({...formData, startTime: e.target.value})} required className="w-full px-2 sm:px-4 py-3 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0 bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" />
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-[10px] text-main/60 font-semibold block mb-1">{t.fromDate}</span>
+                      <input 
+                        onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} 
+                        type="date" 
+                        value={formData.startDate} 
+                        onChange={e => {
+                          const newStart = e.target.value;
+                          setFormData(prev => ({
+                            ...prev, 
+                            startDate: newStart,
+                            endDate: prev.endDate < newStart ? newStart : prev.endDate
+                          }));
+                        }} 
+                        required 
+                        className="w-full px-2.5 py-2 text-xs sm:text-sm font-semibold rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0 bg-white dark:bg-white/10 border border-slate-200/90 dark:border-white/10 shadow-xs cursor-pointer" 
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-main/60 font-semibold block mb-1">{t.toDate}</span>
+                      <input 
+                        onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} 
+                        type="date" 
+                        value={formData.endDate} 
+                        min={formData.startDate}
+                        onChange={e => setFormData({...formData, endDate: e.target.value})} 
+                        required 
+                        className="w-full px-2.5 py-2 text-xs sm:text-sm font-semibold rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0 bg-white dark:bg-white/10 border border-slate-200/90 dark:border-white/10 shadow-xs cursor-pointer" 
+                      />
+                    </div>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-3">
-                  <div>
-                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.toDate}</label>
-                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="date" value={formData.endDate} onChange={e => setFormData({...formData, endDate: e.target.value})} required className="w-full px-2 sm:px-4 py-3 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0 bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-main mb-1.5 opacity-80">{t.endTime}</label>
-                    <input onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} type="time" value={formData.endTime} onChange={e => setFormData({...formData, endTime: e.target.value})} required className="w-full px-2 sm:px-4 py-3 text-xs sm:text-sm rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0 bg-slate-50 dark:bg-white/5 border border-slate-200/90 dark:border-white/10 shadow-sm" />
+
+                {/* Times Row */}
+                <div>
+                  <span className="text-xs font-bold text-main/80 flex items-center gap-1.5 mb-1.5">
+                    <Clock size={13} className="text-primary-500" />
+                    <span>{lang === 'th' ? 'เวลาทำงาน' : 'Shift Hours'}</span>
+                  </span>
+                  <div className="grid grid-cols-2 gap-2">
+                    <div>
+                      <span className="text-[10px] text-main/60 font-semibold block mb-1">{t.startTime}</span>
+                      <input 
+                        onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} 
+                        type="time" 
+                        value={formData.startTime} 
+                        onChange={e => setFormData({...formData, startTime: e.target.value})} 
+                        required 
+                        className="w-full px-2.5 py-2 text-xs sm:text-sm font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0 bg-white dark:bg-white/10 border border-slate-200/90 dark:border-white/10 shadow-xs cursor-pointer" 
+                      />
+                    </div>
+                    <div>
+                      <span className="text-[10px] text-main/60 font-semibold block mb-1">{t.endTime}</span>
+                      <input 
+                        onClick={e => e.currentTarget.showPicker && e.currentTarget.showPicker()} 
+                        type="time" 
+                        value={formData.endTime} 
+                        onChange={e => setFormData({...formData, endTime: e.target.value})} 
+                        required 
+                        className="w-full px-2.5 py-2 text-xs sm:text-sm font-bold rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main min-w-0 bg-white dark:bg-white/10 border border-slate-200/90 dark:border-white/10 shadow-xs cursor-pointer" 
+                      />
+                    </div>
                   </div>
                 </div>
               </div>
               
-              <div className="pt-2">
-                <button type="submit" disabled={isMutating || isTasksLoading} className="w-full py-4 bg-primary-500 text-white font-bold rounded-xl hover:bg-primary-600 transition-colors shadow-lg active:scale-[0.98]">
+              {/* Submit Button */}
+              <div className="pt-1">
+                <button 
+                  type="submit" 
+                  disabled={isMutating || isTasksLoading} 
+                  className="w-full py-3 bg-primary-500 hover:bg-primary-600 text-white font-bold rounded-xl transition-all shadow-md active:scale-[0.98] text-sm"
+                >
                   {t.createShifts}
                 </button>
               </div>

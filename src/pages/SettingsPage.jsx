@@ -126,7 +126,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
   
   // Job Management State
   const [editingJob, setEditingJob] = useState(null);
-  const [jobFormData, setJobFormData] = useState({ id: '', name: '', emoji: '', color: 'blue', deductSSO: false });
+  const [jobFormData, setJobFormData] = useState({ id: '', name: '', emoji: '', color: 'blue', deductSSO: false, rate: '', rateType: 'hourly' });
   const JOB_BG_COLORS = { blue: 'bg-blue-500', red: 'bg-red-500', green: 'bg-green-500', amber: 'bg-amber-500', purple: 'bg-purple-500', pink: 'bg-pink-500' };
   const [resetConfirmText, setResetConfirmText] = useState('');
   const [isResetting, setIsResetting] = useState(false);
@@ -840,7 +840,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
               key={job.id} 
               onClick={() => {
                 setEditingJob(job);
-                setJobFormData(job);
+                setJobFormData({ ...job, rate: job.rate !== undefined ? job.rate : '', rateType: job.rateType || 'hourly' });
                 setActiveSheet('editJob');
               }}
               className="p-4 rounded-2xl bg-black/5 dark:bg-white/5 border border-transparent hover:border-black/10 dark:hover:border-white/10 flex items-center justify-between cursor-pointer transition-colors"
@@ -852,6 +852,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
                 <div>
                   <p className="font-bold text-main">{job.name}</p>
                   <p className="text-xs text-main opacity-60">
+                    {job.rate ? `฿${job.rate}/${job.rateType === 'daily' ? (lang === 'en' ? 'day' : 'วัน') : (lang === 'en' ? 'hr' : 'ชม.')} · ` : ''}
                     {job.deductSSO ? (lang === 'en' ? 'Deducts SSO' : 'หักประกันสังคม') : (lang === 'en' ? 'No SSO' : 'ไม่หักประกันสังคม')}
                   </p>
                 </div>
@@ -867,7 +868,7 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
           <button 
             onClick={() => {
               setEditingJob(null);
-              setJobFormData({ id: Date.now().toString(), name: '', emoji: '', color: 'blue', deductSSO: false });
+              setJobFormData({ id: Date.now().toString(), name: '', emoji: '', color: 'blue', deductSSO: false, rate: '', rateType: 'hourly' });
               setActiveSheet('editJob');
             }}
             className="w-full mt-2 py-4 bg-primary-500/10 text-primary-600 dark:text-primary-400 border border-primary-500/20 rounded-2xl font-bold flex items-center justify-center gap-2 hover:bg-primary-500/20 transition-colors"
@@ -899,6 +900,30 @@ export default function SettingsPage({ user, lang, setLang, theme, setThemeMode 
               className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-black/5 dark:bg-white/10" 
               placeholder="ชื่อบริษัท/ร้าน" 
             />
+          </div>
+          <div>
+            <label className="block text-sm font-bold text-main mb-2 opacity-80">
+              {lang === 'en' ? 'Default Wage Rate (Optional)' : 'อัตราค่าจ้างเริ่มต้น (ถ้ามี)'}
+            </label>
+            <div className="flex gap-2">
+              <input 
+                type="number" 
+                step="any" 
+                min="0"
+                value={jobFormData.rate ?? ''} 
+                onChange={e => setJobFormData({...jobFormData, rate: e.target.value === '' ? '' : Number(e.target.value)})} 
+                className="w-full px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main bg-black/5 dark:bg-white/10" 
+                placeholder={jobFormData.rateType === 'daily' ? (lang === 'en' ? 'e.g. 350' : 'เช่น 350') : (lang === 'en' ? 'e.g. 50' : 'เช่น 50')} 
+              />
+              <select 
+                value={jobFormData.rateType || 'hourly'} 
+                onChange={e => setJobFormData({...jobFormData, rateType: e.target.value})}
+                className="px-4 py-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-primary-500 text-main font-bold bg-black/5 dark:bg-white/10"
+              >
+                <option value="hourly">{lang === 'en' ? '฿ / Hour' : '฿ / ชั่วโมง'}</option>
+                <option value="daily">{lang === 'en' ? '฿ / Day' : '฿ / วัน'}</option>
+              </select>
+            </div>
           </div>
           <div>
             <label className="block text-sm font-bold text-main mb-2 opacity-80">{t.jobColor}</label>
