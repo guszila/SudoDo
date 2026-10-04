@@ -169,6 +169,7 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
     const shiftsInMonth = [];
     const expensesList = [];
     const companyIncomeMap = {};
+    const companySSOGrossMap = {};
     const companyStatsMap = {};
     const dailyIncomeMap = {};
     const weeklyIncomeMap = {};
@@ -192,6 +193,12 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
           grossIncome += earnings;
           const n = t.title || 'อื่นๆ';
           companyIncomeMap[n] = (companyIncomeMap[n] || 0) + earnings;
+          const job = (settings.jobs || []).find(j => j.name === t.title);
+          const deductsSSO = (job?.deductSSO !== undefined ? job.deductSSO : (t.deductSSO !== undefined ? t.deductSSO : settings.socialSecurity));
+          if (deductsSSO) {
+            ssoGross += earnings;
+            companySSOGrossMap[n] = (companySSOGrossMap[n] || 0) + earnings;
+          }
         }
       } else {
         if (isDone) {
@@ -207,12 +214,16 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
           shiftCount++;
           totalHours += hours;
 
-          const job = (settings.jobs || []).find(j => j.name === t.title);
-          if ((job?.deductSSO !== undefined ? job.deductSSO : settings.socialSecurity)) ssoGross += earnings;
-
           const n = t.title || 'อื่นๆ';
+          const job = (settings.jobs || []).find(j => j.name === t.title);
+          const deductsSSO = (job?.deductSSO !== undefined ? job.deductSSO : (t.deductSSO !== undefined ? t.deductSSO : settings.socialSecurity));
+          if (deductsSSO) {
+            ssoGross += earnings;
+            companySSOGrossMap[n] = (companySSOGrossMap[n] || 0) + earnings;
+          }
+
           companyIncomeMap[n] = (companyIncomeMap[n] || 0) + earnings;
-          if (!companyStatsMap[n]) companyStatsMap[n] = { shifts: 0, hours: 0 };
+          if (!companyStatsMap[n]) companyStatsMap[n] = { shifts: 0, hours: 0, deductsSSO };
           companyStatsMap[n].shifts++;
           companyStatsMap[n].hours += hours;
         }
@@ -243,10 +254,6 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
     }
     const weeklyChartArr = Object.values(weeklyIncomeMap).sort((a,b) => a.weekNum - b.weekNum);
 
-    const companyChartData = Object.entries(companyIncomeMap)
-      .map(([name, value]) => ({ name, value }))
-      .sort((a, b) => b.value - a.value);
-
     let lastMonthIncome = 0, sum6 = 0;
     for (let i = 1; i <= 6; i++) {
       const mStr = format(subMonths(targetDate, i), 'yyyy-MM');
@@ -272,11 +279,47 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
 
     const totalGross = Math.max(0, grossIncome);
     let ssoDeduction = 0;
-    if (ssoGross > 0 && settings.showInIncome) {
+    if (ssoGross > 0) {
       ssoDeduction = calcSSO(ssoGross).deduction;
     }
     const incomeAfterSSO = Math.max(0, totalGross - ssoDeduction);
     const netIncome = Math.max(0, incomeAfterSSO - totalExpenses);
+
+    // Distribute SSO deduction to each company in companyChartData
+    const ssoCompanies = Object.keys(companySSOGrossMap);
+    const totalCompSSOGross = ssoCompanies.reduce((acc, k) => acc + (companySSOGrossMap[k] || 0), 0);
+    let allocatedSSO = 0;
+    const compSSODeductionMap = {};
+    ssoCompanies.forEach((name, idx) => {
+      const compSSOGross = companySSOGrossMap[name] || 0;
+      let compDeduction = 0;
+      if (idx === ssoCompanies.length - 1) {
+        compDeduction = Math.max(0, ssoDeduction - allocatedSSO);
+      } else {
+        compDeduction = totalCompSSOGross > 0
+          ? Math.round((compSSOGross / totalCompSSOGross) * ssoDeduction)
+          : 0;
+        allocatedSSO += compDeduction;
+      }
+      compSSODeductionMap[name] = compDeduction;
+    });
+
+    const companyChartData = Object.entries(companyIncomeMap)
+      .map(([name, value]) => {
+        const ssoDed = compSSODeductionMap[name] || 0;
+        const netValue = Math.max(0, value - ssoDed);
+        const job = (settings.jobs || []).find(j => j.name === name);
+        const deductsSSO = (job?.deductSSO !== undefined ? job.deductSSO : (settings.socialSecurity || false)) || !!companySSOGrossMap[name];
+        return {
+          name,
+          grossValue: value,
+          value: netValue,
+          netValue,
+          ssoDeduction: ssoDed,
+          deductsSSO
+        };
+      })
+      .sort((a, b) => b.value - a.value);
 
     return {
       summary: { totalGross, ssoDeduction, incomeAfterSSO, totalExpenses, netIncome, shiftCount, totalHours },
@@ -518,10 +561,18 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
       {/* ── Company Breakdown ── */}
       {companyChartData.length > 0 && (
         <div className="liquid-glass-card p-5 rounded-[24px]">
-          <h3 className="text-main/80 font-bold text-sm mb-4">{ui.companyBreakdown}</h3>
+          <div className="flex items-center justify-between mb-4">
+            <h3 className="text-main/80 font-bold text-sm">{ui.companyBreakdown}</h3>
+            {summary.ssoDeduction > 0 && (
+              <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold bg-teal-500/10 px-2 py-0.5 rounded-full border border-teal-500/20">
+                {lang === 'th' ? 'ยอดหลังหัก ปกส.' : 'After SSO'}
+              </span>
+            )}
+          </div>
           <div className="space-y-3.5">
             {companyChartData.map((c, i) => {
-              const pct = summary.totalGross > 0 ? (c.value / summary.totalGross) * 100 : 0;
+              const baseTotal = summary.incomeAfterSSO > 0 ? summary.incomeAfterSSO : summary.totalGross;
+              const pct = baseTotal > 0 ? (c.value / baseTotal) * 100 : 0;
               const stats = companyStatsMap[c.name];
               const job = (settings.jobs || []).find(j => j.name === c.name);
               return (
@@ -530,16 +581,31 @@ export default function IncomeSummaryTab({ user, lang = 'th', onEditExtraItem })
                     <div className="flex items-center gap-1.5">
                       <span className="text-sm">{job?.emoji || '🏢'}</span>
                       <span className="text-sm font-bold text-main">{c.name}</span>
+                      {c.deductsSSO && (
+                        <span className="text-[9px] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded font-bold">
+                          {lang === 'th' ? 'หัก ปกส.' : 'SSO'}
+                        </span>
+                      )}
                       {stats && (
                         <span className="text-[10px] text-main/40 font-medium">
                           {stats.shifts} {ui.shiftsUnit} · {stats.hours % 1 === 0 ? stats.hours : stats.hours.toFixed(1)} {ui.hoursUnit}
                         </span>
                       )}
                     </div>
-                    <span className="text-xs font-bold text-main/70">
-                      ฿{c.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
-                      <span className="text-main/40 ml-1">({pct.toFixed(0)}%)</span>
-                    </span>
+                    <div className="text-right">
+                      <span className="text-xs font-bold text-main/70">
+                        ฿{c.value.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                        <span className="text-main/40 ml-1">({pct.toFixed(0)}%)</span>
+                      </span>
+                      {c.ssoDeduction > 0 && (
+                        <div className="text-[10px] text-red-500/80 font-medium">
+                          {lang === 'th' 
+                            ? `-฿${c.ssoDeduction.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ปกส. (ก่อนหัก ฿${c.grossValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
+                            : `SSO -฿${c.ssoDeduction.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} (Gross ฿${c.grossValue.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
+                          }
+                        </div>
+                      )}
+                    </div>
                   </div>
                   <div className="w-full bg-main/10 rounded-full h-2 overflow-hidden">
                     <motion.div

@@ -436,7 +436,9 @@ export default function PartTimePage({ user, lang = 'en' }) {
       if (t.isExpense) return;
       
       const job = (settings.jobs || []).find(j => j.name === t.title);
-      const deductsSSO = (job && job.deductSSO !== undefined) ? job.deductSSO : settings.socialSecurity;
+      const deductsSSO = (job && job.deductSSO !== undefined) 
+        ? job.deductSSO 
+        : (t.deductSSO !== undefined ? t.deductSSO : settings.socialSecurity);
 
       const isCompleted = t.status === TASK_STATUS.DONE || (t.actualStart && t.actualEnd);
       const rate = Number(t.hourlyRate) || 0;
@@ -447,7 +449,9 @@ export default function PartTimePage({ user, lang = 'en' }) {
       if (!breakdown[monthKey]) breakdown[monthKey] = {};
       
       const jobTitle = job ? job.name : (t.title || 'อื่นๆ');
-      if (!breakdown[monthKey][jobTitle]) breakdown[monthKey][jobTitle] = { job, total: 0, deductsSSO };
+      if (!breakdown[monthKey][jobTitle]) {
+        breakdown[monthKey][jobTitle] = { job, total: 0, ssoTotal: 0, deductsSSO };
+      }
       
       let taskEarned = 0;
       let hours;
@@ -456,7 +460,10 @@ export default function PartTimePage({ user, lang = 'en' }) {
         taskEarned = Number(t.amount) || 0;
         earned[monthKey] = (earned[monthKey] || 0) + taskEarned;
         // We assume extra income typically doesn't deduct SSO, but if it does based on company setting, we handle it.
-        if (deductsSSO) earnedSSO[monthKey] = (earnedSSO[monthKey] || 0) + taskEarned;
+        if (deductsSSO) {
+          earnedSSO[monthKey] = (earnedSSO[monthKey] || 0) + taskEarned;
+          breakdown[monthKey][jobTitle].ssoTotal = (breakdown[monthKey][jobTitle].ssoTotal || 0) + taskEarned;
+        }
       } else if (isCompleted) {
         if (t.actualStart && t.actualEnd) {
           hours = (new Date(t.actualEnd) - new Date(t.actualStart)) / (1000 * 60 * 60);
@@ -469,7 +476,10 @@ export default function PartTimePage({ user, lang = 'en' }) {
         if (t.isHolidayPay) taskEarned *= 2;
         
         earned[monthKey] = (earned[monthKey] || 0) + taskEarned;
-        if (deductsSSO) earnedSSO[monthKey] = (earnedSSO[monthKey] || 0) + taskEarned;
+        if (deductsSSO) {
+          earnedSSO[monthKey] = (earnedSSO[monthKey] || 0) + taskEarned;
+          breakdown[monthKey][jobTitle].ssoTotal = (breakdown[monthKey][jobTitle].ssoTotal || 0) + taskEarned;
+        }
       } else {
         hours = (new Date(t.end) - new Date(t.start)) / (1000 * 60 * 60);
         hours = Math.max(0, hours - (Number(t.breakHours) || 0));
@@ -478,7 +488,10 @@ export default function PartTimePage({ user, lang = 'en' }) {
         if (t.isHolidayPay) taskEarned *= 2;
         
         pending[monthKey] = (pending[monthKey] || 0) + taskEarned;
-        if (deductsSSO) pendingSSO[monthKey] = (pendingSSO[monthKey] || 0) + taskEarned;
+        if (deductsSSO) {
+          pendingSSO[monthKey] = (pendingSSO[monthKey] || 0) + taskEarned;
+          breakdown[monthKey][jobTitle].ssoTotal = (breakdown[monthKey][jobTitle].ssoTotal || 0) + taskEarned;
+        }
       }
       breakdown[monthKey][jobTitle].total += taskEarned;
     });
@@ -519,7 +532,37 @@ export default function PartTimePage({ user, lang = 'en' }) {
     }
 
     const breakdownData = monthlyGross.breakdown[selectedMonth] || {};
-    const jobBreakdown = Object.entries(breakdownData).map(([name, data]) => ({ name, ...data })).sort((a, b) => b.total - a.total);
+    
+    // Distribute SSO deduction across companies that deduct SSO
+    const ssoCompanies = Object.entries(breakdownData).filter(([_, data]) => data.deductsSSO && (data.ssoTotal || data.total) > 0);
+    const totalCompSSOGross = ssoCompanies.reduce((acc, [_, data]) => acc + (data.ssoTotal || data.total), 0);
+    
+    let allocatedSSO = 0;
+    const companySSOMap = {};
+    ssoCompanies.forEach(([name, data], idx) => {
+      const compSSOGross = data.ssoTotal || data.total;
+      let compDeduction = 0;
+      if (idx === ssoCompanies.length - 1) {
+        compDeduction = Math.max(0, ssoDeducted - allocatedSSO);
+      } else {
+        compDeduction = totalCompSSOGross > 0
+          ? Math.round((compSSOGross / totalCompSSOGross) * ssoDeducted)
+          : 0;
+        allocatedSSO += compDeduction;
+      }
+      companySSOMap[name] = compDeduction;
+    });
+
+    const jobBreakdown = Object.entries(breakdownData).map(([name, data]) => {
+      const compSSODeduction = companySSOMap[name] || 0;
+      const netTotal = Math.max(0, data.total - compSSODeduction);
+      return { 
+        name, 
+        ...data, 
+        ssoDeducted: compSSODeduction,
+        netTotal 
+      };
+    }).sort((a, b) => b.netTotal - a.netTotal);
 
     const total = earned + pending;
     const afterSSO = Math.max(0, total - ssoDeducted);
@@ -771,18 +814,27 @@ export default function PartTimePage({ user, lang = 'en' }) {
         if (!stats.jobBreakdown || stats.jobBreakdown.length === 0) {
           return (
             <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-primary-500">
-              <p className="text-xs text-main opacity-70 font-bold mb-1 uppercase flex items-center gap-1.5">
-                <span>🏢</span> {lang === 'th' ? 'รายได้แยกตามบริษัท' : 'Income by Workplace'}
-              </p>
+              <div className="flex items-center justify-between mb-1">
+                <p className="text-xs text-main opacity-70 font-bold uppercase flex items-center gap-1.5">
+                  <span>🏢</span> {lang === 'th' ? 'รายได้แยกตามบริษัท' : 'Income by Workplace'}
+                </p>
+              </div>
               <p className="text-xs opacity-50 py-2 text-center">{lang === 'th' ? 'ไม่มีข้อมูลบริษัทในเดือนนี้' : 'No workplace data'}</p>
             </div>
           );
         }
         return (
           <div className="liquid-glass-card p-4 flex flex-col justify-center border-l-4 border-l-primary-500">
-            <p className="text-xs text-main opacity-70 font-bold mb-2 uppercase flex items-center gap-1.5">
-              <span>🏢</span> {lang === 'th' ? 'รายได้แยกตามบริษัท' : 'Income by Workplace'}
-            </p>
+            <div className="flex items-center justify-between mb-2">
+              <p className="text-xs text-main opacity-70 font-bold uppercase flex items-center gap-1.5">
+                <span>🏢</span> {lang === 'th' ? 'รายได้แยกตามบริษัท' : 'Income by Workplace'}
+              </p>
+              {stats.ssoDeducted > 0 && (
+                <span className="text-[10px] text-teal-600 dark:text-teal-400 font-semibold bg-teal-500/10 px-2 py-0.5 rounded-full border border-teal-500/20">
+                  {lang === 'th' ? 'ยอดหลังหัก ปกส.' : 'After SSO'}
+                </span>
+              )}
+            </div>
             <div className="space-y-1.5">
               {stats.jobBreakdown.map((b, i) => {
                 const c = JOB_COLORS[b.job ? b.job.color : 'primary'] || JOB_COLORS.primary;
@@ -799,10 +851,26 @@ export default function PartTimePage({ user, lang = 'en' }) {
                     <div className="flex items-center gap-1.5">
                       <span>{b.job ? b.job.emoji : (matchingExtra ? '💵' : '🏢')}</span>
                       <span className="font-semibold text-main">{b.name}</span>
-                      {b.deductsSSO && <span className="text-[9px] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded font-bold">ปกส.</span>}
+                      {b.deductsSSO && (
+                        <span className="text-[9px] text-red-500 bg-red-500/10 px-1.5 py-0.5 rounded font-bold">
+                          {lang === 'th' ? 'หัก ปกส.' : 'SSO'}
+                        </span>
+                      )}
                       {matchingExtra && <span className="text-[9px] text-green-600 dark:text-green-400 bg-green-500/15 px-1.5 py-0.5 rounded-full font-bold ml-1">แก้ไข</span>}
                     </div>
-                    <span className={`font-bold ${c.text}`}>฿{b.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                    <div className="text-right">
+                      <span className={`font-bold ${c.text}`}>
+                        ฿{b.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                      </span>
+                      {b.ssoDeducted > 0 && (
+                        <div className="text-[9px] text-red-500/80 font-medium">
+                          {lang === 'th' 
+                            ? `-฿${b.ssoDeducted.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ปกส. (ก่อนหัก ฿${b.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
+                            : `SSO -฿${b.ssoDeducted.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} (Gross ฿${b.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })})`
+                          }
+                        </div>
+                      )}
+                    </div>
                   </div>
                 );
               })}
@@ -961,7 +1029,14 @@ export default function PartTimePage({ user, lang = 'en' }) {
             
             {stats.jobBreakdown && stats.jobBreakdown.length > 0 && (
               <div className="mt-2 mb-3 space-y-1.5 border-t border-main/10 pt-2">
-                <p className="text-[10px] text-main opacity-50 font-bold mb-1 uppercase">แยกตามบริษัท</p>
+                <div className="flex items-center justify-between mb-1">
+                  <p className="text-[10px] text-main opacity-50 font-bold uppercase">{lang === 'th' ? 'แยกตามบริษัท' : 'By Workplace'}</p>
+                  {stats.ssoDeducted > 0 && (
+                    <span className="text-[9px] text-teal-600 dark:text-teal-400 font-semibold">
+                      {lang === 'th' ? 'ยอดหลังหัก ปกส.' : 'Net after SSO'}
+                    </span>
+                  )}
+                </div>
                 {stats.jobBreakdown.map((b, i) => {
                   const c = JOB_COLORS[b.job ? b.job.color : 'primary'] || JOB_COLORS.primary;
                   if (b.total === 0) return null;
@@ -972,15 +1047,22 @@ export default function PartTimePage({ user, lang = 'en' }) {
                       onClick={() => {
                         if (matchingExtra) handleEditExtraItemClick(matchingExtra);
                       }}
-                      className={`flex justify-between items-center text-xs py-0.5 ${matchingExtra ? 'cursor-pointer px-2 -mx-2 rounded-xl bg-green-500/5 hover:bg-green-500/15 active:scale-[0.99] border border-green-500/20 transition-all' : ''}`}
+                      className={`flex justify-between items-center text-xs py-1 ${matchingExtra ? 'cursor-pointer px-2 -mx-2 rounded-xl bg-green-500/5 hover:bg-green-500/15 active:scale-[0.99] border border-green-500/20 transition-all' : ''}`}
                     >
                       <div className="flex items-center gap-1.5 opacity-90">
                         <span>{b.job ? b.job.emoji : (matchingExtra ? '💵' : '🏢')}</span>
                         <span className="font-medium text-main">{b.name}</span>
-                        {b.deductsSSO && <span className="text-[9px] text-red-500 bg-red-500/10 px-1 py-0.5 rounded font-bold ml-1">หักประกันสังคม</span>}
+                        {b.deductsSSO && <span className="text-[9px] text-red-500 bg-red-500/10 px-1 py-0.5 rounded font-bold ml-1">{lang === 'th' ? 'หักประกันสังคม' : 'SSO'}</span>}
                         {matchingExtra && <span className="text-[9px] text-green-600 dark:text-green-400 bg-green-500/15 border border-green-500/30 px-1.5 py-0.5 rounded-full font-bold ml-1">แตะเพื่อแก้ไข</span>}
                       </div>
-                      <span className={`font-bold ${c.text}`}>฿{b.total.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                      <div className="text-right">
+                        <span className={`font-bold ${c.text}`}>฿{b.netTotal.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span>
+                        {b.ssoDeducted > 0 && (
+                          <div className="text-[9px] text-red-500/80 font-medium">
+                            -฿{b.ssoDeducted.toLocaleString(undefined, { minimumFractionDigits: 0, maximumFractionDigits: 2 })} ปกส.
+                          </div>
+                        )}
+                      </div>
                     </div>
                   );
                 })}
