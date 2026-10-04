@@ -13,6 +13,17 @@ if (import.meta.env.DEV && 'serviceWorker' in navigator) {
   });
 }
 
+// Automatically recover when Vite fails to preload dynamic import chunks after a new deployment
+window.addEventListener('vite:preloadError', (event) => {
+  console.warn('[Vite] Preload error detected for chunk, refreshing page:', event);
+  const reloadKey = 'vite_preload_auto_reload';
+  const lastReload = parseInt(sessionStorage.getItem(reloadKey) || '0', 10);
+  if (Date.now() - lastReload > 10000) {
+    sessionStorage.setItem(reloadKey, Date.now().toString());
+    window.location.reload();
+  }
+});
+
 createRoot(document.getElementById('root')).render(
   <StrictMode>
     <BrowserRouter>

@@ -33,7 +33,9 @@ export default defineConfig({
       registerType: 'autoUpdate',
       includeAssets: ['favicon.svg', 'icons.svg'],
       workbox: {
-        maximumFileSizeToCacheInBytes: 5000000
+        maximumFileSizeToCacheInBytes: 5000000,
+        navigateFallbackDenylist: [/^\/assets\//],
+        cleanupOutdatedCaches: true
       },
       manifest: {
         name: 'SudoDo - Task Manager',

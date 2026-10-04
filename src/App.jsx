@@ -33,23 +33,31 @@ import { ThemeProvider } from './contexts/ThemeContext';
 import { useNotifications } from './contexts/NotificationsContext';
 import NotificationsProvider from './contexts/NotificationsProvider';
 
-const ProfilePage = React.lazy(() => import('./pages/ProfilePage'));
-const SettingsPage = React.lazy(() => import('./pages/SettingsPage'));
-const PartTimePage = React.lazy(() => import('./pages/PartTimePage'));
-const TodayPage = React.lazy(() => import('./pages/TodayPage'));
-const SocialSecurityPage = React.lazy(() => import('./pages/SocialSecurityPage'));
-const TasksPage = React.lazy(() => import('./pages/TasksPage'));
-const FriendsPage = React.lazy(() => import('./pages/FriendsPage'));
+import { lazyWithRetry } from './utils/lazyWithRetry';
 
-// Preload primary page bundles to make tab navigation instant
+const ProfilePage = lazyWithRetry(() => import('./pages/ProfilePage'), 'ProfilePage');
+const SettingsPage = lazyWithRetry(() => import('./pages/SettingsPage'), 'SettingsPage');
+const PartTimePage = lazyWithRetry(() => import('./pages/PartTimePage'), 'PartTimePage');
+const TodayPage = lazyWithRetry(() => import('./pages/TodayPage'), 'TodayPage');
+const SocialSecurityPage = lazyWithRetry(() => import('./pages/SocialSecurityPage'), 'SocialSecurityPage');
+const TasksPage = lazyWithRetry(() => import('./pages/TasksPage'), 'TasksPage');
+const FriendsPage = lazyWithRetry(() => import('./pages/FriendsPage'), 'FriendsPage');
+
+// Preload primary page bundles safely to make tab navigation instant without uncaught rejections
+const safePreload = (importFn) => {
+  importFn().catch((err) => {
+    console.warn('[Preload] Chunk preload failed (expected if build updated):', err);
+  });
+};
+
 const preloadPrimaryPages = () => {
-  import('./pages/TodayPage');
-  import('./pages/PartTimePage');
-  import('./pages/TasksPage');
-  import('./pages/FriendsPage');
-  import('./pages/SettingsPage');
-  import('./pages/ProfilePage');
-  import('./pages/SocialSecurityPage');
+  safePreload(() => import('./pages/TodayPage'));
+  safePreload(() => import('./pages/PartTimePage'));
+  safePreload(() => import('./pages/TasksPage'));
+  safePreload(() => import('./pages/FriendsPage'));
+  safePreload(() => import('./pages/SettingsPage'));
+  safePreload(() => import('./pages/ProfilePage'));
+  safePreload(() => import('./pages/SocialSecurityPage'));
 };
 
 const PageFallback = () => (
@@ -893,12 +901,14 @@ function MainApp({ user, lang, setLang, theme, setThemeMode }) {
             className="relative min-h-screen"
           >
             <React.Suspense fallback={<PageFallback />}>
-              <Routes location={location}>
-                <Route path="/profile" element={<ProfilePage user={user} lang={lang} />} />
-                <Route path="/social-security" element={<SocialSecurityPage lang={lang} />} />
-                <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
-                <Route path="*" element={<NotFoundPage lang={lang} />} />
-              </Routes>
+              <ErrorBoundary>
+                <Routes location={location}>
+                  <Route path="/profile" element={<ProfilePage user={user} lang={lang} />} />
+                  <Route path="/social-security" element={<SocialSecurityPage lang={lang} />} />
+                  <Route path="/tasks" element={<TasksPage user={user} lang={lang} />} />
+                  <Route path="*" element={<NotFoundPage lang={lang} />} />
+                </Routes>
+              </ErrorBoundary>
             </React.Suspense>
           </motion.div>
         </AnimatePresence>
